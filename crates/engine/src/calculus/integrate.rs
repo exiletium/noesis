@@ -122,6 +122,11 @@ pub fn integrate(e: &Expr, x: &Expr) -> Option<Expr> {
     }
     let tidy = budget::attempt(budget::remaining().min(6.0) * 0.5, || simplify::simplify(&raw)).unwrap_or_else(|| raw.clone());
     let tidy = drop_constants(&tidy, x);
+    // log(x^(1/3) (x^2 + 3)^(1/3)) reads better as log(x)/3 + log(x^2 + 3)/3
+    let split = split_log_powers(&tidy);
+    if split != tidy && verify(e, &split, x) {
+        return Some(split);
+    }
     if verify(e, &tidy, x) {
         return Some(tidy);
     }
@@ -130,6 +135,40 @@ pub fn integrate(e: &Expr, x: &Expr) -> Option<Expr> {
         return Some(raw);
     }
     None
+}
+
+/// Rewrite log(Π bᵢ^qᵢ) as Σ qᵢ log(bᵢ) when some qᵢ is a fraction or negative.
+fn split_log_powers(e: &Expr) -> Expr {
+    fn parts(arg: &Expr) -> Option<Vec<(Expr, Expr)>> {
+        let factors: Vec<Expr> = match arg {
+            Mul(v) => v.to_vec(),
+            other => vec![other.clone()],
+        };
+        let mut out = Vec::new();
+        let mut fractional = false;
+        for f in factors {
+            match &f {
+                Pow(b, q) if q.as_rat().is_some() || q.as_int().is_some() => {
+                    if q.as_int().is_none() || q.to_f64_const().is_some_and(|v| v < 0.0) {
+                        fractional = true;
+                    }
+                    out.push(((**b).clone(), (**q).clone()));
+                }
+                Num(_) => return None,
+                other => out.push((other.clone(), one())),
+            }
+        }
+        fractional.then_some(out)
+    }
+    match e {
+        Func(n, a) if (&**n == "log" || &**n == "ln") && a.len() == 1 => match parts(&a[0]) {
+            Some(ps) => add(ps.into_iter().map(|(b, q)| mul(vec![q, f1("log", b)])).collect()),
+            None => e.clone(),
+        },
+        Add(v) => add(v.iter().map(split_log_powers).collect()),
+        Mul(v) => mul(v.iter().map(split_log_powers).collect()),
+        _ => e.clone(),
+    }
 }
 
 /// Remove additive terms that do not depend on x.

@@ -341,6 +341,8 @@ fn harder_calculus() {
     assert_eq!(short("x^2 y'' - 2y = x^3"), "y(x) = c_2 x^2 + x^3/4 + c_1/x");
     assert_eq!(short("y' = y(1-y), y(0) = 1/2"), "y(x) = e^x/(e^x + 1)");
     assert_eq!(short("y(t)' = -2 y(t)"), "y(t) = e^(-2 t) c_1");
+    assert!(short("integrate (x^2 + 1)/(x^3 + 3x) dx").contains("log(x)/3 + log(x^2 + 3)/3"));
+    assert!(short("integrate 1/(x(x+1)) dx").contains("-log(x + 1) + log(x)"));
 }
 
 #[test]
