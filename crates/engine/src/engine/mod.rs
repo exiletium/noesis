@@ -8,6 +8,7 @@ pub mod explain;
 pub mod nl;
 pub mod nl_math;
 pub mod nl_more;
+pub mod pde;
 
 use crate::budget;
 use crate::expr::Expr;
@@ -201,6 +202,7 @@ pub type Handler = fn(&Query) -> Option<Answer>;
 /// vocabulary; the general math analyzer comes last.
 fn handlers() -> Vec<(&'static str, Handler)> {
     let mut v: Vec<(&'static str, Handler)> = Vec::new();
+    v.push(("pde", pde::handle));
     v.push(("language", nl::handle));
     v.push(("ode", ode::handle));
     v.extend(crate::domains::handlers());

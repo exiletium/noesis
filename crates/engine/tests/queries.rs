@@ -342,3 +342,18 @@ fn harder_calculus() {
     assert_eq!(short("y' = y(1-y), y(0) = 1/2"), "y(x) = e^x/(e^x + 1)");
     assert_eq!(short("y(t)' = -2 y(t)"), "y(t) = e^(-2 t) c_1");
 }
+
+#[test]
+fn partial_differential_equations() {
+    assert_eq!(short("u_t = 2 u_xx, u(0,t)=0, u(pi,t)=0, u(x,0)=sin(x) + 3 sin(2x)"), "u = 3 e^(-8 t) sin(2 x) + e^(-2 t) sin(x)");
+    assert!(short("u_t = u_xx, u(0,t) = 0, u(1,t) = 0, u(x,0) = x(1 - x)").contains("(4 - 4 (-1)^n)"));
+    assert!(short("u_t = u_xx, u_x(0,t)=0, u_x(1,t)=0, u(x,0)=x").ends_with("+ 1/2"));
+    assert_eq!(short("u_tt = u_xx, u(0,t)=0, u(1,t)=0, u(x,0)=sin(pi x), u_t(x,0)=0"), "u = cos(π t) sin(π x)");
+    assert!(short("u_tt = 9 u_xx, u(0,t)=0, u(pi,t)=0, u(x,0)=0, u_t(x,0)=1").contains("sin(3 n t) sin(n x)"));
+    assert_eq!(short("u_tt = 4 u_xx, u(x,0) = e^(-x^2), u_t(x,0) = 0"), "u = (e^(-(x - 2 t)^2) + e^(-(2 t + x)^2))/2");
+    assert_eq!(short("u_t + 2 u_x = 0, u(x,0) = sin(x)"), "u = -sin(2 t - x)");
+    assert_eq!(short("u_xx + u_yy = 0, u(0,y) = 0, u(pi,y) = 0, u(x,0) = 0, u(x,1) = sin(x)"), "u = (sin(x) sinh(y))/sinh(1)");
+    assert!(short("u_xx + 2 u_xy + u_yy = 0").starts_with("parabolic"));
+    assert!(short("du/dt = 3 d^2u/dx^2, u(0,t)=0, u(2,t)=0, u(x,0)=5").contains("sin((π n x)/2)"));
+    assert!(short("wave equation").contains("c²"));
+}

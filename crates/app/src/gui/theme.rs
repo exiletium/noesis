@@ -154,8 +154,14 @@ pub fn apply(ctx: &egui::Context, p: &Palette) {
     v.widgets.active.weak_bg_fill = p.hover;
     v.widgets.active.fg_stroke = Stroke::new(1.0_f32, p.text);
     v.popup_shadow = egui::epaint::Shadow { offset: [0, 4], blur: 16, spread: 0, color: Color32::from_black_alpha(if p.dark { 120 } else { 40 }) };
-    ctx.set_visuals(v);
+    // Pin egui's theme to the app's palette. Otherwise egui follows the
+    // operating system's light/dark preference and built-in widgets (combo
+    // boxes, buttons) use the stock colours of the other theme.
+    ctx.set_theme(if p.dark { egui::Theme::Dark } else { egui::Theme::Light });
+    ctx.set_visuals_of(egui::Theme::Dark, v.clone());
+    ctx.set_visuals_of(egui::Theme::Light, v.clone());
     let mut style = (*ctx.style()).clone();
+    style.visuals = v;
     style.text_styles = [
         (TextStyle::Heading, FontId::new(17.0, FontFamily::Proportional)),
         (TextStyle::Body, FontId::new(14.5, FontFamily::Proportional)),
@@ -168,5 +174,6 @@ pub fn apply(ctx: &egui::Context, p: &Palette) {
     style.spacing.button_padding = egui::vec2(10.0, 5.0);
     style.spacing.scroll.bar_width = 6.0;
     style.spacing.scroll.floating = true;
-    ctx.set_style(style);
+    ctx.set_style_of(egui::Theme::Dark, style.clone());
+    ctx.set_style_of(egui::Theme::Light, style);
 }
