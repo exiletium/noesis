@@ -181,7 +181,7 @@ fn unknown_input_fails_gracefully() {
 #[test]
 fn natural_language_corpus() {
     noesis::domains::live::set_online(false);
-    let text = concat!(include_str!("data/corpus.txt"), "\n", include_str!("data/corpus2.txt"), "\n", include_str!("data/corpus3.txt"));
+    let text = concat!(include_str!("data/corpus.txt"), "\n", include_str!("data/corpus2.txt"), "\n", include_str!("data/corpus3.txt"), "\n", include_str!("data/corpus4.txt"));
     let failed: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).filter(|l| !noesis::query(l).success).collect();
     assert!(failed.is_empty(), "not understood: {failed:#?}");
 }
@@ -327,4 +327,18 @@ fn everyday_phrasings() {
     assert_eq!(short("how many calories in a banana"), "105 kcal");
     assert!(short("weight of 1 liter of water").starts_with("0.997 kg"));
     assert_eq!(short("density of gold in kg/m^3"), "19300 kg/m³");
+}
+
+#[test]
+fn harder_calculus() {
+    assert!(short("integrate from 0 to inf x^3 e^(-x) dx").ends_with("= 6"));
+    assert!(short("integrate from 0 to inf sin(x)/x dx").ends_with("= π/2"));
+    assert!(short("integrate from 0 to pi/2 sin(x)^6 dx").ends_with("= (5 π)/32"));
+    assert!(short("integrate from 0 to 1 x ln(x) dx").ends_with("= -1/4"));
+    assert!(short("integrate tan(x)^3 dx").contains("tan^2(x)/2 + log(cos(x))"));
+    assert_eq!(short("x^2 y'' + x y' - y = 0"), "y(x) = c_2 x + c_1/x");
+    assert_eq!(short("x^2 y'' + x y' + y = 0"), "y(x) = c_1 cos(log(x)) + c_2 sin(log(x))");
+    assert_eq!(short("x^2 y'' - 2y = x^3"), "y(x) = c_2 x^2 + x^3/4 + c_1/x");
+    assert_eq!(short("y' = y(1-y), y(0) = 1/2"), "y(x) = e^x/(e^x + 1)");
+    assert_eq!(short("y(t)' = -2 y(t)"), "y(t) = e^(-2 t) c_1");
 }

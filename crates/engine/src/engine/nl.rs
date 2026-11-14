@@ -172,6 +172,15 @@ fn rewrite(l: &str, c: &str) -> Option<String> {
             return Some(rhs);
         }
     }
+    // "integrate from 0 to inf x^3 e^(-x) dx"
+    if let Some(m) = cap(re!(r"^(?:integrate|integral|the integral|definite integral)\s+from\s+(\S+)\s+to\s+(\S+)\s+(?:of\s+)?(.+?)(?:\s*d([a-z]))?$")) {
+        let var = if g(&m, 4).is_empty() { String::new() } else { format!(" d{}", g(&m, 4)) };
+        let _ = var;
+        let f = g(&m, 3);
+        let v = if g(&m, 4).is_empty() { String::new() } else { format!(", {}", g(&m, 4)) };
+        let _ = v;
+        return Some(format!("integrate {} from {} to {}", f.trim(), g(&m, 1), g(&m, 2)));
+    }
     // "3 to the 4th power", "2 raised to the 10th"
     if let Some(m) = cap(re!(r"^(.+?)\s+(?:raised\s+)?to\s+the\s+(\d+)(?:st|nd|rd|th)(?:\s+power)?$")) {
         return Some(format!("({})^({})", g(&m, 1), g(&m, 2)));

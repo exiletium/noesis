@@ -53,6 +53,9 @@ pub fn handle(q: &Query) -> Option<Answer> {
     // Leibniz notation
     let body = re!(r"d\^?2\s*([a-z])\s*/\s*d([a-z])\^?2").replace_all(&body, "$1''").to_string();
     let body = re!(r"\bd([a-z])\s*/\s*d([a-z])\b").replace_all(&body, "$1'").to_string();
+    // "y(t)'" means y' with t as the independent variable
+    let forced_indep = re!(r"\b[a-zA-Z]\(\s*([a-z])\s*\)'+").captures(&body).map(|m| m[1].to_string());
+    let body = re!(r"\b([a-zA-Z])\(\s*[a-z]\s*\)('+)").replace_all(&body, "$1$2").to_string();
     // dependent variable: a letter followed by a prime
     if re!(r"[a-zA-Z]{2,}'|'[a-zA-Z]").is_match(&body) {
         return None; // an English possessive ("ohm's law"), not a derivative
@@ -61,7 +64,47 @@ pub fn handle(q: &Query) -> Option<Answer> {
     if !(l.contains('\'') || l.contains("dy/d") || l.contains("differential")) {
         return None;
     }
-    let indep = if body.contains(&format!("{dep}(t)")) || dep == "x" { "t".to_string() } else { "x".to_string() };
+    let indep = if let Some(v) = forced_indep { v } else if body.contains(&format!("{dep}(t)")) || dep == "x" { "t".to_string() } else { "x".to_string() };
+    // "y (1 - y)" is a product, not y evaluated at 1 - y: only y(x), y(t) and
+    // y(number) are function applications
+    let body = {
+        let chars: Vec<char> = body.chars().collect();
+        let mut out = String::new();
+        let mut k = 0;
+        while k < chars.len() {
+            out.push(chars[k]);
+            let is_dep = chars[k].to_string() == dep && (k == 0 || !chars[k - 1].is_alphanumeric());
+            if is_dep {
+                let mut j = k + 1;
+                while j < chars.len() && chars[j] == ' ' {
+                    j += 1;
+                }
+                if j < chars.len() && chars[j] == '(' {
+                    let mut depth = 0;
+                    let mut end = j;
+                    for (i, ch) in chars.iter().enumerate().skip(j) {
+                        if *ch == '(' {
+                            depth += 1;
+                        } else if *ch == ')' {
+                            depth -= 1;
+                            if depth == 0 {
+                                end = i;
+                                break;
+                            }
+                        }
+                    }
+                    let inner: String = chars[j + 1..end.max(j + 1)].iter().collect();
+                    let inner = inner.trim();
+                    let application = inner == indep || inner.parse::<f64>().is_ok() || (inner.starts_with('-') && inner[1..].trim().parse::<f64>().is_ok()) || inner == "pi" || inner == "π";
+                    if !application {
+                        out.push('*');
+                    }
+                }
+            }
+            k += 1;
+        }
+        out
+    };
     // separate initial conditions
     let mut conds = Vec::new();
     let mut eqs = Vec::new();

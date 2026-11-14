@@ -93,6 +93,7 @@ pub fn dsolve(eq: &Expr, y: &Expr, x: &Expr, conds: &[Condition]) -> Option<OdeS
     let mut sol = budget::attempt_opt(budget::remaining().min(12.0) * 0.8, || {
         linear_constant(&f, x, order)
             .or_else(|| if order == 1 { first_order(&f, x) } else { None })
+            .or_else(|| cauchy_euler(&f, x, order))
     })?;
     // check explicit solutions
     if sol.explicit {
@@ -209,6 +210,86 @@ fn linear_constant(f: &Expr, x: &Expr, order: usize) -> Option<OdeSolution> {
     let general = s::simplify(&add(vec![homog, particular]));
     let kind = format!("{} linear ordinary differential equation with constant coefficients{}", ordinal(order), if g.is_zero() { " (homogeneous)" } else { "" });
     Some(OdeSolution { general: vec![general], explicit: true, kind, order, particular: None })
+}
+
+/// Cauchy–Euler equations Σ a_k x^k y^(k) = g(x): the trial solution
+/// y = x^r gives the indicial equation Σ a_k r(r − 1)…(r − k + 1) = 0.
+fn cauchy_euler(f: &Expr, x: &Expr, order: usize) -> Option<OdeSolution> {
+    if order < 2 {
+        return None;
+    }
+    let mut coeffs = vec![zero(); order + 1];
+    let mut rest = Vec::new();
+    for t in f.terms() {
+        let ks: Vec<usize> = (0..=order).filter(|k| t.has_sym(&pvar(*k))).collect();
+        match ks.as_slice() {
+            [] => rest.push(t.clone()),
+            [k] => {
+                let c = s::cancel(&div(t.clone(), mul(vec![pvar(*k), pow(x.clone(), int(*k as i64))])));
+                if c.has_sym(&pvar(*k)) || c.has_sym(x) {
+                    return None;
+                }
+                coeffs[*k] = add(vec![coeffs[*k].clone(), c]);
+            }
+            _ => return None,
+        }
+    }
+    if coeffs[order].is_zero() {
+        return None;
+    }
+    let g = s::simplify(&neg(add(rest)));
+    let r = sym("\u{3bb}e");
+    let falling = |k: usize| mul((0..k).map(|j| sub(r.clone(), int(j as i64))).collect());
+    let indicial = s::expand(&add(coeffs.iter().enumerate().map(|(k, c)| mul(vec![c.clone(), falling(k)])).collect()));
+    let roots = solve::solve(&indicial, &r);
+    let lnx = ln(x.clone());
+    let mut basis: Vec<Expr> = Vec::new();
+    let mut done: Vec<Expr> = Vec::new();
+    for root in &roots.roots {
+        if done.iter().any(|d| s::equal(d, root)) {
+            continue;
+        }
+        let mut m = 0;
+        let mut q = indicial.clone();
+        while m < order {
+            let v = s::simplify(&q.subs(&r, root));
+            if !(v.is_zero() || crate::eval::const_c64(&v).map_or(false, |z| z.norm() < 1e-9)) {
+                break;
+            }
+            m += 1;
+            q = diff(&q, &r);
+        }
+        let m = m.max(1);
+        match crate::funcs::re_im(root) {
+            Some((a, b)) if !s::simplify(&b).is_zero() => {
+                let (a, b) = (s::simplify(&a), s::simplify(&b));
+                if b.to_f64_const().map_or(false, |v| v < 0.0) {
+                    done.push(root.clone());
+                    continue;
+                }
+                for j in 0..m {
+                    let lj = pow(lnx.clone(), int(j as i64));
+                    let xa = pow(x.clone(), a.clone());
+                    basis.push(mul(vec![lj.clone(), xa.clone(), f1("cos", mul(vec![b.clone(), lnx.clone()]))]));
+                    basis.push(mul(vec![lj, xa, f1("sin", mul(vec![b.clone(), lnx.clone()]))]));
+                }
+            }
+            _ => {
+                for j in 0..m {
+                    basis.push(mul(vec![pow(lnx.clone(), int(j as i64)), pow(x.clone(), root.clone())]));
+                }
+            }
+        }
+        done.push(root.clone());
+    }
+    if basis.len() != order {
+        return None;
+    }
+    let homog = add(basis.iter().enumerate().map(|(k, b)| mul(vec![constant(k + 1), b.clone()])).collect());
+    let an = mul(vec![coeffs[order].clone(), pow(x.clone(), int(order as i64))]);
+    let particular = if g.is_zero() { zero() } else { variation_of_parameters(&basis, &g, &an, x)? };
+    let general = s::simplify(&add(vec![homog, particular]));
+    Some(OdeSolution { general: vec![general], explicit: true, kind: format!("{} Cauchy–Euler equation (indicial equation {} = 0)", ordinal(order), crate::print::text(&indicial).replace("\u{3bb}e", "r")), order, particular: None })
 }
 
 fn ordinal(n: usize) -> &'static str {

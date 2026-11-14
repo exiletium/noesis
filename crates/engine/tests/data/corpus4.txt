@@ -1,0 +1,50 @@
+integrate sqrt(1 - x^2) dx
+integrate 1/(x^2 + 2x + 5) dx
+integrate x^2 e^(3x) dx
+integrate e^x sin(x) dx
+integrate sec(x)^3 dx
+integrate 1/(x^3 + 1) dx
+integrate ln(x)^2 dx
+integrate x/(x^4 + 1) dx
+integrate 1/sqrt(x^2 + 1) dx
+integrate arctan(x) dx
+integrate x sin(x)^2 dx
+integrate tan(x)^3 dx
+integrate 1/(1 + e^x) dx
+integrate sqrt(x)/(1 + x) dx
+integrate x^3/sqrt(1 - x^2) dx
+integrate 1/(x (ln x)^2) dx
+integrate sin(x)^4 dx
+integrate cos(x)^5 dx
+integrate x^5 e^(-x^2) dx
+integrate e^(sqrt(x)) dx
+integrate 1/(x^4 - 1) dx
+integrate sin(ln(x)) dx
+integrate x arcsin(x) dx
+integrate (x^2 + 1)/(x^3 + 3x) dx
+integrate 1/(sin(x) + cos(x)) dx
+integrate sin(x) e^(cos(x)) dx
+integrate from 0 to inf x^3 e^(-x) dx
+integrate from 0 to 1 ln(x) dx
+integrate from 0 to pi x sin(x) dx
+integrate from 0 to inf sin(x)/x dx
+integrate from 0 to 1 x ln(x) dx
+integrate from -inf to inf 1/(1 + x^2) dx
+integrate from 0 to inf 1/(1 + x^4) dx
+integrate from 0 to pi/2 sin(x)^6 dx
+integrate from 0 to 1 1/sqrt(1 - x^2) dx
+y' + 2y = 4
+y' = y^2
+y' = x + y
+y'' + 2y' + y = 0
+y'' + 4y = 0
+y'' - y = x^2
+x^2 y'' + x y' - y = 0
+y' = y (1 - y)
+y''' - y = 0
+y'' + y = sec(x)
+dy/dx = -2 x y, y(0) = 1
+y' + y tan(x) = cos(x)
+y'' + 9y = cos(3x)
+y' = (x + y)/x
+y' = e^(x - y)
