@@ -34,6 +34,12 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Dates and money | `what day was July 4, 1776`, `days until christmas`, `100 days from today`, `compound interest $1000 at 5% for 10 years compounded monthly`, `mortgage $300000 at 6.5% for 30 years`, `15% tip on $80` |
 | Live data (optional, online) | `weather in Paris` (current conditions and 7-day forecast), `100 usd to eur` (ECB rates and 30-day chart), `who was Ada Lovelace`, `what is photosynthesis` (encyclopedia summaries). Use `--offline` or the Settings toggle to disable network access. |
 | Logic | `p and q or not p`: truth table, satisfiability, normal form |
+| Questions in words | `sum of the first 100 odd numbers`, `1 + 2 + 3 + ... + 100`, `complete the square x^2 + 6x + 5`, `discriminant of 2x^2 + 3x - 5`, `is x^2 + 1 irreducible`, `line through (1,2) perpendicular to y = 2x + 1`, `circle through (0,0), (1,0), (0,1)`, `fourier series of x`, `curvature of y = x^2 at x = 0`, `area between x^2 and x`, `volume of revolution of sqrt(x) from 0 to 4`, `is {{2,1},{1,2}} positive definite`, `lu decomposition of {{4,3},{6,3}}`, `is 561 a carmichael number`, `number of trailing zeros in 100!` |
+| Inference | `p-value for z = 2.1`, `95% confidence interval mean 50 sd 10 n 100`, `chi-square critical value 0.05 df 3`, `quartiles of 1, 3, 5, 7, 9, 11`, `birthday problem 23 people`, `probability of rolling two sixes` |
+| Geometry and physics formulas | `area of a triangle with sides 3, 4, 5`, `law of cosines a=3 b=4 C=60 degrees`, `30-60-90 triangle with hypotenuse 10`, `kinetic energy of 2 kg at 3 m/s`, `escape velocity of earth`, `ohm's law 12 V 4 ohm`, `resistance of 10 ohm and 20 ohm in parallel`, `de broglie wavelength of electron at 1e6 m/s`, named formulas (`quadratic formula`, `snell's law`, …) |
+| Chemistry calculations | `balance KMnO4 + HCl -> KCl + MnCl2 + H2O + Cl2`, `pH of 0.1 M acetic acid`, `how many moles in 18 g of water`, `molarity of 5 g of NaCl in 250 mL of water`, `boiling point of ethanol`, `isotopes of hydrogen`, `half-life of carbon-14`, `empirical formula of C6H12O6`, `noble gases` |
+| Astronomy and world facts | `mass of the sun`, `how long is a day on mars`, `how much would 150 lb weigh on the moon`, `largest countries in europe`, `gdp of germany`, `height of mount everest`, `longest river`, `sunrise in paris`, `languages of switzerland` |
+| Everyday | `how many calories in a banana`, `what is 1/7 as a decimal`, `weight of 1 liter of water`, `how old is someone born on 1990-05-17`, `is 2024 a leap year`, `when is easter 2025`, `unix time 1700000000`, `30% off 80`, `what percent of 80 is 20`, `present value of 1000 in 5 years at 7%`, `future value of 100 per month at 6% for 20 years`, `BMI 70 kg 175 cm`, `1 hour 15 minutes + 50 minutes`, `scrabble score of quiz`, `sos in morse code`, `color #ff8800`, `md5 of hello`, `base64 encode hello` |
 
 ## How it compares with WolframAlpha
 
@@ -46,10 +52,10 @@ Noesis reproduces WolframAlpha's style of answer, pods with exact and approximat
 
 It is also more limited, and these limits are real:
 
-* **Less curated data.** WolframAlpha draws on a vast, continuously updated, curated knowledge base. Noesis ships a small offline dataset (118 elements, about 250 countries, about 6,000 cities, physical constants). When online it also fetches weather (Open-Meteo), exchange rates (European Central Bank) and encyclopedia summaries (Wikipedia), but it does not have WolframAlpha's structured data on nutrition, sports, films, companies and so on.
-* **Narrower language understanding.** Noesis recognises the phrasings listed above and ordinary mathematical notation. It does not understand arbitrary English questions.
+* **Less curated data.** WolframAlpha draws on a vast, continuously updated, curated knowledge base. Noesis ships a small offline dataset (118 elements, about 250 countries, about 6,000 cities, physical constants, the solar system, common substances, isotopes, landmarks and world records, approximate GDP). Some of these figures, such as populations and GDP, change over time and are only as current as the bundled tables; offline currency conversion uses approximate mid-2025 rates and says so. When online it also fetches weather (Open-Meteo), exchange rates (European Central Bank) and encyclopedia summaries (Wikipedia), but it does not have WolframAlpha's structured data on nutrition, sports, films, companies and so on.
+* **Narrower language understanding.** Noesis uses hand-written grammar rules, not a language model. It understands ordinary mathematical notation and a wide set of English phrasings: the test suite contains three corpora of 548 WolframAlpha-style questions (`crates/engine/tests/data/`), the tests require every one to be understood and assert the exact answers of about a hundred of them. Phrasings outside those rules may still not be understood.
 * **A smaller computer algebra system.** Integration is heuristic: tables, substitution, parts, rational functions, Euler and Weierstrass substitutions and special functions (erf, Si, Ei, Fresnel). It is not a complete Risch implementation, so some elementary integrals that Mathematica finds will be missed. Every antiderivative is checked numerically before it is shown, so wrong answers are rejected rather than displayed. Factoring is over ℚ only, and high-degree polynomials fall back to numeric roots.
-* **Step-by-step solutions** cover derivatives, integrals (substitution, integration by parts, partial fractions, trigonometric identities and so on) and quadratic equations. Limits, sums and general equations do not have worked steps yet.
+* **Step-by-step solutions** cover derivatives, integrals (substitution, integration by parts, partial fractions, trigonometric identities and so on), limits (factoring, L'Hôpital, conjugates, logarithms), sums (power sums, geometric and telescoping series), equations (linear, quadratic, factoring, radical equations with extraneous-root checks), completing the square and implicit differentiation. Other operations show results without working.
 * **Differential equations:** linear equations with constant coefficients of any order, and first-order linear, separable and Bernoulli equations. Other nonlinear and variable-coefficient higher-order equations get a numeric solution when initial conditions are given. Partial differential equations are not supported.
 * **Precision:** decimals are arbitrary-precision for elementary constants (50 digits shown). Special functions and GPU evaluation use double and single precision respectively.
 
@@ -152,8 +158,11 @@ crates/engine  (library "noesis")
   eval, compute, gpu stack-machine evaluator, CPU/GPU dispatch, WGSL kernels
   plot               sampling, implicit curves, surfaces, SVG export
   engine             query cleaning, handler registry, analyzer, pods (parallel)
-  domains            units and constants, chemistry, geography, dates, finance,
-                     probability
+  engine/nl*         English phrasings: rewrite rules and direct answers for
+                     number theory, algebra, geometry, calculus, matrices, statistics
+  domains            units and constants, chemistry and chemical calculations,
+                     geography, astronomy, formulas, dates, finance, probability,
+                     everyday calculations, reference knowledge
 crates/app  (binaries "noesis" and "noesis-desktop")
   cli                terminal interface
   gui                egui/eframe desktop app
@@ -167,7 +176,12 @@ Every query runs on its own large-stack thread with a time budget. Each pod is c
 cargo test -p noesis-engine --no-default-features
 ```
 
-The suite covers parsing, simplification, factoring, calculus, solving, number theory, high-precision decimals and end-to-end queries across every domain. Set `NOESIS_DEBUG=1` to see panic messages from failing tests. The engine silences panics by default because it uses them for timeouts.
+The suite covers parsing, simplification, factoring, calculus, solving, number theory, high-precision decimals and end-to-end queries across every domain, including three corpora of natural-language questions that must all be understood. To see every corpus answer:
+
+```bash
+cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/data/corpus2.txt
+```
+ Set `NOESIS_DEBUG=1` to see panic messages from failing tests. The engine silences panics by default because it uses them for timeouts.
 
 ## Data sources
 

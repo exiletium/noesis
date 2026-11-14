@@ -189,6 +189,11 @@ pub(crate) fn property_pod(name: &str) -> Option<Pod> {
 }
 
 fn properties(l: &str) -> Option<Answer> {
+    // "... in fahrenheit": answer in the requested temperature or density unit
+    let (l, want_unit) = match re!(r"^(.+?)\s+in\s+(?:degrees\s+)?(celsius|centigrade|fahrenheit|kelvins?|kg/m\^?3|kg per cubic met(?:er|re)|g/cm\^?3|g/ml|g/l|lb/ft\^?3|pounds per cubic foot)$").captures(l) {
+        Some(m) => (m.get(1)?.as_str(), Some(m[2].to_string())),
+        None => (l, None),
+    };
     let (prop, name) = if let Some(m) = re!(r"^(?:the\s+)?(boiling point|boiling temperature|melting point|melting temperature|freezing point|freezing temperature|density|specific heat capacity|specific heat|heat capacity)\s+(?:of|for)\s+(.+)$").captures(l) {
         (m[1].to_string(), m[2].to_string())
     } else if let Some(m) = re!(r"^(.+?)\s+(boiling point|melting point|freezing point|density|specific heat capacity|specific heat)$").captures(l) {
@@ -198,7 +203,33 @@ fn properties(l: &str) -> Option<Answer> {
     } else {
         return None;
     };
-    let x = find_substance(&name)?;
+    let Some(x) = find_substance(&name) else {
+        // elements, when a specific unit is asked for
+        let e = super::chem::find_element(&name)?;
+        let u = want_unit?;
+        let v = match prop.as_str() {
+            p if p.starts_with("boil") || p.starts_with("melt") || p.starts_with("freez") => {
+                let k = if p.starts_with("boil") { e.boiling_k? } else { e.melting_k? };
+                match u.as_str() {
+                    u if u.starts_with('f') => format!("{} °F", n((k - 273.15) * 9.0 / 5.0 + 32.0)),
+                    u if u.starts_with('k') => format!("{} K", n(k)),
+                    _ => format!("{} °C", n(k - 273.15)),
+                }
+            }
+            "density" => {
+                let d = e.density_g_cm3?;
+                match u.as_str() {
+                    u if u.starts_with("kg") => format!("{} kg/m³", n(d * 1000.0)),
+                    "g/l" => format!("{} g/L", n(d * 1000.0)),
+                    u if u.starts_with("lb") || u.starts_with("pound") => format!("{} lb/ft³", n(d * 62.427_960_576)),
+                    _ => format!("{} g/cm³", n(d)),
+                }
+            }
+            _ => return None,
+        };
+        let label = format!("{} | {prop}", e.name);
+        return Some(Answer::new(label.clone(), vec![pod("Input", "Input interpretation", text(label)), primary(pod("Result", &prop, text(v)))]));
+    };
     let key = match prop.as_str() {
         p if p.starts_with("boil") => "boiling point",
         p if p.starts_with("melt") || p.starts_with("freez") => "melting point",
@@ -207,9 +238,29 @@ fn properties(l: &str) -> Option<Answer> {
     };
     let rows = property_rows(x);
     let (_, value) = rows.iter().find(|(k, _)| *k == key)?;
+    let value = match (want_unit.as_deref(), key) {
+        (Some(u), "boiling point" | "melting point") => {
+            let c = if key == "boiling point" { x.bp? } else { x.mp? };
+            match u {
+                u if u.starts_with('f') => format!("{} °F", n(c * 9.0 / 5.0 + 32.0)),
+                u if u.starts_with('k') => format!("{} K", n(c + 273.15)),
+                _ => format!("{} °C", n(c)),
+            }
+        }
+        (Some(u), "density") => {
+            let d = x.density?;
+            match u {
+                u if u.starts_with("kg") => format!("{} kg/m³", n(d * 1000.0)),
+                "g/l" => format!("{} g/L", n(d * 1000.0)),
+                u if u.starts_with("lb") || u.starts_with("pound") => format!("{} lb/ft³", n(d * 62.427_960_576)),
+                _ => format!("{} g/cm³", n(d)),
+            }
+        }
+        _ => value.clone(),
+    };
     let label = if prop.starts_with("freez") { "freezing point" } else { key };
     let title = if x.formula.is_empty() { x.names[0].to_string() } else { format!("{} ({})", x.names[0], pretty(x.formula)) };
-    let mut pods = vec![pod("Input", "Input interpretation", text(format!("{title} | {label}"))), primary(pod("Result", label, text(value.clone())))];
+    let mut pods = vec![pod("Input", "Input interpretation", text(format!("{title} | {label}"))), primary(pod("Result", label, text(value)))];
     let others: Vec<Vec<Content>> = rows.iter().filter(|(k, _)| *k != key).map(|(k, v)| vec![text(*k), text(v.clone())]).collect();
     if !others.is_empty() {
         pods.push(pod("Physical", "Other properties", table(None, others)));
@@ -645,8 +696,40 @@ fn amounts(c: &str) -> Option<Answer> {
     None
 }
 
+fn mass_volume(l: &str) -> Option<Answer> {
+    use super::units::{parse_quantity, to_si};
+    let m = re!(r"^(?:the\s+)?(weight|mass|volume)\s+of\s+(?:a\s+|an\s+|one\s+)?(.+?)\s+of\s+(.+)$").captures(l).or_else(|| re!(r"^(?:how much (?:does|do|would)\s+)()(.+?)\s+of\s+(.+?)\s+weigh$").captures(l))?;
+    let want = if m[1].is_empty() { "weight" } else { &m[1] };
+    let amount = m[2].trim();
+    let amount = if amount.chars().next()?.is_ascii_digit() { amount.to_string() } else { format!("1 {amount}") };
+    let x = find_substance(&m[3])?;
+    let d = x.density? * 1000.0; // kg/m³
+    let (v, u, shown) = parse_quantity(&amount)?;
+    let si = to_si(v, &u);
+    const VOL: [i8; 8] = [3, 0, 0, 0, 0, 0, 0, 0];
+    const MASS: [i8; 8] = [0, 1, 0, 0, 0, 0, 0, 0];
+    let name = x.names[0];
+    let (title, value, extra) = if u.dim == VOL && want != "volume" {
+        let kg = si * d;
+        ("Mass", format!("{} kg  ({} lb)", n(kg), n(kg / 0.453_592_37)), format!("weight on Earth: {} N", n(kg * 9.80665)))
+    } else if u.dim == MASS && want == "volume" {
+        let m3 = si / d;
+        ("Volume", format!("{} L  ({} US gallons)", n(m3 * 1000.0), n(m3 / 0.003_785_411_784)), format!("{} m³", n(m3)))
+    } else {
+        return None;
+    };
+    let label = format!("{want} of {shown} of {name}");
+    let pods = vec![
+        pod("Input", "Input interpretation", text(label.clone())),
+        primary(pod("Result", title, text(value))),
+        pod("More", "Also", text(extra)),
+        pod("Density", "Density used", text(format!("{} ({})", dens(x.density?), if x.note.is_empty() { "near room temperature" } else { x.note }))),
+    ];
+    Some(Answer::new(label, pods))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim();
     let c = q.clean.trim();
-    properties(l).or_else(|| ph(l)).or_else(|| amounts(c)).or_else(|| if l.starts_with("balance") || c.contains("->") || c.contains('→') || c.contains("=>") { balance(c) } else { None })
+    mass_volume(l).or_else(|| properties(l)).or_else(|| ph(l)).or_else(|| amounts(c)).or_else(|| if l.starts_with("balance") || c.contains("->") || c.contains('→') || c.contains("=>") { balance(c) } else { None })
 }

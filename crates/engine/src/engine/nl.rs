@@ -141,7 +141,12 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
     }
     systems(q, l, c)
+        .or_else(|| super::nl_more::numbers(q, l, c))
         .or_else(|| numbers(q, l, c))
+        .or_else(|| super::nl_more::algebra(q, l, c))
+        .or_else(|| super::nl_more::calculus_q(q, l, c))
+        .or_else(|| super::nl_more::matrices(q, l, c))
+        .or_else(|| super::nl_more::statistics(q, l, c))
         .or_else(|| super::nl_math::algebra(q, l, c))
         .or_else(|| super::nl_math::calculus_q(q, l, c))
         .or_else(|| super::nl_math::matrices(q, l, c))
@@ -160,6 +165,58 @@ fn rewrite(l: &str, c: &str) -> Option<String> {
     let cap = |r: &Regex| caps(r, l, c);
     let g = |m: &Vec<Option<String>>, k: usize| m.get(k).cloned().flatten().unwrap_or_default();
 
+    // "f(x) = x^3 - 3x" defines a function: analyse the right-hand side
+    if let Some(m) = cap(re!(r"^([a-zA-Z])\s*\(\s*([a-z])\s*\)\s*:?=\s*([^=,;]+)$")) {
+        let (name, var, rhs) = (g(&m, 1), g(&m, 2), g(&m, 3));
+        if !rhs.contains(&format!("{name}(")) && re!(r"[a-z]").is_match(&rhs) && rhs.contains(var.as_str()) {
+            return Some(rhs);
+        }
+    }
+    // "3 to the 4th power", "2 raised to the 10th"
+    if let Some(m) = cap(re!(r"^(.+?)\s+(?:raised\s+)?to\s+the\s+(\d+)(?:st|nd|rd|th)(?:\s+power)?$")) {
+        return Some(format!("({})^({})", g(&m, 1), g(&m, 2)));
+    }
+    // "sin of 45 degrees"
+    if let Some(m) = cap(re!(r"^(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|asin|acos|atan|arcsin|arccos|arctan|ln|log|exp|sqrt)\s+of\s+(.+)$")) {
+        let arg = g(&m, 2);
+        return Some(if arg.contains("degree") || arg.ends_with('°') { format!("{} {arg}", g(&m, 1)) } else { format!("{}({arg})", g(&m, 1)) });
+    }
+    // "7 factorial divided by 5 factorial"
+    if re!(r"\b\d+\s+factorial\b").is_match(l) {
+        return Some(re!(r"(\d+)\s+factorial\b").replace_all(c, "$1!").to_string());
+    }
+    // seating arrangements
+    if let Some(m) = cap(re!(r"^(?:in\s+)?(?:how many|number of)?\s*ways\s+(?:can|to|could|are there to|are there for)\s+(\d+)\s+(?:people|persons|students|friends|guests|children|kids|books|objects|items|cars|letters)\s+(?:be\s+)?(?:sit|seated|stand|line up|lined up|arranged|arrange themselves|ordered|placed|stand in line)\s*(in a row|in a line|in line|on a shelf|in a queue|around a (?:round\s+)?table|in a circle|around a circle)?$")) {
+        let k = g(&m, 1);
+        let circular = g(&m, 2).contains("around") || g(&m, 2).contains("circle");
+        return Some(if circular { format!("({k} - 1)!") } else { format!("{k}!") });
+    }
+    // "hypotenuse if the legs are 5 and 12"
+    if let Some(m) = cap(re!(r"^(?:the\s+)?hypotenuse\s+(?:if|when|of a triangle with|given)\s+(?:the\s+)?(?:two\s+)?(?:legs|sides|other sides)\s+(?:are|of|measure)?\s*([\d.]+)\s*(?:and|,)\s*([\d.]+)$")) {
+        return Some(format!("hypotenuse of a right triangle with legs {} and {}", g(&m, 1), g(&m, 2)));
+    }
+    // "(how many) feet in 3 miles", "seconds are in a day"
+    if let Some(m) = cap(re!(r"^(?:how many\s+)?([a-zA-Z°][a-zA-Z°/ ]*?)\s+(?:are\s+)?(?:there\s+)?in\s+(\d[\d,.]*|a|an|one)\s+([a-zA-Z°][a-zA-Z°/ ]*)$")) {
+        use crate::domains::units::parse_unit;
+        let (to, amount, from) = (g(&m, 1), g(&m, 2), g(&m, 3));
+        if let (Some(a), Some(b)) = (parse_unit(&to), parse_unit(&from)) {
+            if a.dim == b.dim {
+                let amount = if amount.chars().next().is_some_and(|ch| ch.is_ascii_digit()) { amount } else { "1".to_string() };
+                return Some(format!("{amount} {from} in {to}"));
+            }
+        }
+    }
+    // "how many zeros in a billion"
+    if let Some(m) = cap(re!(r"^(?:how many|number of)?\s*zeros?\s+(?:are\s+)?(?:there\s+)?(?:in|does)\s+(?:a|an|one)\s+([a-z]+)(?:\s+have)?$")) {
+        let v = crate::parse::words_to_numbers(&format!("one {}", g(&m, 1)));
+        if v.trim().chars().all(|ch| ch.is_ascii_digit()) {
+            return Some(format!("number of trailing zeros in {}", v.trim()));
+        }
+    }
+    // googol
+    if matches!(l.trim_start_matches("a ").trim(), "googol" | "a googol" | "one googol") {
+        return Some("10^100".into());
+    }
     // 1 + 2 + 3 + ... + 100
     if let Some(m) = cap(re!(r"^(?:sum\s+(?:of\s+)?)?(-?\d+)\s*([+*])\s*(-?\d+)\s*[+*]\s*(?:(-?\d+)\s*[+*]\s*)?(?:\.\.\.|…|\.\.)\s*[+*]\s*(-?\d+)$")) {
         let (a, b, last): (i64, i64, i64) = (g(&m, 1).parse().ok()?, g(&m, 3).parse().ok()?, g(&m, 5).parse().ok()?);
@@ -622,7 +679,7 @@ fn numbers(q: &Query, l: &str, c: &str) -> Option<Answer> {
         return answer(label.clone(), label, pods);
     }
     // digits of a constant or expression
-    let digits = cap(re!(r"^(.+?)\s+to\s+(\d+)\s+(digits|decimal places|decimals|places|significant (?:figures|digits)|sig figs?|dp|sf)$"))
+    let digits = cap(re!(r"^(.+?)\s+to\s+(\d+)\s+(digits|decimal places?|decimals|places?|significant (?:figures|digits)|sig figs?|dp|sf)$"))
         .map(|m| (g(&m, 1), g(&m, 2), g(&m, 3)))
         .or_else(|| cap(re!(r"^(?:the\s+)?(?:first\s+)?(\d+)\s+(digits|decimal places|decimals)\s+of\s+(.+)$")).map(|m| (g(&m, 3), g(&m, 1), g(&m, 2))))
         .or_else(|| cap(re!(r"^n\s*[\[(]\s*(.+)\s*,\s*(\d+)\s*[\])]$")).map(|m| (g(&m, 1), g(&m, 2), "digits".to_string())));
@@ -630,10 +687,10 @@ fn numbers(q: &Query, l: &str, c: &str) -> Option<Answer> {
         let body = body.trim_start_matches("round ").trim_start_matches("value of ").to_string();
         let n: usize = n.parse().ok()?;
         let e = ex(&body)?;
-        let small = unit.starts_with("decimal") || unit == "places" || unit == "dp" || unit.starts_with("sig") || unit == "sf";
+        let small = unit.starts_with("decimal") || unit.starts_with("place") || unit == "dp" || unit.starts_with("sig") || unit == "sf";
         if e.free_symbols().is_empty() && !e.has_const(K::I) && n <= 12 && (e.has_float() || small) {
             let v = e.to_f64_const()?;
-            let places = unit.starts_with("decimal") || unit == "places" || unit == "dp";
+            let places = unit.starts_with("decimal") || unit.starts_with("place") || unit == "dp";
             let r = if places {
                 format!("{:.*}", n, v)
             } else {
@@ -645,7 +702,7 @@ fn numbers(q: &Query, l: &str, c: &str) -> Option<Answer> {
             return answer(label.clone(), label, vec![primary(pod("Result", "Result", text(r)))]);
         }
         if e.free_symbols().is_empty() && n <= 100_000 && n >= 1 {
-            let places = unit.starts_with("decimal") || unit == "places" || unit == "dp";
+            let places = unit.starts_with("decimal") || unit.starts_with("place") || unit == "dp";
             let int_digits = e.to_f64_const().map_or(1, |v| if v.abs() < 1.0 { 0 } else { v.abs().log10().floor() as usize + 1 });
             let sig = if places { n + int_digits } else { n };
             // "to n digits" rounds; "the first n digits of" truncates

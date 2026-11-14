@@ -7,6 +7,7 @@ pub mod ode;
 pub mod explain;
 pub mod nl;
 pub mod nl_math;
+pub mod nl_more;
 
 use crate::budget;
 use crate::expr::Expr;

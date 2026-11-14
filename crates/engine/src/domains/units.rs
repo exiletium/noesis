@@ -197,8 +197,13 @@ fn lookup_word(w: &str) -> Option<Unit> {
     // "kN", "mV", "kJ": a lowercase prefix followed by an uppercase symbol is
     // never a plain two-letter unit such as "kn" (knots)
     let prefixed_symbol = w.chars().count() == 2 && w.chars().next().is_some_and(|c| c.is_lowercase()) && w.chars().nth(1).is_some_and(|c| c.is_uppercase());
+    if prefixed_symbol {
+        if let Some(u) = lookup_prefixed(w, &lw) {
+            return Some(u);
+        }
+    }
     // exact (case-insensitive for multi-letter names, sensitive for B/b)
-    for u in UNITS.iter().filter(|_| !prefixed_symbol) {
+    for u in UNITS {
         for n in u.names {
             let hit = if n.len() <= 2 { *n == w || (*n == lw && !matches!(w, "B" | "b" | "M" | "G" | "T" | "P")) } else { *n == lw };
             if hit {
@@ -206,6 +211,10 @@ fn lookup_word(w: &str) -> Option<Unit> {
             }
         }
     }
+    lookup_prefixed(w, &lw)
+}
+
+fn lookup_prefixed(w: &str, lw: &str) -> Option<Unit> {
     // prefixed symbols (case-sensitive) and long names
     for (sym, long, f) in PREFIXES {
         for (pre, rest) in [(*sym, w.strip_prefix(sym)), (*long, lw.strip_prefix(long))] {
@@ -575,7 +584,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
             }
             let si = to_si(v, &from);
             let mut r = from_si(si, &to);
-            if r.abs() < 1e-9 * (1.0 + v.abs()) {
+            if (from.offset != 0.0 || to.offset != 0.0) && r.abs() < 1e-9 * (1.0 + v.abs() + from.offset.abs() + to.offset.abs()) {
                 r = 0.0;
             }
             let mut pods = vec![pod("Input", "Input interpretation", text(format!("convert {shown} ({}) to {}", from.name, to.name)))];

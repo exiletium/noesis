@@ -206,6 +206,26 @@ fn currency_code(w: &str) -> Option<&'static str> {
     ISO.iter().find(|c| c.eq_ignore_ascii_case(&l)).copied()
 }
 
+/// Approximate units of each currency per US dollar (mid-2025), used only
+/// when live rates cannot be fetched.
+const APPROX_PER_USD: &[(&str, f64)] = &[
+    ("USD", 1.0), ("EUR", 0.86), ("GBP", 0.74), ("JPY", 147.0), ("CNY", 7.17), ("INR", 86.5), ("CAD", 1.37), ("AUD", 1.53), ("NZD", 1.68), ("CHF", 0.80),
+    ("HKD", 7.85), ("SGD", 1.28), ("KRW", 1385.0), ("MXN", 18.8), ("BRL", 5.5), ("ZAR", 17.8), ("SEK", 9.5), ("NOK", 10.1), ("DKK", 6.4), ("PLN", 3.65),
+    ("TRY", 40.5), ("THB", 32.5), ("IDR", 16300.0), ("MYR", 4.25), ("PHP", 57.0), ("CZK", 21.3), ("HUF", 345.0), ("ILS", 3.4), ("AED", 3.6725), ("SAR", 3.75),
+];
+
+fn offline_currency(amount: f64, from: &str, to: &str) -> Option<Answer> {
+    let per = |c: &str| APPROX_PER_USD.iter().find(|(k, _)| *k == c).map(|(_, v)| *v);
+    let rate = per(to)? / per(from)?;
+    let pods = vec![
+        pod("Input", "Input interpretation", text(format!("convert {} {from} to {to}", fmt_float(amount, 10)))),
+        primary(pod("Result", "Approximate result", text(format!("≈ {} {to}", fmt_float(amount * rate, 4))))),
+        pod("Rate", "Approximate exchange rate", text(format!("1 {from} ≈ {} {to}", fmt_float(rate, 4)))),
+        pod("Note", "Note", text("Live exchange rates could not be fetched (offline mode or no network). This uses a built-in table of approximate mid-2025 rates; actual rates differ.")),
+    ];
+    Some(Answer::new(format!("{from} to {to} (approximate)"), pods))
+}
+
 fn currency(q: &Query) -> Option<Answer> {
     let l = q.lower.trim();
     let (amount, from, to) = if let Some(m) = re!(r"^(?:convert\s+)?([$€£¥])?\s*([\d,]*\.?\d+)\s*([a-z$€£¥]+(?:\s+dollars)?)?\s+(?:in|to|into)\s+([a-z€£¥$]+(?:\s+dollars)?)$").captures(l) {
@@ -220,7 +240,9 @@ fn currency(q: &Query) -> Option<Answer> {
     if from == to {
         return None;
     }
-    let v = get_json(&format!("https://api.frankfurter.dev/v1/latest?base={from}&symbols={to}"))?;
+    let Some(v) = online().then(|| get_json(&format!("https://api.frankfurter.dev/v1/latest?base={from}&symbols={to}"))).flatten() else {
+        return offline_currency(amount, from, to);
+    };
     let rate = v.get("rates")?.get(to)?.as_f64()?;
     let date = v.get("date").and_then(|d| d.as_str()).unwrap_or("").to_string();
     let mut pods = vec![pod("Input", "Input interpretation", text(format!("convert {} {from} to {to}", fmt_float(amount, 10))))];
@@ -314,7 +336,8 @@ fn lookup(q: &Query, topic_in: &str) -> Option<Answer> {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     if !online() {
-        return None;
+        // currency conversion still answers offline, from approximate rates
+        return currency(q);
     }
     weather(q).or_else(|| currency(q)).or_else(|| encyclopedia(q))
 }

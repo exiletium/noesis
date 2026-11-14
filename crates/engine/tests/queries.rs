@@ -181,7 +181,7 @@ fn unknown_input_fails_gracefully() {
 #[test]
 fn natural_language_corpus() {
     noesis::domains::live::set_online(false);
-    let text = include_str!("data/corpus.txt");
+    let text = concat!(include_str!("data/corpus.txt"), "\n", include_str!("data/corpus2.txt"), "\n", include_str!("data/corpus3.txt"));
     let failed: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).filter(|l| !noesis::query(l).success).collect();
     assert!(failed.is_empty(), "not understood: {failed:#?}");
 }
@@ -258,4 +258,73 @@ fn astronomy_and_world_facts() {
     assert!(short("most populous country").starts_with("India"));
     assert!(short("gdp of germany").contains("trillion"));
     assert!(short("how long is a day on mars").starts_with("24.6"));
+}
+
+#[test]
+fn more_mathematics_in_words() {
+    assert_eq!(short("discriminant of 2x^2 + 3x - 5"), "49");
+    assert!(short("is x^2 + 1 irreducible").starts_with("Yes"));
+    assert!(short("is x^2 - 1 irreducible").starts_with("No"));
+    assert_eq!(short("slope of 3x + 2y = 6"), "-3/2");
+    assert_eq!(short("line through (1,2) with slope 3"), "y = 3 x - 1");
+    assert!(short("center and radius of x^2 + y^2 - 4x + 6y - 3 = 0").contains("radius 4"));
+    assert_eq!(short("implicit derivative of x^2 + y^2 = 1"), "-x/y");
+    assert_eq!(short("curvature of y = x^2 at x = 0"), "2");
+    assert!(short("integrate x^2 y dx dy x=0..1 y=0..2").ends_with("= 2/3"));
+    assert_eq!(short("solve {{1,2},{3,4}} x = {5,6}"), "x = (-4, 9/2)");
+    assert!(short("is {{2,1},{1,2}} positive definite").starts_with("Yes"));
+    assert_eq!(short("number of trailing zeros in 100!"), "24");
+    assert_eq!(short("perfect numbers below 10000"), "6, 28, 496, 8128");
+    assert!(short("is 561 a carmichael number").starts_with("Yes"));
+    assert_eq!(short("5 choose 2 with repetition"), "15");
+    assert!(short("birthday problem 23 people").starts_with("0.507"));
+    assert!(short("chi-square critical value 0.05 df 3").starts_with("7.81"));
+    assert!(short("p-value for z = 2.1").contains("0.0357"));
+    assert_eq!(short("probability of rolling two sixes"), "1/36");
+    assert_eq!(short("probability of 5 heads in a row"), "1/32");
+}
+
+#[test]
+fn reference_knowledge() {
+    assert!(short("noble gases").starts_with("Helium, Neon"));
+    assert_eq!(short("oxidation states of manganese"), "+2, +4, +7");
+    assert_eq!(short("half-life of carbon-14"), "5,730 years");
+    assert_eq!(short("empirical formula of C6H12O6"), "CH2O");
+    assert!(short("when is easter 2025").starts_with("Sunday, April 20, 2025"));
+    assert!(short("thanksgiving 2025").starts_with("Thursday, November 27, 2025"));
+    assert_eq!(short("languages of switzerland"), "German, French, Italian, Romansh");
+    assert_eq!(short("md5 of hello"), "5d41402abc4b2a76b9719d911017c592");
+    assert_eq!(short("base64 encode hello"), "aGVsbG8=");
+    assert!(short("color #ff8800").contains("rgb(255, 136, 0)"));
+    assert_eq!(short("angle sum of a hexagon"), "720°");
+    assert!(short("force between two 1 C charges 1 m apart").starts_with("8987551792"));
+    assert!(short("resistance of 10 ohm and 20 ohm in parallel").starts_with("6.66667"));
+    assert_eq!(short("break even fixed costs 5000 variable cost 20 price 45"), "200 units");
+    assert!(short("future value of 100 per month at 6% for 20 years").starts_with("$46,204"));
+    assert!(short("10 eV in J").starts_with("1.6021766×10^-18"));
+    assert!(short("100 usd in eur").starts_with("≈"));
+}
+
+#[test]
+fn everyday_phrasings() {
+    assert_eq!(short("f(x) = x^3 - 3x^2 + 2").contains("f ="), false);
+    assert_eq!(short("what is 0.75 as a fraction"), "3/4");
+    assert_eq!(short("convert 3/8 to decimal"), "0.375");
+    assert!(short("what is 1/7 as a decimal").contains("142857 repeat"));
+    assert_eq!(short("how many feet in 3 miles"), "15840 feet");
+    assert_eq!(short("how many seconds are in a day"), "86400 seconds");
+    assert_eq!(short("what is 3 to the 4th power"), "81");
+    assert_eq!(short("what is sin of 45 degrees"), "sqrt(2)/2");
+    assert_eq!(short("what is the hypotenuse if the legs are 5 and 12"), "13");
+    assert_eq!(short("what is 7 factorial divided by 5 factorial"), "42");
+    assert_eq!(short("how many ways can 4 people sit in a row"), "24");
+    assert_eq!(short("how many sides does a hexagon have"), "6");
+    assert_eq!(short("volume of a 2 m by 3 m by 4 m box"), "24 m³");
+    assert_eq!(short("round 2.567 to 1 decimal place"), "2.6");
+    assert_eq!(short("how many zeros in a billion"), "9");
+    assert_eq!(short("what is 1 million in scientific notation"), "1 × 10^6");
+    assert_eq!(short("what is the boiling point of water in fahrenheit"), "212 °F");
+    assert_eq!(short("how many calories in a banana"), "105 kcal");
+    assert!(short("weight of 1 liter of water").starts_with("0.997 kg"));
+    assert_eq!(short("density of gold in kg/m^3"), "19300 kg/m³");
 }

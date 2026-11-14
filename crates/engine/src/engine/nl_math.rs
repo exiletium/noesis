@@ -26,23 +26,23 @@ macro_rules! re {
     }};
 }
 
-fn g(m: &[Option<String>], k: usize) -> String {
+pub(crate) fn g(m: &[Option<String>], k: usize) -> String {
     m.get(k).cloned().flatten().unwrap_or_default()
 }
 
-fn strip_fx(t: &str) -> String {
+pub(crate) fn strip_fx(t: &str) -> String {
     re!(r"^\s*(?:the function\s+|the curve\s+|the graph of\s+|the parabola\s+|the line\s+)?(?:[a-zA-Z]\s*\(\s*[a-z]\s*\)|y)\s*=\s*").replace(t, "").trim().to_string()
 }
 
-fn fx(t: &str) -> Option<Expr> {
+pub(crate) fn fx(t: &str) -> Option<Expr> {
     ex(&strip_fx(t))
 }
 
-fn plot_pod(fs: &[Expr], x: &Expr, range: Option<(f64, f64)>) -> Option<Pod> {
+pub(crate) fn plot_pod(fs: &[Expr], x: &Expr, range: Option<(f64, f64)>) -> Option<Pod> {
     Some(pod("Plot", "Plot", plot(pl::cartesian(fs, x, range)?)))
 }
 
-fn point(x: &Expr, y: &Expr) -> Expr {
+pub(crate) fn point(x: &Expr, y: &Expr) -> Expr {
     raw_fn("Tuple", vec![List(vec![x.clone(), y.clone()])])
 }
 
@@ -52,7 +52,7 @@ fn mathy(t: &str) -> bool {
     re!(r"[a-zA-Z]+").find_iter(t).all(|w| w.as_str().len() == 1 || OK.contains(&w.as_str().to_lowercase().as_str()))
 }
 
-fn definite_expr(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+pub(crate) fn definite_expr(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
     match calculus::integrate::definite(f, x, a, b) {
         Definite::Exact(v) => Some(v),
         Definite::Numeric(v, _) => Some(float(v)),
@@ -60,7 +60,7 @@ fn definite_expr(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
     }
 }
 
-fn value_pods(title: &str, lhs: Option<Expr>, v: &Expr) -> Vec<Pod> {
+pub(crate) fn value_pods(title: &str, lhs: Option<Expr>, v: &Expr) -> Vec<Pod> {
     let shown = match lhs {
         Some(l) => eq(l, v.clone()),
         None => v.clone(),
@@ -708,12 +708,12 @@ fn raw_abs(e: &Expr) -> Expr {
 // matrices and vectors
 // ---------------------------------------------------------------------------
 
-fn mat_of(t: &str) -> Option<Mat> {
+pub(crate) fn mat_of(t: &str) -> Option<Mat> {
     let t = t.trim().replace("[[", "{{").replace("]]", "}}").replace("],", "},").replace(", [", ", {").replace(",[", ",{");
     linalg::from_expr(&ex(&t)?)
 }
 
-fn vec_of(t: &str) -> Option<Vec<Expr>> {
+pub(crate) fn vec_of(t: &str) -> Option<Vec<Expr>> {
     let t = t.trim();
     let inner = t.strip_prefix(['(', '[', '{', '<', '⟨'])?.strip_suffix([')', ']', '}', '>', '⟩'])?;
     let parts = split_top(inner);
@@ -721,7 +721,7 @@ fn vec_of(t: &str) -> Option<Vec<Expr>> {
     (v.len() == parts.len() && v.len() >= 2 && v.iter().all(|e| !e.is_list())).then_some(v)
 }
 
-fn vec_expr(v: &[Expr]) -> Expr {
+pub(crate) fn vec_expr(v: &[Expr]) -> Expr {
     raw_fn("Tuple", vec![List(v.to_vec())])
 }
 

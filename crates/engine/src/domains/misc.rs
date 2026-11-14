@@ -281,9 +281,9 @@ fn probability(q: &Query) -> Option<Answer> {
     }
     let dist = if l.contains("normal distribution") || l.contains("gaussian") {
         Some(Dist::Normal(kv(l, &["mean", "mu", "μ"]).unwrap_or(0.0), kv(l, &["sd", "standard deviation", "sigma", "σ"]).unwrap_or(1.0)))
-    } else if l.contains("binomial distribution") {
+    } else if l.contains("binomial distribution") || (l.starts_with("binomial") && l.contains("p")) {
         Some(Dist::Binomial(kv(l, &["n", "trials"])? as u64, kv(l, &["p", "probability"])?))
-    } else if l.contains("poisson distribution") {
+    } else if l.contains("poisson") {
         Some(Dist::Poisson(kv(l, &["lambda", "λ", "mean", "rate"])?))
     } else if l.contains("exponential distribution") {
         Some(Dist::Exponential(kv(l, &["lambda", "λ", "rate"]).unwrap_or(1.0)))

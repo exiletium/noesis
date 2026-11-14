@@ -60,7 +60,7 @@ fn params(l: &str) -> Params {
     static KV: OnceLock<Regex> = OnceLock::new();
     let kv = KV.get_or_init(|| {
         Regex::new(&format!(
-            r"\b(radius|radii|diameter|height|altitude|slant height|side length|sides|side|edge length|edges|edge|length|width|breadth|depth|bases|base|legs|leg|hypotenuse|semi-?axes|semi-?major axis|semi-?minor axis|axes|diagonals|diagonal|angle|circumference|perimeter|area|surface area|volume|apothem|major radius|minor radius|r|h|l|w|a|b|s)\s*(?:lengths?\s+)?(?:of|=|is|are|:|equal to)?\s*((?:{NUM}{UNIT}\s*(?:,\s*and|,|and|by|x|×)?\s*)+)"
+            r"\b(radius|radii|diameter|height|altitude|slant height|side length|sides|side|edge length|edges|edge|length|width|breadth|depth|bases|base|legs|leg|hypotenuse|semi-?axes|semi-?major axis|semi-?minor axis|axes|diagonals|diagonal|angle|circumference|perimeter|area|surface area|volume|apothem|major radius|minor radius|r|h|l|w|a|b|s)\s*(?:lengths?\s+)?(of|=|is|are|:|equal to)?\s*((?:{NUM}{UNIT}\s*(?:,\s*and|,|and|by|x|×)?\s*)+)"
         ))
         .unwrap()
     });
@@ -71,7 +71,11 @@ fn params(l: &str) -> Params {
     let mut covered: Vec<(usize, usize)> = Vec::new();
     for m in kv.captures_iter(l) {
         let key = m[1].replace("semiaxes", "semi-axes").to_string();
-        let span = m.get(2).unwrap();
+        // single-letter names ("a", "r") only with an explicit "=" or ":"
+        if key.len() == 1 && !matches!(m.get(2).map(|g| g.as_str()), Some("=" | ":")) {
+            continue;
+        }
+        let span = m.get(3).unwrap();
         let mut list = Vec::new();
         for n in one.captures_iter(span.as_str()) {
             if let Some(e) = ex(&n[1].replace('π', "pi")) {
@@ -365,10 +369,10 @@ fn geometry(l: &str) -> Option<Answer> {
     }
     // remove the property keyword so "area" is not read as a given parameter
     let given_part = match pm {
-        Some(m) if m.start() < sm.start() => &l[sm.end()..],
-        _ => l,
+        Some(m) if m.start() < sm.start() => format!("{} {}", &l[m.end()..sm.start()], &l[sm.end()..]),
+        _ => l.to_string(),
     };
-    let p = params(given_part);
+    let p = params(&given_part);
     let (label, props) = shape_props(&shape, &p)?;
     let want = pm.map(|m| m.as_str().to_string()).map(|w| {
         let w = w.replace("internal", "interior").replace("lateral surface area", "lateral area");
@@ -859,6 +863,16 @@ const NAMED: &[(&[&str], &str, &str, &str)] = &[
     (&["ohm's law", "ohms law"], "Ohm's law", "V = I R", "Voltage equals current times resistance; power P = V I = I² R = V²/R."),
     (&["kinetic energy formula", "kinetic energy"], "Kinetic energy", "E = ½ m v²", "Energy of a mass m moving at speed v."),
     (&["mass energy equivalence", "mass-energy equivalence", "e=mc^2", "e = mc^2", "e=mc2"], "Mass–energy equivalence", "E = m c²", "c = 299 792 458 m/s."),
+    (&["doppler effect", "doppler shift", "doppler formula", "doppler equation"], "Doppler effect", "f′ = f (v + v_r) / (v − v_s)", "Observed frequency for a source moving at v_s towards a receiver moving at v_r towards it, with wave speed v. For light (v ≪ c): Δf/f ≈ −v_radial/c; relativistic: f′ = f √((1 − β)/(1 + β)) for a receding source."),
+    (&["snell's law", "snells law", "law of refraction"], "Snell's law", "n₁ sin θ₁ = n₂ sin θ₂", "Relates the angles of incidence and refraction to the refractive indices of the two media."),
+    (&["hooke's law", "hookes law"], "Hooke's law", "F = −k x", "The restoring force of a spring is proportional to its extension."),
+    (&["work energy theorem", "work-energy theorem"], "Work–energy theorem", "W = ΔKE = ½ m v_f² − ½ m v_i²", "The net work done on a body equals its change in kinetic energy."),
+    (&["bernoulli's equation", "bernoulli equation", "bernoulli's principle"], "Bernoulli's equation", "p + ½ ρ v² + ρ g h = constant", "Along a streamline of a steady, incompressible, frictionless flow."),
+    (&["planck's law", "planck relation", "planck-einstein relation"], "Planck–Einstein relation", "E = h f = h c / λ", "Energy of a photon of frequency f or wavelength λ."),
+    (&["wien's law", "wiens law", "wien's displacement law"], "Wien's displacement law", "λ_max = b / T,  b ≈ 2.897771955×10⁻³ m K", "Peak wavelength of black-body radiation at temperature T."),
+    (&["stefan-boltzmann law", "stefan boltzmann law"], "Stefan–Boltzmann law", "P = σ A T⁴", "Power radiated by a black body; σ = 5.670374419×10⁻⁸ W/(m² K⁴)."),
+    (&["kepler's third law", "keplers third law"], "Kepler's third law", "T² = 4π² a³ / (G (M + m))", "Orbital period T and semi-major axis a of a two-body orbit."),
+    (&["lens equation", "thin lens equation", "lens formula"], "Thin lens equation", "1/f = 1/d_o + 1/d_i", "Focal length f, object distance d_o and image distance d_i; magnification m = −d_i/d_o."),
     (&["product rule"], "Product rule", "(f g)′ = f′ g + f g′", "Derivative of a product."),
     (&["quotient rule"], "Quotient rule", "(f / g)′ = (f′ g − f g′) / g²", "Derivative of a quotient."),
     (&["chain rule"], "Chain rule", "(f(g(x)))′ = f′(g(x)) · g′(x)", "Derivative of a composition."),

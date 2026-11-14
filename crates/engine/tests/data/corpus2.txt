@@ -1,0 +1,224 @@
+# arithmetic & numbers
+what is 15% of 240
+square root of 2 to 30 digits
+is 97 prime
+10 choose 3
+5 factorial
+2 to the power of 100
+cube root of 27
+1/3 + 1/4
+continued fraction of pi
+convert 255 to hexadecimal
+roman numeral for 1994
+MCMXCIV in decimal
+100th prime
+factors of 360
+how many digits in 2^1000
+largest prime below 1000
+is 561 a carmichael number
+fibonacci 50
+sum of digits of 2^100
+gcd of 48 and 180
+lcm 4, 6, 10
+17 mod 5
+7^222 mod 13
+golden ratio
+e to 50 digits
+3 squared plus 4 squared
+ten thousand divided by eight
+one million times one million
+number of trailing zeros in 100!
+perfect numbers below 10000
+# algebra
+solve 2x + 3 = 11
+solve x^2 = 16
+factor x^3 - 8
+expand (a+b)^5
+simplify (x^2 - 4)/(x - 2)
+solve x^3 - 6x^2 + 11x - 6 = 0
+solve |x - 3| < 5
+solve x^2 - 4 > 0
+roots of x^4 - 1
+partial fractions 1/(x^2 - 1)
+solve 2^x = 32
+solve log(x) = 2
+solve sin(x) = 1/2
+solve x + y = 5, x - y = 1
+solve x^2 + y^2 = 25, y = x + 1
+vertex of y = x^2 - 4x + 3
+discriminant of 2x^2 + 3x - 5
+gcd of x^2 - 1 and x^2 - 2x + 1
+is x^2 + 1 irreducible
+solve for y: 3x + 2y = 6
+slope of 3x + 2y = 6
+line through (1,2) with slope 3
+circle through (0,0), (1,0), (0,1)
+equation of circle with center (1,2) and radius 3
+compose f(x) = x^2 and g(x) = x + 1
+# calculus
+derivative of x^x
+d/dx sin(x)cos(x)
+second derivative of e^(x^2)
+integrate x e^x
+integrate 1/(1+x^2) from 0 to 1
+integrate sin(x)^2 dx
+integral of ln x
+limit of sin(x)/x as x approaches 0
+limit (1+1/n)^n as n->infinity
+taylor series of e^x at 0
+maclaurin series of cos x
+sum 1/n^2 from n=1 to infinity
+sum of 1/2^n from 0 to infinity
+solve y' = y
+solve y'' + y = 0
+y'' - 3y' + 2y = e^x
+critical points of x^3 - 3x
+tangent line to y = x^2 at x = 1
+area between x^2 and x
+minimize x^2 + 4x + 7
+maximize x(10 - x)
+laplace transform of sin(t)
+inverse laplace transform of 1/(s^2+1)
+fourier series of x
+curvature of y = x^2 at x = 0
+is 1/n convergent
+integrate x^2 y dx dy x=0..1 y=0..2
+derivative of arctan(x)
+implicit derivative of x^2 + y^2 = 1
+# linear algebra
+determinant of [[1,2],[3,4]]
+inverse of {{2,1},{1,1}}
+eigenvalues of {{2,0},{0,3}}
+{{1,2},{3,4}} * {{5,6},{7,8}}
+transpose {{1,2,3},{4,5,6}}
+rank of {{1,2},{2,4}}
+cross product of (1,2,3) and (4,5,6)
+dot product (1,2,3).(4,5,6)
+norm of (3,4)
+solve {{1,2},{3,4}} x = {5,6}
+lu decomposition of {{4,3},{6,3}}
+is {{1,2},{2,1}} symmetric
+# statistics
+mean of 1, 2, 3, 4, 10
+median of 3 1 4 1 5 9 2 6
+standard deviation of 2, 4, 4, 4, 5, 5, 7, 9
+variance of {1,2,3,4,5}
+mode of 1,2,2,3,3,3
+normal distribution mean 0 sd 1
+probability of 3 heads in 5 coin flips
+binomial n=10 p=0.5 P(X=3)
+poisson lambda=2 P(X=0)
+z score 1.96
+p-value for z = 2.1
+95% confidence interval mean 50 sd 10 n 100
+linear regression (1,2), (2,4), (3,5), (4,4), (5,5)
+quartiles of 1, 3, 5, 7, 9, 11
+5 number summary 2 4 4 5 7 9 10
+expected value of a die roll
+probability of rolling two sixes
+birthday problem 23 people
+t distribution 10 degrees of freedom
+chi-square critical value 0.05 df 3
+# units & physics
+60 mph in km/h
+72 kg in pounds
+1 light year in km
+1 gallon in liters
+98.6 F in C
+0 kelvin in celsius
+speed of sound in mph
+1 atm in psi
+5 feet 9 inches in cm
+1 acre in square meters
+1 parsec in light years
+how many seconds in a year
+how many ounces in a pound
+1 kWh in joules
+100 hp in kW
+energy of 1 kg of mass
+planck constant
+boltzmann constant in eV/K
+avogadro's number
+acceleration due to gravity
+half-life of carbon-14
+wavelength of red light
+speed of 100 m in 9.58 s
+force between two 1 C charges 1 m apart
+resistance of 10 ohm and 20 ohm in parallel
+capacitance energy 10 uF 5 V
+doppler shift
+time dilation at 0.9c
+de broglie wavelength of electron at 1e6 m/s
+orbital period of the moon
+# chemistry
+atomic number of gold
+electron configuration of iron
+molar mass of sulfuric acid
+C6H12O6
+melting point of iron
+density of mercury
+element 79
+noble gases
+oxidation states of manganese
+isotopes of hydrogen
+percent composition of H2O
+empirical formula of C6H12O6
+# dates & time
+days between 2024-01-01 and 2024-12-25
+what day of the week was july 4 1776
+days until christmas
+30 days from today
+100 days after 2024-01-01
+time in london
+sunrise in paris
+age of the universe
+when is easter 2025
+how many weeks in a year
+hours in a week
+minutes in a day
+# geography & facts
+capital of france
+population of japan
+area of canada
+distance from new york to london
+currency of japan
+tallest mountain in the world
+longest river in the world
+largest ocean
+number of countries in the world
+countries in south america
+population density of india
+how many people live in tokyo
+languages of switzerland
+time zone of sydney
+latitude of paris
+# finance
+compound interest 1000 at 5% for 10 years
+mortgage 250000 at 4.5% for 30 years
+future value of 100 per month at 6% for 20 years
+roi 1000 to 1500
+100 usd in eur
+apr to apy 5% monthly
+break even price 1000 fixed 5 variable 10 price
+# misc
+color #ff8800
+rgb(255, 0, 128)
+hello in binary
+base64 encode hello
+md5 of hello
+random number between 1 and 100
+flip a coin
+roll 2d6
+truth table p and q
+simplify not (a and b)
+5 choose 2 with repetition
+permutations of abc
+number of ways to arrange 5 books
+how many handshakes with 10 people
+angle sum of a hexagon
+interior angle of a regular pentagon
+30-60-90 triangle with hypotenuse 10
+area of a regular hexagon with side 2
+volume of a cube with side 3
+surface area of a cylinder radius 2 height 5
+circumference of the earth

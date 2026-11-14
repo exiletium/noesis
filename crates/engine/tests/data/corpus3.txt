@@ -1,0 +1,80 @@
+what is the derivative of sin(x^2)
+find the integral of 1/x
+what's the square root of 144
+how much is 17 times 23
+what is 2 plus 2
+is 1001 prime
+what are the roots of x^2 + 5x + 6
+solve for x 3x - 7 = 11
+what is the limit of 1/x as x goes to infinity
+evaluate the integral of x^3 from 0 to 2
+what is the area of a circle of radius 10
+convert 5 kilometers to miles
+how many cups in a gallon
+what's 20% of 85
+what is the gcd of 84 and 36
+how many seconds are in a day
+graph x^3 - 3x
+what is e^(i pi)
+simplify 2x + 3x - x
+what is the value of pi
+what is the speed of light in mph
+how far is mars from earth
+what is the boiling point of water in fahrenheit
+how many calories in a banana
+what is the cube of 7
+what's the remainder when 100 is divided by 7
+what time is it in new york
+how many days until new year
+what is the 10th fibonacci number
+is 2027 prime
+x^2 + 2x + 1 = 0
+f(x) = x^3 - 3x^2 + 2
+what is the inverse of y = 2x + 3
+integrate sin(x) cos(x) from 0 to pi/2
+what is 0.75 as a fraction
+convert 3/8 to decimal
+what is 1/7 as a decimal
+what is the mean of 4, 8, 15, 16, 23, 42
+how many feet in 3 miles
+what is 3 to the 4th power
+log base 2 of 1024
+natural log of 10
+what is sin of 45 degrees
+cos(pi/3)
+tan 60 degrees
+what is the hypotenuse if the legs are 5 and 12
+how many minutes in 3.5 hours
+what's 15 squared
+find the median of 12, 3, 7, 9, 15
+what is 7 factorial divided by 5 factorial
+how many ways can 4 people sit in a row
+what is the probability of drawing a heart
+how many sides does a hexagon have
+what is the perimeter of a rectangle with length 8 and width 3
+what is 100 fahrenheit in kelvin
+how many liters in 5 gallons
+weight of 1 liter of water
+volume of a 2 m by 3 m by 4 m box
+what is the distance between (1,2) and (4,6)
+midpoint of (2,3) and (8,7)
+what is the slope between (1,1) and (3,5)
+solve 2x^2 - 8 = 0
+expand (x - 2)(x + 3)
+factor x^2 - 9
+what is the lcm of 12 and 18
+prime factors of 84
+what is 5/6 - 1/4
+what's 3.5 + 2.75
+what is 2^-3
+what is 10 percent of 50
+round 2.567 to 1 decimal place
+square root of -16
+what is i squared
+absolute value of -7
+what is 9 mod 4
+what is the reciprocal of 4
+how many zeros in a billion
+what is a googol
+what is 1 million in scientific notation
+6.02e23 times 2
