@@ -9,6 +9,7 @@ pub mod nl;
 pub mod nl_math;
 pub mod nl_more;
 pub mod pde;
+pub mod llm;
 
 use crate::budget;
 use crate::expr::Expr;
@@ -208,6 +209,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.extend(crate::domains::handlers());
     v.push(("commands", commands::handle));
     v.push(("math", math::handle));
+    v.push(("rephrase", llm::handle));
     v.push(("encyclopedia", crate::domains::live::fallback));
     v
 }

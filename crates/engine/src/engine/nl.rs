@@ -40,7 +40,7 @@ pub fn again(q: &Query, new_text: &str) -> Option<Answer> {
     let clean = clean_query(new_text);
     let q2 = Query { raw: new_text, lower: clean.to_lowercase(), clean, opts: q.opts };
     for (name, h) in super::handlers() {
-        if name == "encyclopedia" {
+        if name == "encyclopedia" || name == "rephrase" {
             continue;
         }
         if let Some(a) = h(&q2) {

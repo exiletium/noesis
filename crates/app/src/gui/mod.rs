@@ -81,6 +81,10 @@ struct Saved {
     digits: usize,
     #[serde(default = "default_true")]
     online: bool,
+    #[serde(default)]
+    llm_url: String,
+    #[serde(default)]
+    llm_model: String,
 }
 
 fn default_true() -> bool {
@@ -97,6 +101,8 @@ pub struct App {
     device: String,
     digits: usize,
     online: bool,
+    llm_url: String,
+    llm_model: String,
     sidebar_open: bool,
     search: String,
     search_open: bool,
@@ -151,6 +157,8 @@ impl App {
             device: "auto".into(),
             digits: 6,
             online: true,
+            llm_url: std::env::var("NOESIS_LLM_URL").unwrap_or_default(),
+            llm_model: std::env::var("NOESIS_LLM_MODEL").unwrap_or_default(),
             sidebar_open: true,
             search: String::new(),
             search_open: false,
@@ -170,10 +178,17 @@ impl App {
             app.device = saved.device;
             app.digits = saved.digits.clamp(3, 30);
             app.online = saved.online;
+            if !saved.llm_url.is_empty() {
+                app.llm_url = saved.llm_url;
+                app.llm_model = saved.llm_model;
+            }
             app.next_id = app.sessions.iter().map(|s| s.id).max().unwrap_or(0) + 1;
         }
         noesis::compute::set_preference(&app.device);
         noesis::domains::live::set_online(app.online);
+        if !app.llm_url.is_empty() {
+            noesis::engine::llm::configure(&app.llm_url, &app.llm_model, std::env::var("NOESIS_LLM_KEY").ok().as_deref());
+        }
         if let Ok(t) = std::env::var("NOESIS_THEME") {
             app.theme = if t == "light" { ThemeChoice::Light } else { ThemeChoice::Dark };
         }
@@ -196,7 +211,7 @@ impl App {
 
     fn save(&self) {
         let Some(path) = config_path() else { return };
-        let saved = Saved { sessions: self.sessions.iter().rev().take(200).rev().cloned().collect(), theme: self.theme, mode: self.mode, device: self.device.clone(), digits: self.digits, online: self.online };
+        let saved = Saved { sessions: self.sessions.iter().rev().take(200).rev().cloned().collect(), theme: self.theme, mode: self.mode, device: self.device.clone(), digits: self.digits, online: self.online, llm_url: self.llm_url.clone(), llm_model: self.llm_model.clone() };
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
@@ -972,6 +987,22 @@ impl App {
             });
             if ui.checkbox(&mut self.online, "Online data (weather, exchange rates, encyclopedia)").changed() {
                 noesis::domains::live::set_online(self.online);
+                self.save();
+            }
+            ui.add_space(10.0);
+            ui.label(RichText::new("Language model (optional)").color(pal.muted));
+            ui.label(RichText::new("Questions the built-in rules do not understand can be rephrased by a model at an OpenAI-compatible endpoint, such as Ollama at http://localhost:11434/v1. Noesis still computes the answer.").size(12.0).color(pal.muted));
+            let mut changed = false;
+            egui::Grid::new("llm").num_columns(2).spacing(vec2(12.0, 6.0)).show(ui, |ui| {
+                ui.label("Endpoint");
+                changed |= ui.add(egui::TextEdit::singleline(&mut self.llm_url).hint_text("off").desired_width(260.0)).lost_focus();
+                ui.end_row();
+                ui.label("Model");
+                changed |= ui.add(egui::TextEdit::singleline(&mut self.llm_model).hint_text("e.g. qwen2.5:7b").desired_width(260.0)).lost_focus();
+                ui.end_row();
+            });
+            if changed {
+                noesis::engine::llm::configure(&self.llm_url, &self.llm_model, std::env::var("NOESIS_LLM_KEY").ok().as_deref());
                 self.save();
             }
             ui.add_space(10.0);

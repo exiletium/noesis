@@ -18,6 +18,10 @@ OPTIONS:
     --timeout <S>      time limit in seconds (default 20)
     --no-steps         skip step-by-step solutions
     --offline          never use the network (no live weather, rates, encyclopedia)
+    --llm <URL>        rephrase questions the rules do not understand with a
+                       language model at this OpenAI-compatible endpoint
+                       (e.g. http://localhost:11434/v1 for Ollama)
+    --llm-model <NAME> model name for --llm (default: NOESIS_LLM_MODEL or \"default\")
     --svg <DIR>        write plots as SVG files into DIR
     --benchmark        measure CPU/GPU evaluation throughput
     --devices          show available compute devices
@@ -35,6 +39,8 @@ pub fn run(args: Vec<String>) -> i32 {
     let mut short = false;
     let mut svg_dir: Option<String> = None;
     let mut words: Vec<String> = Vec::new();
+    let mut llm_url: Option<String> = None;
+    let mut llm_model: Option<String> = None;
     let mut it = args.into_iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -46,6 +52,8 @@ pub fn run(args: Vec<String>) -> i32 {
             "--short" => short = true,
             "--no-steps" => opts.steps = false,
             "--offline" => noesis::domains::live::set_online(false),
+            "--llm" => llm_url = it.next(),
+            "--llm-model" => llm_model = it.next(),
             "--device" => noesis::compute::set_preference(&it.next().unwrap_or_default()),
             "--digits" => opts.digits = it.next().and_then(|v| v.parse().ok()).unwrap_or(6),
             "--timeout" => opts.timeout = it.next().and_then(|v| v.parse().ok()).unwrap_or(20.0),
@@ -67,6 +75,10 @@ pub fn run(args: Vec<String>) -> i32 {
             "--repl" => return repl(&opts),
             _ => words.push(a),
         }
+    }
+    if let Some(url) = &llm_url {
+        let model = llm_model.clone().or_else(|| std::env::var("NOESIS_LLM_MODEL").ok()).unwrap_or_default();
+        noesis::engine::llm::configure(url, &model, std::env::var("NOESIS_LLM_KEY").ok().as_deref());
     }
     if words.is_empty() {
         println!("{HELP}");

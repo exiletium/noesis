@@ -54,7 +54,7 @@ Noesis reproduces WolframAlpha's style of answer, pods with exact and approximat
 It is also more limited, and these limits are real:
 
 * **Less curated data.** WolframAlpha draws on a vast, continuously updated, curated knowledge base. Noesis ships a small offline dataset (118 elements, about 250 countries, about 6,000 cities, physical constants, the solar system, common substances, isotopes, landmarks and world records, approximate GDP). Some of these figures, such as populations and GDP, change over time and are only as current as the bundled tables; offline currency conversion uses approximate mid-2025 rates and says so. When online it also fetches weather (Open-Meteo), exchange rates (European Central Bank) and encyclopedia summaries (Wikipedia), but it does not have WolframAlpha's structured data on nutrition, sports, films, companies and so on.
-* **Narrower language understanding.** Noesis uses hand-written grammar rules, not a language model. It understands ordinary mathematical notation and a wide set of English phrasings: the test suite contains four corpora of 598 WolframAlpha-style questions (`crates/engine/tests/data/`), the tests require every one to be understood and assert the exact answers of about a hundred of them. Phrasings outside those rules may still not be understood.
+* **Narrower language understanding without a model.** Out of the box, Noesis uses hand-written grammar rules. It understands ordinary mathematical notation and a wide set of English phrasings: the test suite contains four corpora of 598 WolframAlpha-style questions (`crates/engine/tests/data/`), the tests require every one to be understood and assert the exact answers of about a hundred of them. Phrasings outside those rules may still not be understood unless you connect a language model (see above), and a model can misread a question, which is why the rewritten query is always shown.
 * **A smaller computer algebra system.** Integration is heuristic: tables, substitution, parts, rational functions, Euler and Weierstrass substitutions and special functions (erf, Si, Ei, Fresnel). It is not a complete Risch implementation, so some elementary integrals that Mathematica finds will be missed. Every antiderivative is checked numerically before it is shown, so wrong answers are rejected rather than displayed. Factoring is over ℚ only, and high-degree polynomials fall back to numeric roots.
 * **Step-by-step solutions** cover derivatives, integrals (substitution, integration by parts, partial fractions, trigonometric identities and so on), limits (factoring, L'Hôpital, conjugates, logarithms), sums (power sums, geometric and telescoping series), equations (linear, quadratic, factoring, radical equations with extraneous-root checks), completing the square and implicit differentiation. Other operations show results without working.
 * **Differential equations:** linear equations with constant coefficients of any order, Cauchy–Euler equations, and first-order linear, separable, Bernoulli and logistic equations. Other nonlinear and variable-coefficient higher-order equations get a numeric solution when initial conditions are given. Partial differential equations: second-order linear equations in two variables are classified; first-order linear equations with constant coefficients are solved by characteristics; the heat and wave equations on an interval (Dirichlet or Neumann ends) are solved by Fourier series, the wave equation on the whole line by d'Alembert's formula, and Laplace's equation on a rectangle with data on one side. Nonlinear PDEs, PDEs with source terms and other geometries are not solved.
@@ -113,6 +113,19 @@ println!("{}", result.short_answer().unwrap());
 ```
 
 The engine crate (`crates/engine`, imported as `noesis`) has no GUI dependencies. Build it with `--no-default-features` to leave out GPU support.
+
+## Free-form English with a local language model (optional)
+
+The built-in rules cover the phrasings listed above. For anything else, Noesis can ask a language model to rewrite the question into a Noesis query. The model only rewrites; Noesis computes the answer and shows the rewritten query first, so you can check the interpretation. It is off unless you configure an endpoint, and it is consulted only when the rules fail.
+
+Any OpenAI-compatible chat endpoint works: [Ollama](https://ollama.com), llama.cpp's `llama-server`, LM Studio, vLLM, or a hosted service.
+
+```bash
+ollama pull qwen2.5:7b
+noesis --llm http://localhost:11434/v1 --llm-model qwen2.5:7b "if I put away 1000 dollars at 5 percent, what do I have after a decade?"
+```
+
+You can also set `NOESIS_LLM_URL`, `NOESIS_LLM_MODEL` and, if needed, `NOESIS_LLM_KEY`, or fill in Settings → Language model in the desktop app. A model on `localhost` is used even in offline mode, because nothing leaves your machine; a remote endpoint is used only when online data is enabled.
 
 ## The desktop app
 
