@@ -327,6 +327,29 @@ pub fn handle(q: &Query) -> Option<Answer> {
         let pl = pl::polar(&r, &t, (a, b))?;
         return Some(Answer::new(format!("polar plot r = {}", ptext(&r)), vec![pod("Input", "Input", text(format!("polar plot r(θ) = {}", ptext(&r).replace('t', "θ")))), primary(pod("Plot", "Polar plot", plot(pl)))]));
     }
+    if let Some(m) = cap(re!(r"^(?:parametric plot|plot parametric|space curve|3d parametric plot|parametric 3d plot)\s*\(?([^,]+),([^,]+),([^,()]+(?:\([^()]*\))?[^,()]*?)\)?(?:\s+(?:from\s+|for\s+)?t\s*=\s*(.+?)\s+to\s+(.+))?$")) {
+        let fx = ex(m[1].as_deref()?)?;
+        let fy = ex(m[2].as_deref()?)?;
+        let fz = ex(m[3].as_deref()?)?;
+        let ae = m[4].as_deref().and_then(bound).unwrap_or_else(zero);
+        let be = m[5].as_deref().and_then(bound).unwrap_or_else(|| mul(vec![int(4), pi()]));
+        let (a, b) = (ae.to_f64_const()?, be.to_f64_const()?);
+        let tt = sym("t");
+        let pl = pl::parametric3(&fx, &fy, &fz, &tt, (a, b))?;
+        let mut pods = vec![pod("Input", "Input", text(format!("parametric plot ({}, {}, {}) for t from {} to {}", ptext(&fx), ptext(&fy), ptext(&fz), ptext(&ae), ptext(&be)))), primary(pod("Plot", "Space curve", plot(pl)))];
+        // arc length and curvature data
+        let d: Vec<Expr> = [&fx, &fy, &fz].iter().map(|f| crate::calculus::diff::diff(f, &tt)).collect();
+        let speed = crate::simplify::simplify(&sqrt(add(d.iter().map(|e| square(e.clone())).collect())));
+        pods.push(pod("Speed", "Speed |r′(t)|", math(&speed)));
+        if let Some(len) = match crate::calculus::integrate::definite(&speed, &tt, &ae, &be) {
+            crate::calculus::integrate::Definite::Exact(v) => Some(math(&crate::simplify::simplify(&v))),
+            crate::calculus::integrate::Definite::Numeric(v, _) => Some(text(crate::print::fmt_float(v, 8))),
+            _ => None,
+        } {
+            pods.push(pod("Length", "Arc length over the interval", len));
+        }
+        return Some(Answer::new("space curve", pods));
+    }
     if let Some(m) = cap(re!(r"^(?:parametric plot|plot parametric)\s*\(?(.+?),\s*(.+?)\)?(?:\s+(?:from\s+)?t\s*=\s*(.+?)\s+to\s+(.+))?$")) {
         let fx = ex(m[1].as_deref()?)?;
         let fy = ex(m[2].as_deref()?)?;

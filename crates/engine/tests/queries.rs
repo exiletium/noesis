@@ -386,3 +386,17 @@ fn advanced_topics() {
     assert!(short("sum (-1)^n/(2n+1) from n=0 to infinity").ends_with("= π/4"));
     assert!(short("sum (-1)^(n+1)/n^4 from n=1 to infinity").ends_with("= (7 π^4)/720"));
 }
+
+#[test]
+fn space_curves() {
+    let r = q("parametric plot (cos t, sin t, t)");
+    assert_eq!(pod_text(&r, "Length"), "4 sqrt(2) π");
+    let p = r.pods.iter().find(|p| p.id == "Plot").unwrap();
+    match &p.subpods[0].content {
+        noesis::engine::Content::Plot { plot: pl } => {
+            assert_eq!(pl.kind, noesis::plot::PlotKind::Curve3d);
+            assert!(noesis::plot::to_svg(pl, true, 640.0, 400.0).contains("<polyline"));
+        }
+        _ => panic!("no plot"),
+    }
+}

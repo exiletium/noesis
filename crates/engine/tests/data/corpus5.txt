@@ -58,3 +58,4 @@ product (1 - 1/k^2) from k=2 to infinity
 sum (-1)^n/(2n+1) from n=0 to infinity
 recurrence a(n) = a(n-1) + a(n-2), a(0)=0, a(1)=1
 generating function of fibonacci numbers
+parametric plot (cos t, sin t, t)

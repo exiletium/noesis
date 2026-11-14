@@ -21,6 +21,7 @@ pub enum PlotKind {
     Scatter,
     Bars,
     Fractal,
+    Curve3d,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -67,6 +68,8 @@ pub struct Plot {
     pub device: Device,
     /// Equal axis scaling (circles look round).
     pub equal_aspect: bool,
+    /// Points of a space curve (for `Curve3d`), split at discontinuities.
+    pub curve3d: Vec<Vec<[f64; 3]>>,
 }
 
 impl Plot {
@@ -84,6 +87,7 @@ impl Plot {
             y_label: "y".into(),
             device: Device::Cpu,
             equal_aspect: false,
+            curve3d: vec![],
         }
     }
 }
@@ -305,6 +309,75 @@ pub fn parametric(fx: &Expr, fy: &Expr, t: &Expr, range: (f64, f64)) -> Option<P
     plot.exprs = vec![text(fx), text(fy)];
     plot.vars = vec![name];
     Some(plot)
+}
+
+/// A space curve (x(t), y(t), z(t)).
+pub fn parametric3(fx: &Expr, fy: &Expr, fz: &Expr, t: &Expr, range: (f64, f64)) -> Option<Plot> {
+    let name = name_of(t);
+    let progs: Option<Vec<Program>> = [fx, fy, fz].iter().map(|f| Program::compile(f, &[&name]).map(|p| p.with_real_roots())).collect();
+    let progs = progs?;
+    let n = 1500;
+    let ts: Vec<f64> = (0..n).map(|k| range.0 + (range.1 - range.0) * k as f64 / (n - 1) as f64).collect();
+    let (xs, dev) = compute::eval_points(&progs[0], &ts);
+    let (ys, _) = compute::eval_points(&progs[1], &ts);
+    let (zs, _) = compute::eval_points(&progs[2], &ts);
+    let mut segs = Vec::new();
+    let mut cur = Vec::new();
+    for k in 0..n {
+        if xs[k].is_finite() && ys[k].is_finite() && zs[k].is_finite() {
+            cur.push([xs[k], ys[k], zs[k]]);
+        } else if !cur.is_empty() {
+            segs.push(std::mem::take(&mut cur));
+        }
+    }
+    if !cur.is_empty() {
+        segs.push(cur);
+    }
+    if segs.is_empty() {
+        return None;
+    }
+    let mut plot = Plot::new(PlotKind::Curve3d);
+    plot.device = dev;
+    let all: Vec<&[f64; 3]> = segs.iter().flatten().collect();
+    let range_of = |k: usize| all.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| (lo.min(p[k]), hi.max(p[k])));
+    plot.x_range = range_of(0);
+    plot.y_range = range_of(1);
+    plot.curve3d = segs;
+    plot.x_label = "x".into();
+    plot.y_label = "y".into();
+    plot.exprs = vec![text(fx), text(fy), text(fz)];
+    plot.vars = vec![name];
+    Some(plot)
+}
+
+/// Project a space curve onto the plane at a fixed viewing angle (for SVG).
+pub fn project_curve3d(plot: &Plot, yaw: f64, pitch: f64) -> Plot {
+    let all: Vec<&[f64; 3]> = plot.curve3d.iter().flatten().collect();
+    let range_of = |k: usize| all.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| (lo.min(p[k]), hi.max(p[k])));
+    let r: Vec<(f64, f64)> = (0..3).map(range_of).collect();
+    let norm = |v: f64, (lo, hi): (f64, f64)| if hi > lo { 2.0 * (v - lo) / (hi - lo) - 1.0 } else { 0.0 };
+    let (cy, sy, cp, sp) = (yaw.cos(), yaw.sin(), pitch.cos(), pitch.sin());
+    let segs: Vec<Vec<[f64; 2]>> = plot
+        .curve3d
+        .iter()
+        .map(|seg| {
+            seg.iter()
+                .map(|p| {
+                    let (u, v, w) = (norm(p[0], r[0]), norm(p[1], r[1]), norm(p[2], r[2]) * 0.8);
+                    let x = u * cy - v * sy;
+                    let y = u * sy + v * cy;
+                    [x, w * cp - y * sp]
+                })
+                .collect()
+        })
+        .collect();
+    let mut out = Plot::new(PlotKind::Parametric);
+    out.series.push(Series { label: plot.exprs.join(", "), segments: segs, points: false });
+    fit_both(&mut out);
+    out.equal_aspect = true;
+    out.x_label = String::new();
+    out.y_label = String::new();
+    out
 }
 
 pub fn polar(r: &Expr, theta: &Expr, range: (f64, f64)) -> Option<Plot> {
@@ -559,7 +632,53 @@ pub fn ticks(lo: f64, hi: f64, target: usize) -> Vec<f64> {
 }
 
 /// Standalone SVG rendering of a 2-D plot.
+/// A space curve drawn in a box at a fixed viewing angle.
+fn curve3d_svg(plot: &Plot, dark: bool, width: f64, height: f64) -> String {
+    let (bg, muted, grid) = if dark { ("#1a1a19", "#c3c2b7", "#3a3a37") } else { ("#fcfcfb", "#52514e", "#d4d3cf") };
+    let colors = if dark { SERIES_DARK } else { SERIES_LIGHT };
+    let all: Vec<&[f64; 3]> = plot.curve3d.iter().flatten().collect();
+    let range_of = |k: usize| all.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| (lo.min(p[k]), hi.max(p[k])));
+    let r: Vec<(f64, f64)> = (0..3).map(range_of).collect();
+    let norm = |v: f64, (lo, hi): (f64, f64)| if hi > lo { 2.0 * (v - lo) / (hi - lo) - 1.0 } else { 0.0 };
+    let (yaw, pitch) = (0.7f64, 0.55f64);
+    let (cy, sy, cp, sp) = (yaw.cos(), yaw.sin(), pitch.cos(), pitch.sin());
+    let scale = width.min(height * 1.3) * 0.29;
+    let (cx, cz) = (width / 2.0, height / 2.0 + 6.0);
+    let proj = |u: f64, v: f64, w: f64| -> (f64, f64) {
+        let x = u * cy - v * sy;
+        let y = u * sy + v * cy;
+        (cx + x * scale, cz + (-w * cp + y * sp) * scale * 0.8)
+    };
+    let mut s = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\" font-family=\"Inter, Segoe UI, sans-serif\" font-size=\"11\">");
+    s += &format!("<rect width=\"100%\" height=\"100%\" fill=\"{bg}\"/>");
+    let sq = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)];
+    for w in [-0.8, 0.8] {
+        let pts: Vec<String> = sq.iter().map(|(u, v)| { let (a, b) = proj(*u, *v, w); format!("{a:.1},{b:.1}") }).collect();
+        s += &format!("<polygon points=\"{}\" fill=\"none\" stroke=\"{grid}\" stroke-width=\"1\"/>", pts.join(" "));
+    }
+    for (u, v) in sq {
+        let (a, b) = proj(u, v, -0.8);
+        let (c, d) = proj(u, v, 0.8);
+        s += &format!("<line x1=\"{a:.1}\" y1=\"{b:.1}\" x2=\"{c:.1}\" y2=\"{d:.1}\" stroke=\"{grid}\" stroke-width=\"1\"/>");
+    }
+    for seg in &plot.curve3d {
+        let pts: Vec<String> = seg.iter().map(|p| { let (a, b) = proj(norm(p[0], r[0]), norm(p[1], r[1]), norm(p[2], r[2]) * 0.8); format!("{a:.1},{b:.1}") }).collect();
+        s += &format!("<polyline points=\"{}\" fill=\"none\" stroke=\"{}\" stroke-width=\"2\"/>", pts.join(" "), colors[0]);
+    }
+    let label = |u: f64, v: f64, w: f64, t: &str| { let (a, b) = proj(u, v, w); format!("<text x=\"{a:.1}\" y=\"{b:.1}\" fill=\"{muted}\" text-anchor=\"middle\">{t}</text>") };
+    s += &label(1.25, -1.0, -0.8, "x");
+    s += &label(-1.0, 1.25, -0.8, "y");
+    s += &label(-1.0, -1.0, 0.98, "z");
+    let f = |v: f64| crate::print::fmt_float(v, 3);
+    s += &format!("<text x=\"10\" y=\"{:.1}\" fill=\"{muted}\">x {}…{} · y {}…{} · z {}…{}</text>", height - 10.0, f(r[0].0), f(r[0].1), f(r[1].0), f(r[1].1), f(r[2].0), f(r[2].1));
+    s += "</svg>";
+    s
+}
+
 pub fn to_svg(plot: &Plot, dark: bool, width: f64, height: f64) -> String {
+    if plot.kind == PlotKind::Curve3d {
+        return curve3d_svg(plot, dark, width, height);
+    }
     let (bg, fg, muted, grid) = if dark { ("#1a1a19", "#f0efec", "#c3c2b7", "#2e2e2c") } else { ("#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df") };
     let colors = if dark { SERIES_DARK } else { SERIES_LIGHT };
     let (ml, mr, mt, mb) = (52.0, 16.0, 14.0, 34.0);

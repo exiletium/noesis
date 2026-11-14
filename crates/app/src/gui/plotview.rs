@@ -51,7 +51,7 @@ pub fn show(ui: &mut Ui, id: egui::Id, plot: &Plot, pal: &Palette, states: &mut 
     let width = ui.available_width().min(760.0).max(240.0);
     let height = match plot.kind {
         PlotKind::NumberLine => 90.0,
-        PlotKind::Surface => (width * 0.62).min(440.0),
+        PlotKind::Surface | PlotKind::Curve3d => (width * 0.62).min(440.0),
         _ => (width * 0.58).min(420.0),
     };
     let (rect, resp) = ui.allocate_exact_size(vec2(width, height), Sense::click_and_drag());
@@ -61,6 +61,7 @@ pub fn show(ui: &mut Ui, id: egui::Id, plot: &Plot, pal: &Palette, states: &mut 
     painter.rect_stroke(rect, 10.0, Stroke::new(1.0_f32, pal.border), StrokeKind::Inside);
     match plot.kind {
         PlotKind::Surface => surface(ui, rect, &resp, plot, pal, st),
+        PlotKind::Curve3d => curve3d(ui, rect, &resp, plot, pal, st),
         PlotKind::Fractal | PlotKind::Contour => {
             image_plot(ui, rect, plot, pal, st);
             if plot.kind == PlotKind::Contour {
@@ -339,6 +340,60 @@ fn image_plot(ui: &mut Ui, rect: Rect, plot: &Plot, pal: &Palette, st: &mut Plot
         let target = if plot.kind == PlotKind::Fractal { rect.shrink(6.0) } else { f.plot_rect };
         ui.painter_at(rect).image(tex.id(), target, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
     }
+}
+
+/// A space curve in a rotatable box (drag to rotate, double-click to reset).
+fn curve3d(ui: &mut Ui, rect: Rect, resp: &egui::Response, plot: &Plot, pal: &Palette, st: &mut PlotState) {
+    if resp.dragged() {
+        let d = resp.drag_delta();
+        st.yaw += d.x * 0.01;
+        st.pitch = (st.pitch + d.y * 0.01).clamp(-1.5, 1.5);
+    }
+    if resp.double_clicked() {
+        st.yaw = 0.7;
+        st.pitch = 0.55;
+    }
+    let all: Vec<&[f64; 3]> = plot.curve3d.iter().flatten().collect();
+    if all.is_empty() {
+        return;
+    }
+    let range_of = |k: usize| all.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| (lo.min(p[k]), hi.max(p[k])));
+    let r: Vec<(f64, f64)> = (0..3).map(range_of).collect();
+    let norm = |v: f64, (lo, hi): (f64, f64)| if hi > lo { (2.0 * (v - lo) / (hi - lo) - 1.0) as f32 } else { 0.0 };
+    let painter = ui.painter_at(rect);
+    let (cy, sy) = (st.yaw.cos(), st.yaw.sin());
+    let (cp, sp) = (st.pitch.cos(), st.pitch.sin());
+    let scale = rect.width().min(rect.height() * 1.3) * 0.34;
+    let center = rect.center();
+    let proj = |u: f32, v: f32, w: f32| -> (Pos2, f32) {
+        let x = u * cy - v * sy;
+        let y = u * sy + v * cy;
+        (pos2(center.x + x * scale, center.y + (-w * cp + y * sp) * scale * 0.8), y * cp + w * sp)
+    };
+    // bounding box
+    let corners = |w: f32| -> Vec<Pos2> { [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].iter().map(|(u, v)| proj(*u, *v, w).0).collect() };
+    painter.add(Shape::closed_line(corners(-0.8), Stroke::new(1.0_f32, pal.faint)));
+    painter.add(Shape::closed_line(corners(0.8), Stroke::new(0.6_f32, pal.grid)));
+    for (u, v) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
+        painter.line_segment([proj(u, v, -0.8).0, proj(u, v, 0.8).0], Stroke::new(0.6_f32, pal.grid));
+    }
+    // the curve, coloured along its length
+    let total: usize = plot.curve3d.iter().map(|s| s.len()).sum::<usize>().max(2);
+    let mut idx = 0usize;
+    for seg in &plot.curve3d {
+        let pts: Vec<Pos2> = seg.iter().map(|p| proj(norm(p[0], r[0]), norm(p[1], r[1]), norm(p[2], r[2]) * 0.8).0).collect();
+        for w in pts.windows(2) {
+            let t = idx as f32 / total as f32;
+            painter.line_segment([w[0], w[1]], Stroke::new(2.0_f32, ramp(t, pal.dark)));
+            idx += 1;
+        }
+        idx += 1;
+    }
+    let font = FontId::proportional(11.0);
+    painter.text(proj(1.2, -1.0, -0.8).0, egui::Align2::CENTER_CENTER, "x", font.clone(), pal.muted);
+    painter.text(proj(-1.0, 1.2, -0.8).0, egui::Align2::CENTER_CENTER, "y", font.clone(), pal.muted);
+    painter.text(proj(-1.0, -1.0, 0.95).0, egui::Align2::CENTER_CENTER, "z", font.clone(), pal.muted);
+    painter.text(rect.left_bottom() + vec2(10.0, -8.0), egui::Align2::LEFT_BOTTOM, format!("x {}…{}  ·  y {}…{}  ·  z {}…{}  ·  drag to rotate", fmt_tick(r[0].0), fmt_tick(r[0].1), fmt_tick(r[1].0), fmt_tick(r[1].1), fmt_tick(r[2].0), fmt_tick(r[2].1)), font, pal.faint);
 }
 
 fn surface(ui: &mut Ui, rect: Rect, resp: &egui::Response, plot: &Plot, pal: &Palette, st: &mut PlotState) {
