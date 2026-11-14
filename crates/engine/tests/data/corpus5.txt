@@ -1,0 +1,60 @@
+gamma(5/2)
+zeta(3)
+bessel j0(2.5)
+erf(1)
+beta(2,3)
+li(10)
+lambert w(1)
+airy ai(0)
+riemann zeta function at 2
+digamma(1)
+elliptic integral K(0.5)
+hypergeometric 2F1(1,1,2,0.5)
+x^2 + y^2 + z^2 = 1
+plot x^2 + y^2 from -2 to 2
+contour plot sin(x) cos(y)
+polar plot r = sin(3 theta)
+graph y = |x|
+plot e^-x^2 and x^2
+plot floor(x)
+continued fraction of sqrt(2)
+11^100 mod 7
+solve x^2 = 2 mod 7
+solve 3x = 4 mod 7
+inverse of 3 mod 11
+primitive root of 7
+pell equation x^2 - 2y^2 = 1
+partitions of 10
+collatz 27
+perfect square 144
+is 2^127 - 1 prime
+gcd(2^30 - 1, 2^20 - 1)
+cross product (1,0,0) x (0,1,0)
+dot product of {1,2} and {3,4}
+{{1,2},{3,4}}^-1
+{{1,2},{3,4}} . {{1},{1}}
+singular values of {{3,0},{4,5}}
+qr decomposition of {{1,2},{3,4}}
+matrix exponential of {{0,1},{-1,0}}
+kernel of {{1,2,3},{2,4,6}}
+diagonalize {{2,1},{1,2}}
+jordan form of {{1,1},{0,1}}
+solve x' = y, y' = -x
+solve x' = 2x + y, y' = x + 2y
+laplace transform of t^3
+fourier transform of e^(-x^2)
+z transform of 2^n
+inverse z transform of z/(z-1)
+convolution of e^t and e^(2t)
+residue of 1/(z^2+1) at z = i
+poles of 1/(z^2 + 4)
+contour integral of 1/z around unit circle
+series of 1/(1-x) at x = 0 to order 5
+asymptotic expansion of gamma(x)
+limit x^x as x -> 0+
+limit (1 + a/x)^x as x -> infinity
+sum k^3 from 1 to n
+product (1 - 1/k^2) from k=2 to infinity
+sum (-1)^n/(2n+1) from n=0 to infinity
+recurrence a(n) = a(n-1) + a(n-2), a(0)=0, a(1)=1
+generating function of fibonacci numbers

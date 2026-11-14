@@ -42,6 +42,11 @@ pub fn sum(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> SumResult {
         }
         return SumResult::Exact(simplify::simplify(&mul(vec![f.clone(), add(vec![b.clone(), neg(a.clone()), one()])])));
     }
+    if is_pinf(b) {
+        if let Some(v) = alternating_reciprocal(f, k, a) {
+            return SumResult::Exact(v);
+        }
+    }
     // linearity
     let fe = simplify::expand(f);
     if let Add(v) = &fe {
@@ -622,6 +627,11 @@ pub fn product(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> SumResult {
         }
     }
     if is_pinf(b) {
+        // Π_(k=s)^∞ Π(k + aᵢ)/Π(k + bⱼ) = Π Γ(s + bⱼ)/Π Γ(s + aᵢ) when the
+        // factors split over ℚ, the leading coefficients agree and Σaᵢ = Σbⱼ
+        if let Some(v) = rational_product_to_infinity(f, k, a) {
+            return SumResult::Exact(v);
+        }
         // numeric infinite product through Σ ln f(k)
         if let SumResult::Numeric(v) = sum(&ln(f.clone()), k, a, b) {
             return SumResult::Numeric(v.exp());
@@ -635,7 +645,96 @@ pub fn product(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> SumResult {
     SumResult::Unknown
 }
 
-/// Γ(n + 1) with symbolic integer n is shown as n!.
+/// Σ_(k=a)^∞ (−1)^k c/(p k + q) when q/p is an integer or a half-integer:
+/// S(β) = Σ_(n≥0) (−1)^n/(n + β) is ln 2 for β = 1 and π/2 for β = 1/2, and
+/// shifting β by an integer m gives (−1)^m (S(β) − Σ_(j<m) (−1)^j/(j + β)).
+fn alternating_reciprocal(f: &Expr, k: &Expr, a: &Expr) -> Option<Expr> {
+    let start = a.as_i64()?;
+    let fs = f.factors();
+    // (−1)^(k + c) with an integer c
+    let mut shift = 0i64;
+    let sign_pos = fs.iter().position(|t| match t {
+        Pow(base, e) if base.as_i64() == Some(-1) => match simplify::simplify(&sub((**e).clone(), k.clone())).as_i64() {
+            Some(c) => {
+                shift = c;
+                true
+            }
+            None => false,
+        },
+        _ => false,
+    })?;
+    let rest = mul(fs.iter().enumerate().filter(|(i, _)| *i != sign_pos).map(|(_, t)| t.clone()).collect());
+    let rest = if shift % 2 != 0 { neg(rest) } else { rest };
+    let (top, bottom) = simplify::together(&rest).numer_denom();
+    if top.has_sym(k) {
+        return None;
+    }
+    // Dirichlet eta: Σ_(k≥1) (−1)^k / k^s = −(1 − 2^(1−s)) ζ(s)
+    if let Pow(base, e) = &bottom {
+        if **base == *k && start == 1 {
+            let sp = e.as_i64()?;
+            if sp >= 2 {
+                let eta = mul(vec![sub(one(), pow(int(2), int(1 - sp))), func("zeta", vec![int(sp)])]);
+                return Some(simplify::simplify(&mul(vec![int(-1), top, eta])));
+            }
+        }
+    }
+    let cs = poly::coeffs(&simplify::expand(&bottom), k)?;
+    if cs.len() != 2 {
+        return None;
+    }
+    let (p, q) = (cs[1].as_rat().cloned().or_else(|| cs[1].as_int().map(|i| Rat::from_integer(i.clone())))?, cs[0].as_rat().cloned().or_else(|| cs[0].as_int().map(|i| Rat::from_integer(i.clone())))?);
+    // shift the index to start at 0: k = n + start
+    let beta = q / p.clone() + Rat::from_integer(start.into());
+    let two_beta = beta.clone() * Rat::from_integer(2.into());
+    if !two_beta.is_integer() || beta <= Rat::from_integer(0.into()) {
+        return None;
+    }
+    let (base, base_val) = if beta.is_integer() { (Rat::from_integer(1.into()), ln(int(2))) } else { (Rat::new(1.into(), 2.into()), div(pi(), int(2))) };
+    let m = (beta.clone() - base.clone()).to_integer().to_i64()?;
+    if !(0..=10_000).contains(&m) {
+        return None;
+    }
+    let mut partial = Vec::new();
+    for j in 0..m {
+        let t = num(Rat::from_integer(if j % 2 == 0 { 1.into() } else { (-1).into() }) / (Rat::from_integer(j.into()) + base.clone()));
+        partial.push(t);
+    }
+    let s_beta = mul(vec![int(if m % 2 == 0 { 1 } else { -1 }), sub(base_val, add(partial))]);
+    // the original sum: (−1)^(n + start) top/(p (n + β))
+    let sign = if start % 2 == 0 { 1 } else { -1 };
+    Some(simplify::simplify(&mul(vec![int(sign), top, pow(num(p), int(-1)), s_beta])))
+}
+
+fn rational_product_to_infinity(f: &Expr, k: &Expr, start: &Expr) -> Option<Expr> {
+    let (top, bottom) = simplify::together(f).numer_denom();
+    let (pn, pd) = (poly::to_qpoly(&simplify::expand(&top), k)?, poly::to_qpoly(&simplify::expand(&bottom), k)?);
+    if pn.degree() != pd.degree() || pn.degree() == 0 || pn.lc() != pd.lc() {
+        return None;
+    }
+    let shifts = |p: &poly::QPoly| -> Option<Vec<Rat>> {
+        let roots = poly::rational_roots(p);
+        let total: u32 = roots.iter().map(|(_, m)| *m).sum();
+        if total as usize != p.degree() {
+            return None;
+        }
+        // k + a has root −a
+        Some(roots.iter().flat_map(|(r, m)| std::iter::repeat(-r.clone()).take(*m as usize)).collect())
+    };
+    let (sa, sb) = (shifts(&pn)?, shifts(&pd)?);
+    let sum = |v: &[Rat]| v.iter().fold(Rat::from_integer(0.into()), |acc, x| acc + x);
+    if sum(&sa) != sum(&sb) {
+        // the factors behave like 1 + (Σa − Σb)/k, so the product tends to 0 or diverges
+        return Some(if sum(&sa) < sum(&sb) { zero() } else { inf() });
+    }
+    let s0 = start.clone();
+    let gam = |x: &Rat| func("gamma", vec![add(vec![s0.clone(), num(x.clone())])]);
+    let v = mul(vec![mul(sb.iter().map(gam).collect()), pow(mul(sa.iter().map(gam).collect()), int(-1))]);
+    let v = simplify::simplify(&v);
+    (!v.has(&|n| matches!(n, Const(K::Undef | K::CInf | K::Inf)))).then_some(v)
+}
+
+/// Γ(n + 1) with symbolic integer n is shown as n!./// Γ(n + 1) with symbolic integer n is shown as n!.
 fn rewrite_gamma(e: &Expr) -> Expr {
     match e {
         Func(n, a) if &**n == "gamma" && a.len() == 1 => {

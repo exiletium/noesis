@@ -181,7 +181,7 @@ fn unknown_input_fails_gracefully() {
 #[test]
 fn natural_language_corpus() {
     noesis::domains::live::set_online(false);
-    let text = concat!(include_str!("data/corpus.txt"), "\n", include_str!("data/corpus2.txt"), "\n", include_str!("data/corpus3.txt"), "\n", include_str!("data/corpus4.txt"));
+    let text = concat!(include_str!("data/corpus.txt"), "\n", include_str!("data/corpus2.txt"), "\n", include_str!("data/corpus3.txt"), "\n", include_str!("data/corpus4.txt"), "\n", include_str!("data/corpus5.txt"));
     let failed: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).filter(|l| !noesis::query(l).success).collect();
     assert!(failed.is_empty(), "not understood: {failed:#?}");
 }
@@ -358,4 +358,31 @@ fn partial_differential_equations() {
     assert!(short("u_xx + 2 u_xy + u_yy = 0").starts_with("parabolic"));
     assert!(short("du/dt = 3 d^2u/dx^2, u(0,t)=0, u(2,t)=0, u(x,0)=5").contains("sin((π n x)/2)"));
     assert!(short("wave equation").contains("c²"));
+}
+
+#[test]
+fn advanced_topics() {
+    assert_eq!(short("solve x^2 = 2 mod 7"), "x ≡ 3,  x ≡ 4  (mod 7)");
+    assert_eq!(short("solve 3x = 4 mod 7"), "x ≡ 6  (mod 7)");
+    assert_eq!(short("inverse of 3 mod 11"), "4");
+    assert_eq!(short("pell equation x^2 - 2y^2 = 1"), "x = 3, y = 2");
+    assert_eq!(short("partitions of 10"), "42");
+    assert_eq!(short("collatz 27"), "111");
+    assert!(short("bessel j0(2.5)").starts_with("-0.04838"));
+    assert!(short("elliptic integral K(0.5)").starts_with("1.854074677"));
+    assert!(short("hypergeometric 2F1(1,1,2,0.5)").starts_with("1.386294361"));
+    assert_eq!(short("matrix exponential of {{0,1},{-1,0}}"), "{{cos(1), sin(1)}, {-sin(1), cos(1)}}");
+    assert!(short("singular values of {{3,0},{4,5}}").contains("3 sqrt(5)"));
+    assert!(short("solve x' = y, y' = -x").contains("x(t) = c_1 cos(t) + c_2 sin(t)"));
+    assert!(short("recurrence a(n) = a(n-1) + a(n-2), a(0)=0, a(1)=1").contains("sqrt(5)"));
+    assert_eq!(short("z transform of 2^n"), "z/(z - 2)");
+    assert_eq!(short("inverse z transform of z/(z-1)"), "f(n) = 1");
+    assert_eq!(short("convolution of e^t and e^(2t)"), "e^(2 t) - e^t");
+    assert_eq!(short("residue of 1/(z^2+1) at z = i"), "-i/2");
+    assert_eq!(short("contour integral of 1/z around unit circle"), "2 π i");
+    assert!(short("fourier transform of e^(-x^2)").contains("e^(-ω^2/4)"));
+    assert!(short("product (1 - 1/k^2) from k=2 to infinity").ends_with("= 1/2"));
+    assert!(short("product k^2/(k^2 - 1/4) from k=1 to infinity").ends_with("= π/2"));
+    assert!(short("sum (-1)^n/(2n+1) from n=0 to infinity").ends_with("= π/4"));
+    assert!(short("sum (-1)^(n+1)/n^4 from n=1 to infinity").ends_with("= (7 π^4)/720"));
 }

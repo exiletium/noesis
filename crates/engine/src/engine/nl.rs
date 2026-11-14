@@ -133,6 +133,9 @@ pub fn handle(q: &Query) -> Option<Answer> {
     }
     let l = q.lower.as_str();
     let c = q.clean.as_str();
+    if let Some(a) = super::advanced::handle(q, l, c) {
+        return Some(a);
+    }
     if let Some(new) = rewrite(l, c) {
         if new.to_lowercase() != l {
             if let Some(a) = again(q, &new) {
