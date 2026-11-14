@@ -181,7 +181,7 @@ fn unknown_input_fails_gracefully() {
 #[test]
 fn natural_language_corpus() {
     noesis::domains::live::set_online(false);
-    let text = concat!(include_str!("data/corpus.txt"), "\n", include_str!("data/corpus2.txt"), "\n", include_str!("data/corpus3.txt"), "\n", include_str!("data/corpus4.txt"), "\n", include_str!("data/corpus5.txt"));
+    let text = concat!(include_str!("data/corpus.txt"), "\n", include_str!("data/corpus2.txt"), "\n", include_str!("data/corpus3.txt"), "\n", include_str!("data/corpus4.txt"), "\n", include_str!("data/corpus5.txt"), "\n", include_str!("data/corpus6.txt"));
     let failed: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).filter(|l| !noesis::query(l).success).collect();
     assert!(failed.is_empty(), "not understood: {failed:#?}");
 }
@@ -405,4 +405,17 @@ fn space_curves() {
         }
         _ => panic!("no plot"),
     }
+}
+
+#[test]
+fn harder_integrals() {
+    assert!(short("integrate 1/(x^4+1) dx").contains("tan^(-1)(sqrt(2) x + 1)"));
+    assert!(short("integrate 1/(x^6+1) dx").contains("log(x^2 + sqrt(3) x + 1)"));
+    assert!(short("integrate from 0 to inf 1/(1 + x^4) dx").ends_with("= (sqrt(2) π)/4"));
+    assert!(short("integrate from 0 to inf sin(x^2) dx").ends_with("= (sqrt(2) sqrt(π))/4"));
+    assert!(short("integrate from 0 to 2 pi 1/(2 + cos(x)) dx").starts_with("∫_0^(2 π)"));
+    assert_eq!(pod_text(&q("integrate from 0 to pi/2 ln(sin(x)) dx"), "ClosedForm"), "-(π log(2))/2");
+    assert_eq!(pod_text(&q("integrate from 0 to inf x/(e^x - 1) dx"), "ClosedForm"), "π^2/6");
+    assert_eq!(pod_text(&q("integrate 1/(1+sin(x)^2) from 0 to pi"), "ClosedForm"), "(sqrt(2) π)/2");
+    assert!(!q("integrate from 0 to 1 x^x dx").pods.iter().any(|p| p.id == "ClosedForm"));
 }

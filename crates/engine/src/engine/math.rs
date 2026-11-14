@@ -1375,6 +1375,71 @@ fn logic_pods(p: &Parsed) -> Vec<Pod> {
 // calculus holders
 // ---------------------------------------------------------------------------
 
+/// Recognise a floating-point value as q·c for a small rational q and a
+/// common constant c (π, π², √2, ln 2, ζ(3), …). The match must hold to
+/// ten significant digits, with a denominator of at most 60.
+pub fn identify_constant(v: f64) -> Option<Expr> {
+    if !v.is_finite() || v == 0.0 || v.abs() > 1e6 || v.abs() < 1e-6 {
+        return None;
+    }
+    let zeta3 = 1.202_056_903_159_594_3;
+    let basis: Vec<(Expr, f64)> = vec![
+        (one(), 1.0),
+        (pi(), std::f64::consts::PI),
+        (square(pi()), std::f64::consts::PI.powi(2)),
+        (pow(pi(), int(3)), std::f64::consts::PI.powi(3)),
+        (pow(pi(), int(4)), std::f64::consts::PI.powi(4)),
+        (sqrt(pi()), std::f64::consts::PI.sqrt()),
+        (sqrt(int(2)), std::f64::consts::SQRT_2),
+        (sqrt(int(3)), 3f64.sqrt()),
+        (sqrt(int(5)), 5f64.sqrt()),
+        (mul(vec![pi(), sqrt(int(2))]), std::f64::consts::PI * std::f64::consts::SQRT_2),
+        (mul(vec![pi(), sqrt(int(3))]), std::f64::consts::PI * 3f64.sqrt()),
+        (ln(int(2)), std::f64::consts::LN_2),
+        (ln(int(3)), 3f64.ln()),
+        (mul(vec![pi(), ln(int(2))]), std::f64::consts::PI * std::f64::consts::LN_2),
+        (func("zeta", vec![int(3)]), zeta3),
+        (e(), std::f64::consts::E),
+        (pow(pi(), int(-1)), 1.0 / std::f64::consts::PI),
+        (sqrt(mul(vec![int(2), pi()])), (2.0 * std::f64::consts::PI).sqrt()),
+    ];
+    let mut best: Option<(i64, Expr)> = None;
+    for (b, bv) in basis {
+        let r = v / bv;
+        // continued-fraction convergents of r
+        let (mut h0, mut h1, mut k0, mut k1) = (0i64, 1i64, 1i64, 0i64);
+        let mut x = r;
+        for _ in 0..20 {
+            let a = x.floor();
+            if a.abs() > 1e7 {
+                break;
+            }
+            let a = a as i64;
+            let (h2, k2) = (a.saturating_mul(h1).saturating_add(h0), a.saturating_mul(k1).saturating_add(k0));
+            h0 = h1;
+            h1 = h2;
+            k0 = k1;
+            k1 = k2;
+            if k1 > 60 || h1.abs() > 5000 {
+                break;
+            }
+            let approx = h1 as f64 / k1 as f64;
+            if (approx - r).abs() <= 1e-10 * r.abs().max(1.0) {
+                if h1 != 0 && best.as_ref().map_or(true, |(q, _)| k1 < *q) {
+                    best = Some((k1, crate::simplify::simplify(&mul(vec![rat(h1, k1), b.clone()]))));
+                }
+                break;
+            }
+            let frac = x - x.floor();
+            if frac.abs() < 1e-14 {
+                break;
+            }
+            x = 1.0 / frac;
+        }
+    }
+    best.map(|(_, e)| e)
+}
+
 pub fn calculus_pods(p: &Parsed, opts: &Options) -> Vec<Pod> {
     let e = p.expr.clone();
     let mut pods = vec![input_pod(&p.d)];
@@ -1461,6 +1526,11 @@ pub fn calculus_pods(p: &Parsed, opts: &Options) -> Vec<Pod> {
         result
     };
     pods.push(primary(pod("Result", "Result", math(&eq(e.clone(), result.clone())))));
+    if let Float(f) = &result {
+        if let Some(c) = identify_constant(f.0) {
+            pods.push(pod("ClosedForm", "Possible closed form (identified numerically)", math(&c)));
+        }
+    }
     if !result.free_symbols().is_empty() || result.is_numeric() && !result.is_integer() {
         let r2 = result.clone();
         if r2.free_symbols().is_empty() {

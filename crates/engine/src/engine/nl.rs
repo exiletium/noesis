@@ -176,7 +176,7 @@ fn rewrite(l: &str, c: &str) -> Option<String> {
         }
     }
     // "integrate from 0 to inf x^3 e^(-x) dx"
-    if let Some(m) = cap(re!(r"^(?:integrate|integral|the integral|definite integral)\s+from\s+(\S+)\s+to\s+(\S+)\s+(?:of\s+)?(.+?)(?:\s*d([a-z]))?$")) {
+    if let Some(m) = cap(re!(r"^(?:integrate|integral|the integral|definite integral)\s+from\s+(\S+)\s+to\s+(\S+(?:\s*(?:pi|π)\b)?)\s+(?:of\s+)?(.+?)(?:\s*d([a-z]))?$")) {
         let var = if g(&m, 4).is_empty() { String::new() } else { format!(" d{}", g(&m, 4)) };
         let _ = var;
         let f = g(&m, 3);

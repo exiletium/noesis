@@ -1,0 +1,50 @@
+integrate e^x/x dx
+integrate sin(x)/x dx
+integrate cos(x)/x dx
+integrate 1/ln(x) dx
+integrate e^(-x^2) dx
+integrate sin(x^2) dx
+integrate cos(x^2) dx
+integrate x^x dx
+integrate sqrt(tan(x)) dx
+integrate 1/(x^4+1) dx
+integrate 1/(x^6+1) dx
+integrate x^2/(x^4+1) dx
+integrate sqrt(x^2 - 1) dx
+integrate sqrt(1 + x^2) dx
+integrate 1/(x sqrt(x^2 - 1)) dx
+integrate x^3 e^(x^2) dx
+integrate ln(1 + x^2) dx
+integrate x ln(x)^2 dx
+integrate arctan(x)/x^2 dx
+integrate e^(2x) cos(3x) dx
+integrate sin(2x) cos(3x) dx
+integrate sin(x)^3 cos(x)^2 dx
+integrate tan(x)^4 dx
+integrate sec(x)^4 dx
+integrate csc(x) dx
+integrate 1/(2 + cos(x)) dx
+integrate 1/(1 + sin(x)) dx
+integrate x/(1 + x^4) dx
+integrate 1/(x^2 (x^2 + 1)) dx
+integrate (x + 1)/(x^2 + x + 1)^2 dx
+integrate x^4/(x^2 + 1) dx
+integrate 1/(e^x + e^(-x)) dx
+integrate sinh(x) cosh(x) dx
+integrate x cosh(x) dx
+integrate arcsinh(x) dx
+integrate ln(x)/x^2 dx
+integrate x^n dx
+integrate e^(a x) dx
+integrate 1/(a^2 + x^2) dx
+integrate x sqrt(x + 1) dx
+integrate from 0 to inf e^(-x^2) dx
+integrate from 0 to 1 x^x dx
+integrate from 0 to pi/2 ln(sin(x)) dx
+integrate from 0 to inf x/(e^x - 1) dx
+integrate from 0 to inf x^2 e^(-x^2) dx
+integrate from 0 to 1 arctan(x) dx
+integrate from 0 to inf sin(x^2) dx
+integrate from 1 to inf 1/x^2 dx
+integrate from 0 to 1 1/x dx
+integrate from 0 to 2 pi 1/(2 + cos(x)) dx

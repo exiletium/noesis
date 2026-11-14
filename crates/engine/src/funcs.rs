@@ -1316,6 +1316,22 @@ fn evaluate(name: &str, args: &[Expr]) -> Option<Expr> {
             }
             None
         }
+        ("fresnels" | "fresnelc", 1) => {
+            let x = x?;
+            if x.is_zero() {
+                return Some(zero());
+            }
+            if matches!(x, Const(K::Inf)) {
+                return Some(rat(1, 2));
+            }
+            if x.is_neg_inf() {
+                return Some(rat(-1, 2));
+            }
+            if is_negated(x) {
+                return Some(neg(func(name, vec![neg(x.clone())])));
+            }
+            None
+        }
         ("erfi", 1) => {
             let x = x?;
             if x.is_zero() {

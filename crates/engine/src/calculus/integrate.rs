@@ -116,7 +116,15 @@ pub fn integrate(e: &Expr, x: &Expr) -> Option<Expr> {
     let secs = budget::remaining().min(20.0) * 0.7;
     let raw = budget::attempt_opt(secs, || integ(e, x, 0));
     STACK.with(|s| s.borrow_mut().clear());
-    let raw = raw?;
+    let raw = match raw {
+        Some(r) => r,
+        None => {
+            // rational functions whose denominator splits only over the
+            // reals or complex numbers
+            let r = budget::attempt_opt(budget::remaining().min(8.0) * 0.5, || rational_by_roots(e, x))?;
+            return verify(e, &r, x).then_some(r);
+        }
+    };
     if raw.has(&|n| matches!(n, Const(K::Undef | K::CInf | K::Inf))) {
         return None;
     }
@@ -137,7 +145,54 @@ pub fn integrate(e: &Expr, x: &Expr) -> Option<Expr> {
     None
 }
 
-/// Rewrite log(Π bᵢ^qᵢ) as Σ qᵢ log(bᵢ) when some qᵢ is a fraction or negative.
+/// ∫ P/Q for a proper rational function whose denominator has simple
+/// roots that can be written exactly: Σ c log(x − r) over real roots, and
+/// for each conjugate pair a ± bi with residue p ± qi,
+/// p log((x − a)² + b²) − 2q arctan((x − a)/b).
+fn rational_by_roots(e: &Expr, x: &Expr) -> Option<Expr> {
+    let (num, den) = simplify::together(e).numer_denom();
+    let (pn, pd) = (poly::to_qpoly(&simplify::expand(&num), x)?, poly::to_qpoly(&simplify::expand(&den), x)?);
+    if pd.degree() < 2 || pd.degree() > 8 {
+        return None;
+    }
+    // polynomial part
+    let (quot, rem) = pn.divrem(&pd);
+    let poly_part = integ(&quot.to_expr(x), x, 0).unwrap_or_else(zero);
+    if rem.is_zero() {
+        return Some(poly_part);
+    }
+    if !pd.gcd(&pd.derivative()).is_constant() {
+        return None; // repeated roots
+    }
+    let roots = crate::solve::solve(&eq(pd.to_expr(x), zero()), x);
+    let all: Vec<Expr> = roots.real().into_iter().chain(roots.complex()).collect();
+    if all.len() != pd.degree() || all.iter().any(|r| r.has_float()) {
+        return None;
+    }
+    let dq = pd.derivative();
+    let mut terms = vec![poly_part];
+    for r in &all {
+        let res = simplify::simplify(&div(rem.to_expr(x).subs(x, r), dq.to_expr(x).subs(x, r)));
+        match crate::funcs::re_im(r) {
+            Some((a, b)) if !simplify::simplify(&b).is_zero() => {
+                let (a, b) = (simplify::simplify(&a), simplify::simplify(&b));
+                // take each conjugate pair once, from the root with b > 0
+                if b.to_f64_const()? < 0.0 {
+                    continue;
+                }
+                let (p, q) = crate::funcs::re_im(&res)?;
+                let (p, q) = (simplify::simplify(&p), simplify::simplify(&q));
+                let shifted = sub(x.clone(), a.clone());
+                terms.push(mul(vec![p, ln(add(vec![square(shifted.clone()), square(b.clone())]))]));
+                terms.push(mul(vec![int(-2), q, f1("atan", div(shifted, b))]));
+            }
+            _ => terms.push(mul(vec![res, ln(sub(x.clone(), r.clone()))])),
+        }
+    }
+    Some(simplify::simplify(&add(terms)))
+}
+
+/// Rewrite log(Π bᵢ^qᵢ) as Σ qᵢ log(bᵢ)/// Rewrite log(Π bᵢ^qᵢ) as Σ qᵢ log(bᵢ) when some qᵢ is a fraction or negative.
 fn split_log_powers(e: &Expr) -> Expr {
     fn parts(arg: &Expr) -> Option<Vec<(Expr, Expr)>> {
         let factors: Vec<Expr> = match arg {
