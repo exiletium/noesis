@@ -358,6 +358,12 @@ fn partial_differential_equations() {
     assert!(short("u_xx + 2 u_xy + u_yy = 0").starts_with("parabolic"));
     assert!(short("du/dt = 3 d^2u/dx^2, u(0,t)=0, u(2,t)=0, u(x,0)=5").contains("sin((π n x)/2)"));
     assert!(short("wave equation").contains("c²"));
+    // source terms and non-zero end values
+    assert!(short("u_t = u_xx, u(0,t)=0, u(1,t)=1, u(x,0)=0").starts_with("u = x + "));
+    assert!(short("u_t = u_xx + 2, u(0,t)=0, u(1,t)=0, u(x,0)=0").starts_with("u = -x^2 + x + "));
+    assert_eq!(short("u_t = u_xx + 2, u(0,t)=0, u(1,t)=0, u(x,0)=x(1-x)"), "u = x - x^2");
+    assert!(short("u_tt = u_xx - 2, u(0,t)=0, u(1,t)=0, u(x,0)=0, u_t(x,0)=0").starts_with("u = x^2 - x + "));
+    assert_eq!(short("u_t = u_xx + e^(-t) sin(pi x), u(0,t)=0, u(1,t)=0, u(x,0)=0"), "u = (e^(-π^2 t) (e^(t (π^2 - 1)) - 1) sin(π x))/(π^2 - 1)");
 }
 
 #[test]

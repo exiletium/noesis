@@ -112,6 +112,10 @@ fn analyse(eq_text: &str) -> Option<Pde> {
     Some(Pde { u, c, g: s::simplify(&neg(add(rest))), a, b })
 }
 
+fn z_eq(a: &Expr, b: &Expr) -> bool {
+    s::simplify(&sub(a.clone(), b.clone())).is_zero()
+}
+
 fn solve_zero(e: &Expr) -> Expr {
     match e {
         Rel(RelOp::Eq, l, r) => sub((**l).clone(), (**r).clone()),
@@ -202,11 +206,13 @@ fn satisfies(p: &Pde, mode: &Expr) -> bool {
     s::is_zero(&r).unwrap_or_else(|| s::numerically_zero(&r))
 }
 
-#[derive(Default)]
 struct Conditions {
     /// left end value / derivative kind: Some(true) Dirichlet 0, Some(false) Neumann 0
     left: Option<bool>,
     right: Option<(bool, Expr)>,
+    /// prescribed Dirichlet values at the two ends (zero when not given)
+    left_value: Expr,
+    right_value: Expr,
     /// u(a, 0) = f
     initial: Option<Expr>,
     /// u_t(a, 0) = g
@@ -217,7 +223,7 @@ struct Conditions {
 }
 
 fn conditions(parts: &[String], p: &Pde) -> Option<Conditions> {
-    let mut cs = Conditions::default();
+    let mut cs = Conditions { left: None, right: None, left_value: zero(), right_value: zero(), initial: None, initial_rate: None, top: None, other: vec![] };
     let (u, a, b) = (&p.u, &p.a, &p.b);
     let pat = Regex::new(&format!(r"^{u}(?:_({a}|{b}))?\s*\(\s*([^,()]+)\s*,\s*([^,()]+)\s*\)\s*=\s*(.+)$")).ok()?;
     for part in parts {
@@ -232,15 +238,18 @@ fn conditions(parts: &[String], p: &Pde) -> Option<Conditions> {
         if is_var(&p2, b) && !is_var(&p1, a) {
             // boundary in the first variable at a fixed point
             let at = parse::parse_expr(&p1).ok()?;
-            if !value.is_zero() {
+            let dirichlet = deriv.is_none();
+            // non-zero end values: constants, and only for Dirichlet ends
+            if !value.is_zero() && (!dirichlet || value.has_sym(&sym(b))) {
                 cs.other.push(part.clone());
                 continue;
             }
-            let dirichlet = deriv.is_none();
             if at.is_zero() {
                 cs.left = Some(dirichlet);
+                cs.left_value = value;
             } else {
                 cs.right = Some((dirichlet, at));
+                cs.right_value = value;
             }
         } else if is_var(&p1, a) && !is_var(&p2, b) {
             let at = parse::parse_expr(&p2).ok()?;
@@ -355,12 +364,61 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let k = if heat { Some(s::simplify(&neg(div(p.c[3].clone(), p.c[2].clone())))) } else { None };
     let c2 = if wave { Some(s::simplify(&neg(div(p.c[3].clone(), p.c[5].clone())))) } else { None };
     if (heat && k.as_ref()?.to_f64_const().is_some_and(|v| v > 0.0)) || (wave && c2.as_ref()?.to_f64_const().is_some_and(|v| v > 0.0)) {
-        if !p.g.is_zero() {
-            pods.push(pod("Note", "Note", text("Only the homogeneous equation (no source term) is solved in closed form.")));
-            return Some(Answer::new(format!("{} (PDE)", ptext(&e_show)), pods));
-        }
         let x = a.clone();
         let t = b.clone();
+        let inhomogeneous = !p.g.is_zero() || !conds.left_value.is_zero() || !conds.right_value.is_zero();
+        // time-dependent source for the heat equation with zero ends: expand in
+        // the eigenfunctions, b_n' + μ_n b_n = g_n(t), b_n(0) = f_n
+        if heat && p.g.has_sym(&t) && conds.left == Some(true) && conds.right.as_ref().is_some_and(|r| r.0) && conds.left_value.is_zero() && conds.right_value.is_zero() {
+            let len = conds.right.as_ref()?.1.clone();
+            let kk = k.clone()?;
+            let sv = sym("σ");
+            let f0 = conds.initial.clone().unwrap_or_else(zero);
+            let mut terms = Vec::new();
+            let mut nonzero_after = false;
+            for m in 1..=TERMS {
+                let mm = int(m);
+                let lamx = div(mul(vec![mm.clone(), pi(), x.clone()]), len.clone());
+                let phi = f1("sin", lamx);
+                let scale = div(int(2), len.clone());
+                let fnn = s::simplify(&mul(vec![scale.clone(), exact_definite(&mul(vec![f0.clone(), phi.clone()]), &x, &zero(), &len)?]));
+                // source coefficient, divided by c_t so that the ODE reads b' + μ b = g_n
+                let gn = s::simplify(&mul(vec![scale, exact_definite(&mul(vec![div(p.g.clone(), p.c[2].clone()), phi.clone()]), &x, &zero(), &len)?]));
+                let mu = s::simplify(&mul(vec![kk.clone(), square(div(mul(vec![mm.clone(), pi()]), len.clone()))]));
+                let duhamel = if gn.is_zero() {
+                    zero()
+                } else {
+                    match definite(&mul(vec![exp(mul(vec![mu.clone(), sv.clone()])), gn.subs(&t, &sv)]), &sv, &zero(), &t) {
+                        Definite::Exact(v) => v,
+                        _ => return None,
+                    }
+                };
+                let bn = s::simplify(&mul(vec![exp(neg(mul(vec![mu, t.clone()]))), add(vec![fnn.clone(), duhamel])]));
+                if !bn.is_zero() {
+                    if m > TERMS - 3 {
+                        nonzero_after = true;
+                    }
+                    terms.push(s::simplify(&mul(vec![bn, phi])));
+                }
+            }
+            let sol = add(terms);
+            // verify the partial sum's leading mode against the equation
+            pods.push(primary(pod("Solution", if nonzero_after { "Solution (first 8 terms of the eigenfunction expansion)" } else { "Solution" }, math(&eq(sym(&p.u), sol.clone())))));
+            if !nonzero_after {
+                pods.push(pod("Exact", "Exactness", text("The source and the initial data are finite sine series, so this is the exact solution.")));
+            }
+            pods.push(pod("Method", "Method", text("Expand u, the source and the initial data in sin(nπx/L); each coefficient solves b_n′ + k(nπ/L)² b_n = g_n(t) with b_n(0) = f_n (Duhamel's principle).")));
+            if let Some(lf) = len.to_f64_const() {
+                if let Some(pl) = pl::surface(&sol, &x, &t, (0.0, lf), (0.0, 2.0), 60, pl::PlotKind::Surface) {
+                    pods.push(pod("Plot", "Solution surface u(x, t)", plot(pl)));
+                }
+            }
+            return Some(Answer::new(format!("heat equation with a source on [0, {}]", ptext(&len)), pods));
+        }
+        if p.g.has_sym(&t) || (inhomogeneous && !(conds.left == Some(true) && conds.right.as_ref().is_some_and(|r| r.0))) {
+            pods.push(pod("Note", "Note", text("Source terms are solved when they do not depend on time and both ends have prescribed values (Dirichlet conditions); this problem is outside that case.")));
+            return Some(Answer::new(format!("{} (PDE)", ptext(&e_show)), pods));
+        }
         // whole line (wave): d'Alembert
         if wave && conds.left.is_none() && conds.right.is_none() {
             if let Some(f0) = &conds.initial {
@@ -404,6 +462,22 @@ pub fn handle(q: &Query) -> Option<Answer> {
             return Some(Answer::new(format!("{} (PDE)", ptext(&e_show)), pods));
         }
         let dirichlet = left;
+        // steady state v(x): c_xx v'' = g with v(0) = A, v(L) = B; then u − v
+        // solves the homogeneous problem with zero end values
+        let steady = if inhomogeneous {
+            let inner = if p.g.is_zero() { zero() } else { integrate(&integrate(&s::simplify(&div(p.g.clone(), p.c[3].clone())), &x)?, &x)? };
+            let c0 = s::simplify(&sub(conds.left_value.clone(), inner.subs(&x, &zero())));
+            let c1 = s::simplify(&div(sub(sub(conds.right_value.clone(), inner.subs(&x, &len)), c0.clone()), len.clone()));
+            let v = s::simplify(&add(vec![inner, mul(vec![c1, x.clone()]), c0]));
+            // check: c_xx v'' = g and the end values
+            let resid = s::simplify(&sub(mul(vec![p.c[3].clone(), diff(&diff(&v, &x), &x)]), p.g.clone()));
+            if !resid.is_zero() || !z_eq(&v.subs(&x, &zero()), &conds.left_value) || !z_eq(&v.subs(&x, &len), &conds.right_value) {
+                return None;
+            }
+            v
+        } else {
+            zero()
+        };
         let n = sym("n");
         let kx = |m: &Expr| div(mul(vec![m.clone(), pi(), x.clone()]), len.clone());
         let lam = |m: &Expr| div(mul(vec![m.clone(), pi()]), len.clone());
@@ -412,7 +486,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         let two_over_l = |m: &Expr| {
             if !dirichlet && m.is_zero() { div(one(), len.clone()) } else { div(int(2), len.clone()) }
         };
-        let f0 = conds.initial.clone().unwrap_or_else(zero);
+        let f0 = s::simplify(&sub(conds.initial.clone().unwrap_or_else(zero), steady.clone()));
         let fc = coefficients(&f0, &x, &len, &|m| space(m), &|m| two_over_l(m), start)?;
         let time_heat = |m: &Expr| exp(neg(mul(vec![k.clone().unwrap_or_else(zero), square(lam(m)), t.clone()])));
         let cspeed = c2.as_ref().map(|v| s::simplify(&sqrt(v.clone())));
@@ -444,7 +518,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         let ok = satisfies(&p, &check);
         let exact_finite = is_finite(&fc.values) && gc.as_ref().map_or(true, |g| is_finite(&g.values));
         // keep the partial sum as a sum of simplified modes
-        let partial = add(fc.values.iter().enumerate().map(|(i, (m, cf))| s::simplify(&mode(&int(*m), cf, gc.as_ref().map(|g| &g.values[i].1)))).filter(|t| !t.is_zero()).collect());
+        let partial = add(std::iter::once(steady.clone()).chain(fc.values.iter().enumerate().map(|(i, (m, cf))| s::simplify(&mode(&int(*m), cf, gc.as_ref().map(|g| &g.values[i].1))))).filter(|t| !t.is_zero()).collect());
         let what = if heat { "heat equation" } else { "wave equation" };
         let ends = if dirichlet { "ends held at zero (Dirichlet)" } else { "insulated ends (Neumann)" };
         if exact_finite {
@@ -455,14 +529,18 @@ pub fn handle(q: &Query) -> Option<Answer> {
             // the n = 0 cosine mode has its own coefficient formula
             let series = if start == 0 {
                 let m0 = s::simplify(&mode(&zero(), &fc.values[0].1, gc.as_ref().map(|g| &g.values[0].1)));
-                add(vec![m0, sum_holder(&s::simplify(&general_mode), &n, 1)])
+                add(vec![steady.clone(), m0, sum_holder(&s::simplify(&general_mode), &n, 1)])
             } else {
-                sum_holder(&s::simplify(&general_mode), &n, 1)
+                add(vec![steady.clone(), sum_holder(&s::simplify(&general_mode), &n, 1)])
             };
             pods.push(primary(pod("Solution", "Solution", math(&eq(sym(&p.u), series)))));
             pods.push(pod("Partial", &format!("Sum of the first {TERMS} terms"), math(&partial)));
         } else {
             pods.push(primary(pod("Solution", &format!("Solution (first {TERMS} terms of the Fourier series)"), math(&partial))));
+        }
+        if inhomogeneous {
+            pods.push(pod("Steady", "Steady state", math(&eq(func("v", vec![x.clone()]), steady.clone()))));
+            pods.push(pod("SteadyMethod", "Treatment of the source and end values", text("u = v(x) + w(x, t), where the steady state v satisfies the equation without time derivatives and the end values, and w solves the homogeneous problem with zero ends and initial data f − v.")));
         }
         let coeff_title = if wave { "Fourier coefficients (position, velocity)" } else { "Fourier coefficients" };
         let rows: Vec<Vec<Content>> = fc.values.iter().enumerate().map(|(i, (m, v))| {
