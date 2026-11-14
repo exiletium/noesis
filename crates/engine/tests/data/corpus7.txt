@@ -1,0 +1,46 @@
+what is the derivative of ln(x^2 + 1)
+antiderivative of 1/(1+x)
+d^2/dx^2 x^4
+third derivative of sin(2x)
+gradient of x^2 y + y^3
+directional derivative of x^2 + y^2 at (1,1) in direction (1,0)
+tangent plane to z = x^2 + y^2 at (1,1)
+critical points of x^2 + y^2 - 2x
+lagrange multipliers maximize xy subject to x + y = 10
+taylor series of sin(x) about pi
+taylor series of ln(1+x) to order 6
+radius of convergence of sum x^n/n
+interval of convergence of sum x^n/n
+limit of (1 - cos x)/x^2 as x -> 0
+limit of sqrt(x^2 + x) - x as x -> infinity
+is the series sum 1/n^2 convergent
+nth term test for sum n/(n+1)
+mean value theorem for x^2 on [0, 2]
+riemann sum of x^2 from 0 to 1 with 4 rectangles
+trapezoidal rule for x^2 from 0 to 2 with 4 intervals
+simpson's rule for e^x from 0 to 1 with 4 intervals
+newton's method for x^2 - 2 starting at 1
+bisection method for x^3 - x - 2 on [1, 2]
+euler's method y' = y, y(0) = 1, h = 0.1, to x = 0.5
+solve x^5 - x - 1 = 0
+roots of x^3 + x + 1
+solve e^x = 3x
+solve sin(x) = x/2
+solve cos(x) = x
+minimize x^4 - 3x^2 + x
+volume of solid of revolution y = x^2 about x-axis from 0 to 1
+surface area of revolution y = sqrt(x) from 0 to 1
+centroid of region under y = x^2 from 0 to 1
+work to pump water out of a cylindrical tank
+area of a polar curve r = 2 cos(theta)
+length of the curve y = x^(3/2) from 0 to 4
+probability that a normal variable is within 2 standard deviations
+expected value of x^2 for uniform on [0,1]
+variance of binomial n=20 p=0.3
+geometric distribution p = 0.2 P(X = 3)
+hypergeometric distribution N=50 K=5 n=10 k=2
+exponential distribution lambda = 0.5 P(X > 3)
+chi square test 10 20 30 vs 20 20 20
+t test 5.1 4.9 5.3 5.0 mean 5
+correlation of 1,2,3,4,5 and 2,4,5,4,5
+sample size for margin of error 0.03 at 95% confidence

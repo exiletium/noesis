@@ -181,7 +181,7 @@ fn unknown_input_fails_gracefully() {
 #[test]
 fn natural_language_corpus() {
     noesis::domains::live::set_online(false);
-    let text = concat!(include_str!("data/corpus.txt"), "\n", include_str!("data/corpus2.txt"), "\n", include_str!("data/corpus3.txt"), "\n", include_str!("data/corpus4.txt"), "\n", include_str!("data/corpus5.txt"), "\n", include_str!("data/corpus6.txt"));
+    let text = concat!(include_str!("data/corpus.txt"), "\n", include_str!("data/corpus2.txt"), "\n", include_str!("data/corpus3.txt"), "\n", include_str!("data/corpus4.txt"), "\n", include_str!("data/corpus5.txt"), "\n", include_str!("data/corpus6.txt"), "\n", include_str!("data/corpus7.txt"));
     let failed: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).filter(|l| !noesis::query(l).success).collect();
     assert!(failed.is_empty(), "not understood: {failed:#?}");
 }
@@ -418,4 +418,23 @@ fn harder_integrals() {
     assert_eq!(pod_text(&q("integrate from 0 to inf x/(e^x - 1) dx"), "ClosedForm"), "π^2/6");
     assert_eq!(pod_text(&q("integrate 1/(1+sin(x)^2) from 0 to pi"), "ClosedForm"), "(sqrt(2) π)/2");
     assert!(!q("integrate from 0 to 1 x^x dx").pods.iter().any(|p| p.id == "ClosedForm"));
+}
+
+#[test]
+fn course_topics() {
+    assert_eq!(short("directional derivative of x^2 + y^2 at (1,1) in direction (1,0)"), "2");
+    assert_eq!(short("tangent plane to z = x^2 + y^2 at (1,1)"), "z = 2 x + 2 y - 2");
+    assert_eq!(short("lagrange multipliers maximize xy subject to x + y = 10"), "maximum 25 at (5, 5)");
+    assert_eq!(short("interval of convergence of sum x^n/n"), "[-1, 1)");
+    assert_eq!(short("riemann sum of x^2 from 0 to 1 with 4 rectangles"), "0.21875");
+    assert_eq!(short("trapezoidal rule for x^2 from 0 to 2 with 4 intervals"), "2.75");
+    assert!(short("newton's method for x^2 - 2 starting at 1").starts_with("1.41421356237"));
+    assert_eq!(short("euler's method y' = y, y(0) = 1, h = 0.1, to x = 0.5"), "1.61051");
+    assert_eq!(short("volume of solid of revolution y = x^2 about x-axis from 0 to 1"), "π/5");
+    assert_eq!(short("centroid of region under y = x^2 from 0 to 1"), "(3/4, 3/10)");
+    assert_eq!(short("area of a polar curve r = 2 cos(theta)"), "π");
+    assert_eq!(short("geometric distribution p = 0.2 P(X = 3)"), "0.128");
+    assert!(short("hypergeometric distribution N=50 K=5 n=10 k=2").starts_with("0.20983971"));
+    assert!(short("chi square test 10 20 30 vs 20 20 20").starts_with("χ² = 10"));
+    assert_eq!(short("sample size for margin of error 0.03 at 95% confidence"), "1068 (worst case p = 0.5)");
 }

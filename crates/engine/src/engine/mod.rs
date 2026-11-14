@@ -10,6 +10,7 @@ pub mod nl_math;
 pub mod nl_more;
 pub mod pde;
 pub mod advanced;
+pub mod course;
 pub mod llm;
 
 use crate::budget;

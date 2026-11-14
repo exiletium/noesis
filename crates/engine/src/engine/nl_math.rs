@@ -590,7 +590,7 @@ pub fn calculus_q(q: &Query, l: &str, c: &str) -> Option<Answer> {
         return answer(format!("asymptotes of {}", ptext(&e)), format!("asymptotes of y = {}", ptext(&e)), pods);
     }
     // convergence of series
-    let conv = cap(re!(r"^(?:is|does)\s+(?:the\s+)?(?:infinite\s+)?(?:series\s+|sum\s+)?(?:of\s+)?(.+?)\s+(?:converge|convergent|diverge|divergent|converge or diverge|convergent or divergent|converges)$"))
+    let conv = cap(re!(r"^(?:is|does)\s+(?:the\s+)?(?:infinite\s+)?(?:series\s+)?(?:sum\s+)?(?:of\s+)?(.+?)\s+(?:converge|convergent|diverge|divergent|converge or diverge|convergent or divergent|converges)$"))
         .or_else(|| cap(re!(r"^(?:convergence|divergence)\s+(?:test\s+)?(?:of|for)\s+(?:the\s+)?(?:series\s+|sum\s+)?(?:of\s+)?(.+)$")));
     if let Some(m) = conv {
         let mut body = g(&m, 1);
