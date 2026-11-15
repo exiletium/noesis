@@ -69,6 +69,53 @@ pub fn numbers(q: &Query, l: &str, c: &str) -> Option<Answer> {
         let label = format!("is {n} a Carmichael number?");
         return answer(label.clone(), label, vec![primary(pod("Result", "Result", text(format!("{} — {n} {} a Carmichael number", if yes { "Yes" } else { "No" }, if yes { "is" } else { "is not" })))), pod("Reason", "Reason", text(why)), pod("First", "First Carmichael numbers", text("561, 1105, 1729, 2465, 2821, 6601, 8911, 10585, 15841, 29341, …"))]);
     }
+    // sums of two positive cubes (taxicab numbers)
+    if let Some(m) = cap(re!(r"^(?:is\s+)?(\d+)\s+(?:a\s+)?(?:taxicab|hardy[- ]ramanujan)\s+number$|^(?:ways to write\s+)?(\d+)\s+as\s+(?:a\s+|the\s+)?sums?\s+of\s+two\s+(?:positive\s+)?cubes(?:\s+in two (?:different\s+)?ways)?$")) {
+        let n: u128 = [g(&m, 1), g(&m, 2)].into_iter().find(|x| !x.is_empty())?.parse().ok()?;
+        if n > 10u128.pow(27) {
+            return None;
+        }
+        let mut ways = Vec::new();
+        let mut a: u128 = 1;
+        while 2 * a * a * a <= n {
+            let rest = n - a * a * a;
+            let b = (rest as f64).cbrt().round() as u128;
+            if let Some(b) = [b.saturating_sub(1), b, b + 1].into_iter().find(|b| b * b * b == rest) {
+                ways.push(format!("{a}³ + {b}³"));
+            }
+            a += 1;
+        }
+        const TAXICAB: [u128; 6] = [2, 1729, 87539319, 6963472309248, 48988659276962496, 24153319581254312065344];
+        let verdict = match TAXICAB.iter().position(|t| *t == n) {
+            Some(k) => format!("Yes — {n} is the taxicab number Ta({}), the smallest number that is a sum of two positive cubes in {} way{}", k + 1, k + 1, if k == 0 { "" } else { "s" }),
+            None if ways.len() >= 2 => format!("{n} is a sum of two positive cubes in {} ways (a taxicab-type number), but it is not the smallest such number, so it is not one of the taxicab numbers Ta(n)", ways.len()),
+            None if ways.len() == 1 => format!("No — {n} is a sum of two positive cubes in only one way"),
+            None => format!("No — {n} is not a sum of two positive cubes"),
+        };
+        let label = format!("{n} as a sum of two positive cubes");
+        let mut pods = vec![primary(pod("Result", "Result", text(verdict)))];
+        if !ways.is_empty() {
+            pods.push(pod("Ways", "Representations", text(ways.iter().map(|w| format!("{n} = {w}")).collect::<Vec<_>>().join("\n"))));
+        }
+        pods.push(pod("Taxicab", "Taxicab numbers", text("Ta(1) = 2, Ta(2) = 1729, Ta(3) = 87539319, Ta(4) = 6963472309248, Ta(5) = 48988659276962496, Ta(6) = 24153319581254312065344")));
+        return answer(label.clone(), label, pods);
+    }
+    // the n-th digit of a constant
+    if let Some(m) = cap(re!(r"^(?:the\s+)?(\d+)(?:st|nd|rd|th)\s+(decimal\s+)?(?:digit|decimal place|decimal)\s+(?:of|in)\s+(.+)$|^digits?\s+of\s+(.+?)\s+(\d+)(?:st|nd|rd|th)$")) {
+        let (n, body): (usize, String) = if g(&m, 1).is_empty() { (g(&m, 5).parse().ok()?, g(&m, 4)) } else { (g(&m, 1).parse().ok()?, g(&m, 3)) };
+        if n == 0 || n > 20000 {
+            return None;
+        }
+        let e = crate::parse::parse(body.trim()).ok()?.expr;
+        let dec = crate::bigfloat::decimal(&e, n + 12)?;
+        let (_, frac) = dec.trim_start_matches('-').split_once('.')?;
+        let digit = frac.chars().nth(n - 1)?;
+        let from = n.saturating_sub(6);
+        let around: String = frac.chars().skip(from).take(11).collect();
+        let label = format!("digit {n} after the decimal point of {}", body.trim());
+        let pods = vec![primary(pod("Result", "Result", text(digit.to_string()))), pod("Context", &format!("Decimal places {} to {}", from + 1, from + around.len()), text(around)), pod("Note", "Note", text("Digits are counted after the decimal point."))];
+        return answer(label.clone(), label, pods);
+    }
     // decimals, fractions and percentages
     if let Some(m) = cap(re!(r"^(?:convert\s+|write\s+|express\s+)?(.+?)\s+(?:as|to|into|in)\s+(?:a\s+|an\s+)?(fraction|decimal|percent(?:age)?|mixed number|scientific notation|engineering notation)(?:\s+form)?$")) {
         let body = g(&m, 1);

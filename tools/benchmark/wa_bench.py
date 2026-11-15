@@ -31,6 +31,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.parse
 import urllib.request
 
@@ -47,10 +48,11 @@ RESULT_PODS = [
 ]
 
 
-def fetch_wa(query, cache):
+def fetch_wa(query, cache, max_age=None):
     key = re.sub(r"[^A-Za-z0-9]+", "_", query)[:120]
     path = os.path.join(cache, key + ".json")
-    if os.path.exists(path):
+    fresh = os.path.exists(path) and (max_age is None or time.time() - os.path.getmtime(path) < max_age)
+    if fresh:
         with open(path) as f:
             return json.load(f)
     params = {"input": query, "format": "plaintext", "output": "json", "units": "metric"}
@@ -249,9 +251,9 @@ def units_agree(wa, no):
 CONSTS = {"c_1": "0.613", "c_2": "1.29", "c_3": "-0.47", "C": "0.613"}
 
 
-def evaluate(expr, pt):
-    e = expr
-    for k, v in CONSTS.items():
+def evaluate(expr, pt, consts=None):
+    e = expr.replace("₂F₁", "hypergeometric")
+    for k, v in (consts or CONSTS).items():
         e = re.sub(r"\b" + re.escape(k) + r"\b", f"({v})", e)
     e = re.sub(r"\b[xnt]\b", f"({pt})", e)
     out = short(e)
@@ -283,6 +285,56 @@ def expressions_agree(a, b):
     if abs(d[0] - d[1]) <= 1e-6 * max(1.0, abs(d[0])):
         return "constant"
     return False
+
+
+def ode_agree(wa, no):
+    """General solutions with one arbitrary constant: fit WolframAlpha's
+    constant so the two agree at one point, then compare at two others."""
+    a, b = rhs(wa), rhs(no)
+    if "c_1" not in a or "c_1" not in b or "c_2" in a + b:
+        return None
+    target = evaluate(b, "0.731", {"c_1": "0.37"})
+    if target is None:
+        return None
+
+    def gap(k):
+        v = evaluate(a, "0.731", {"c_1": repr(k)})
+        return None if v is None else v - target
+
+    k0, k1 = 0.5, 1.5
+    g0, g1 = gap(k0), gap(k1)
+    for _ in range(30):
+        if g0 is None or g1 is None or g1 == g0:
+            return None
+        if abs(g1) < 1e-10 * max(1.0, abs(target)):
+            break
+        k0, k1, g0 = k1, k1 - g1 * (k1 - k0) / (g1 - g0), g1
+        g1 = gap(k1)
+    else:
+        return None
+    for pt in ["1.37", "0.21"]:
+        va, vb = evaluate(a, pt, {"c_1": repr(k1)}), evaluate(b, pt, {"c_1": "0.37"})
+        if va is None or vb is None:
+            return None
+        if abs(va - vb) > 1e-6 * max(1.0, abs(vb)):
+            return False
+    return True
+
+
+def antiderivative_agree(query, no):
+    """Noesis's antiderivative, differentiated numerically, equals the integrand."""
+    m = re.match(r"(?:integrate|integral of|antiderivative of)\s+(.+?)(?:\s+d\s*x)?$", query.strip(), re.I)
+    if not m or " from " in query or "=" not in no:
+        return None
+    integrand, big = m.group(1), rhs(no).replace("+ constant", "")
+    h = 1e-4
+    for pt in [0.731, 1.37]:
+        up, down, f = evaluate(big, repr(pt + h)), evaluate(big, repr(pt - h)), evaluate(integrand, repr(pt))
+        if None in (up, down, f):
+            return None
+        if abs((up - down) / (2 * h) - f) > 1e-5 * max(1.0, abs(f)):
+            return False
+    return True
 
 
 def set_agree(wa, no):
@@ -364,7 +416,9 @@ def money_agree(wa, no):
     return abs(to_float(x) - to_float(y)) <= 0.005 + 1e-9
 
 
-def compare(query, wa, no, no_decimal=None):
+def compare(query, wa, no, no_decimal=None, tol=None):
+    if wa is not None and "bad`symbol" in wa:
+        wa = None  # WolframAlpha returned an internal error instead of a result
     if wa is None and no is None:
         return "both-fail"
     if wa is None:
@@ -388,6 +442,16 @@ def compare(query, wa, no, no_decimal=None):
     e = expressions_agree(wa_main, no)
     if e is True or (e == "constant" and "integra" in query.lower()):
         return "match"
+    if "c_1" in wa_main and ode_agree(wa_main, no) is True:
+        return "match"
+    if e is not True and "integra" in query.lower() and "integral" in wa_main and antiderivative_agree(query, no) is True:
+        return "match"
+    if tol:
+        # a declared tolerance for quantities that change with time or data year
+        ta, tb = (NUM.findall(rhs(wa_main)) or [None])[0], (NUM.findall(rhs(no)) or [None])[0]
+        x, y = (to_float(ta) if ta else None), (to_float(tb) if tb else None)
+        if x is not None and y is not None and abs(x - y) <= tol * max(abs(x), abs(y)):
+            return "match"
     n = numbers_agree(rhs(wa_main), rhs(no)) if re.match(r"\s*[-\d]", rhs(wa_main)) else numbers_agree(wa_main, no)
     if n is True:
         return "match"
@@ -415,27 +479,45 @@ def main():
     cache = args[args.index("--cache") + 1] if "--cache" in args else os.path.join(tempfile.gettempdir(), "noesis-wa-cache")
     report = args[args.index("--report") + 1] if "--report" in args else os.path.join(cache, "report.json")
     os.makedirs(cache, exist_ok=True)
-    queries = [l.strip() for l in open(qfile) if l.strip() and not l.startswith("#")]
+    # a question may carry annotations after "#!":
+    #   now            WolframAlpha is re-queried if its cached answer is over an hour old
+    #   tol=0.005      relative tolerance for this question (time-varying or dated data)
+    #   wa-misread: …  WolframAlpha answered a different question; give the reason
+    queries, notes = [], {}
+    for line in open(qfile):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        q, _, note = line.partition("#!")
+        queries.append(q.strip())
+        notes[q.strip()] = note.strip()
     rows = []
     counts = {}
     for q in queries:
-        data = fetch_wa(q, cache)
+        note = notes[q]
+        tol = float(re.search(r"tol=([\d.eE-]+)", note).group(1)) if "tol=" in note else None
+        data = fetch_wa(q, cache, 3600 if re.search(r"\bnow\b", note) else None)
         if "error" in data:
             print(f"WolframAlpha request failed for {q!r}: {data['error']}")
             return 1
         wa, interp = wa_answer(data, q)
         no = noesis_answer(q)
-        verdict = compare(q, wa, no, noesis_decimal(q) if wa and no else None)
+        verdict = compare(q, wa, no, noesis_decimal(q) if wa and no else None, tol)
+        if "wa-misread" in note and verdict in ("mismatch", "review", "noesis-fail"):
+            verdict = "wa-misread"
         counts[verdict] = counts.get(verdict, 0) + 1
         rows.append({"query": q, "verdict": verdict, "wolframalpha": wa, "wa_interpretation": interp, "noesis": no})
         print(f"{verdict:<12} {q[:60]:<60} WA: {(wa or '')[:50]!s:<50} N: {(no or '')[:50]}")
     total = len(queries)
     comparable = total - counts.get("wa-fail", 0) - counts.get("both-fail", 0)
     print()
-    for k in ["match", "mismatch", "review", "noesis-fail", "wa-fail", "both-fail"]:
+    for k in ["match", "mismatch", "review", "noesis-fail", "wa-misread", "wa-fail", "both-fail"]:
         print(f"{k:<12} {counts.get(k, 0)}")
     if comparable:
-        print(f"agreement on queries WolframAlpha answers: {counts.get('match', 0)}/{comparable} = {100 * counts.get('match', 0) / comparable:.1f}%")
+        print(f"strict:   {counts.get('match', 0)}/{comparable} = {100 * counts.get('match', 0) / comparable:.1f}% of the queries WolframAlpha answers")
+        adjusted = comparable - counts.get("wa-misread", 0)
+        if adjusted != comparable:
+            print(f"adjusted: {counts.get('match', 0)}/{adjusted} = {100 * counts.get('match', 0) / adjusted:.1f}% leaving out {counts.get('wa-misread', 0)} that WolframAlpha misread (reasons in the question file)")
     with open(report, "w") as f:
         json.dump({"counts": counts, "rows": rows}, f, indent=1, ensure_ascii=False)
     print(f"report: {report}")

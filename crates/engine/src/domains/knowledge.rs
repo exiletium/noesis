@@ -77,9 +77,17 @@ fn chemistry(q: &Query) -> Option<Answer> {
     }
     if let Some(m) = re!(r"^(?:the\s+)?(?:common\s+|possible\s+)?(oxidation states?|oxidation numbers?|valences?|valency)\s+(?:of|for)\s+(.+)$").captures(l) {
         let e = find_element(&m[2])?;
-        let states = e.oxidation_states.clone()?;
-        let shown = if states.is_empty() { "none (chemically inert)".to_string() } else { states.iter().map(|s| if *s > 0 { format!("+{s}") } else { s.to_string() }).collect::<Vec<_>>().join(", ") };
-        return Some(simple(&format!("{} | oxidation states", e.name), "Oxidation states", shown, vec![pod("Config", "Electron configuration", text(e.config.clone().unwrap_or_default()))]));
+        let fmt = |v: &[i32]| v.iter().map(|s| if *s > 0 { format!("+{s}") } else { s.to_string() }).collect::<Vec<_>>().join(", ");
+        let common = e.oxidation_states.clone().unwrap_or_default();
+        let wants_common = l.contains("common");
+        let known = e.oxidation_states_all.clone().filter(|v| !v.is_empty() && !wants_common).unwrap_or_else(|| common.clone());
+        let shown = if known.is_empty() { "none (chemically inert)".to_string() } else { fmt(&known) };
+        let mut extra = Vec::new();
+        if !common.is_empty() && common != known {
+            extra.push(pod("Common", "Most common oxidation states", text(fmt(&common))));
+        }
+        extra.push(pod("Config", "Electron configuration", text(e.config.clone().unwrap_or_default())));
+        return Some(simple(&format!("{} | known oxidation states", e.name), "Oxidation states", shown, extra));
     }
     // isotopes
     if let Some(m) = re!(r"^(?:the\s+)?(?:known\s+|stable\s+|common\s+)?isotopes\s+of\s+(.+)$").captures(l) {

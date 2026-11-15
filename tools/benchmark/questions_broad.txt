@@ -13,7 +13,7 @@ eigenvectors of {{2, 1}, {1, 2}}
 nullspace of {{1, 2, 3}, {2, 4, 6}}
 y'' + y = sin(x)
 y' = x y^2
-fourier series of x^2 on [-pi, pi]
+fourier series of x^2 on [-pi, pi]  #! wa-misread: WolframAlpha computes the Fourier transform of a sum from -pi to pi, not a Fourier series
 continued fraction of e
 1/(1 - x) series at x = 2
 derivative of x^(sin x)
@@ -26,14 +26,14 @@ catalan number 10
 bell number 10
 stirling number of the second kind (10, 3)
 is 1729 a taxicab number
-digits of pi 100th
+digits of pi 100th  #! wa-misread: WolframAlpha reads 100th as 100 theta and returns '314.2 digits'
 # units and physics
 1 parsec in meters
 2 hp in watts
 20 knots in km/h
 1 bar in psi
 100 kWh in BTU
-gravitational force between earth and moon
+gravitational force between earth and moon  #! now tol=0.005
 escape velocity of mars
 wavelength of a 2.4 GHz signal
 energy of a photon of wavelength 500 nm
@@ -44,12 +44,12 @@ speed of sound in water
 molar mass of glucose
 density of aluminum
 melting point of tungsten
-pH of 0.1 M NH3
+pH of 0.1 M NH3  #! wa-misread: WolframAlpha treats ammonia, a weak base (pKb 4.75), as a weak acid and returns an acidic pH
 electronegativity of fluorine
 ionization energy of sodium
 oxidation states of chromium
 # astronomy and earth
-distance from earth to mars
+distance from earth to mars  #! now tol=0.002
 radius of jupiter
 mass of the moon
 surface gravity of mars
@@ -60,7 +60,7 @@ deepest point in the ocean
 # geography and society
 population of tokyo
 capital of kenya
-currency of switzerland
+currency of switzerland  #! wa-misread: WolframAlpha returns the value of one franc in dollars, not the name of the currency
 largest country in africa
 official languages of canada
 area of greenland

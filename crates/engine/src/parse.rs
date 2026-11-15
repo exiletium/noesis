@@ -140,6 +140,8 @@ const FUNCS: &[(&str, &str)] = &[
     ("lambertw", "W"),
     ("productlog", "W"),
     ("besselj", "besselj"),
+    ("hyp2f1", "hyp2f1"),
+    ("hypergeometric", "hyp2f1"),
     ("bessely", "bessely"),
     ("besseli", "besseli"),
     ("besselk", "besselk"),

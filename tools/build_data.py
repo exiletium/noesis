@@ -111,6 +111,7 @@ def build_elements() -> None:
             "discovery_year": e.discovery_year,
             "discoverers": e.discoverers,
             "oxidation_states": ox,
+            "oxidation_states_all": sorted({int(o.oxidation_state) for o in e._oxidation_states}),
             "abundance_crust_mg_kg": num(e.abundance_crust, 6),
             "is_radioactive": bool(e.is_radioactive),
             "color": e.cpk_color,

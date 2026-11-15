@@ -14,6 +14,7 @@ astro-float = "0.9.6"
 bytemuck = { version = "1.25.2", features = ["derive"], optional = true }
 chrono = "0.4.45"
 chrono-tz = "0.10.4"
+miniz_oxide = "0.8"
 num-bigint = "0.4"
 num-complex = "0.4.6"
 num-integer = "0.1.47"

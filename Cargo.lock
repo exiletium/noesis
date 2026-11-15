@@ -1631,6 +1631,7 @@ dependencies = [
  "bytemuck",
  "chrono",
  "chrono-tz",
+ "miniz_oxide 0.8.9",
  "num-bigint",
  "num-complex",
  "num-integer",

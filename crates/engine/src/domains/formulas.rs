@@ -739,11 +739,29 @@ fn physics(q: &Query) -> Option<Answer> {
         ("Schwarzschild radius", "r = 2 G M / c²", vec![out("Schwarzschild radius", 2.0 * BIG_G * m / (C * C), "m")])
     } else if has(&["gravitational force", "force of gravity between", "gravitational attraction", "gravity between"]) {
         let pair = super::astro::find_two_bodies(l);
-        let (m1, m2, r) = match pair {
-            Some((a, b)) => (a.mass, b.mass, super::astro::separation(a, b)?),
-            None => (t(MASS, 0)?, t(MASS, 1)?, t(LEN, 0)?),
-        };
-        ("Newton's law of gravitation", "F = G m₁ m₂ / r²", vec![out("force", BIG_G * m1 * m2 / (r * r), "N")])
+        match pair {
+            Some((a, b)) => {
+                let mean = super::astro::separation(a, b);
+                let now = super::ephem::separation(a.name, b.name, super::ephem::now());
+                let f = |r: f64| BIG_G * a.mass * b.mass / (r * r);
+                let mut v = Vec::new();
+                if let Some(r) = now {
+                    v.push(out("force at the current distance", f(r), "N"));
+                    v.push(out("current distance", r / 1000.0, "km"));
+                }
+                if let Some(r) = mean {
+                    v.push(out("force at the mean distance", f(r), "N"));
+                }
+                if v.is_empty() {
+                    return None;
+                }
+                ("Newton's law of gravitation", "F = G m₁ m₂ / r²", v)
+            }
+            None => {
+                let (m1, m2, r) = (t(MASS, 0)?, t(MASS, 1)?, t(LEN, 0)?);
+                ("Newton's law of gravitation", "F = G m₁ m₂ / r²", vec![out("force", BIG_G * m1 * m2 / (r * r), "N")])
+            }
+        }
     } else if has(&["coulomb", "electric force", "electrostatic force"]) {
         let (q1, q2, r) = (t(CHARGE, 0)?, t(CHARGE, 1)?, t(LEN, 0)?);
         ("Coulomb's law", "F = k q₁ q₂ / r²", vec![out("force", KE * q1 * q2 / (r * r), "N")])

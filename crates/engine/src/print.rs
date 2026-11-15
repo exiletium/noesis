@@ -199,6 +199,7 @@ fn pretty_fn(name: &str) -> String {
         "fibonacci" => "F",
         "lucas" => "L",
         "besselj" => "J",
+        "hyp2f1" => "₂F₁",
         "bessely" => "Y",
         "besseli" => "I",
         "besselk" => "K",

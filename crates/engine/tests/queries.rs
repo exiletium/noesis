@@ -287,7 +287,8 @@ fn more_mathematics_in_words() {
 #[test]
 fn reference_knowledge() {
     assert!(short("noble gases").starts_with("Helium, Neon"));
-    assert_eq!(short("oxidation states of manganese"), "+2, +4, +7");
+    assert_eq!(short("oxidation states of manganese"), "-3, -1, 0, +1, +2, +3, +4, +5, +6, +7");
+    assert_eq!(short("common oxidation states of manganese"), "+2, +4, +7");
     assert_eq!(short("half-life of carbon-14"), "5,730 years");
     assert_eq!(short("empirical formula of C6H12O6"), "CH2O");
     assert!(short("when is easter 2025").starts_with("Sunday, April 20, 2025"));
@@ -448,3 +449,18 @@ fn matrix_arithmetic_like_wolframalpha() {
     assert_eq!(short("{{1,2},{3,4}}^2 - 5 {{1,2},{3,4}}"), "{{2, 0}, {0, 2}}");
     assert_eq!(short("({{1,2},{3,4}}) - ({{1,1},{1,1}})"), "{{0, 1}, {2, 3}}");
 }
+
+#[test]
+fn words_and_numbers_from_the_benchmark() {
+    assert_eq!(short("anagrams of listen"), "elints  |  enlist  |  inlets  |  intels  |  silent  |  tinsel");
+    assert!(short("definition of serendipity").contains("good luck in making unexpected and fortunate discoveries"));
+    assert_eq!(short("words matching c_t"), "cat  |  cit  |  cot  |  cut");
+    assert!(short("is 1729 a taxicab number").starts_with("Yes"));
+    assert_eq!(short("100th digit of pi"), "9");
+    assert_eq!(short("integrate sqrt(1 + x^4) dx"), "∫ sqrt(x^4 + 1) dx = x ₂F₁(-1/2, 1/4, 5/4, -x^4) + constant");
+    assert!(short("mass of the moon").starts_with("7.3458×10^22 kg"));
+    // live positions: the Moon is always between perigee and apogee
+    let d: f64 = short("distance from earth to moon").split(" km").next().unwrap().replace(',', "").parse().unwrap();
+    assert!((356_000.0..407_000.0).contains(&d), "{d}");
+}
+

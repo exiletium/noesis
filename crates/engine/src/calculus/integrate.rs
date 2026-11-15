@@ -121,7 +121,10 @@ pub fn integrate(e: &Expr, x: &Expr) -> Option<Expr> {
         None => {
             // rational functions whose denominator splits only over the
             // reals or complex numbers
-            let r = budget::attempt_opt(budget::remaining().min(8.0) * 0.5, || rational_by_roots(e, x))?;
+            if let Some(r) = budget::attempt_opt(budget::remaining().min(8.0) * 0.5, || rational_by_roots(e, x)).filter(|r| verify(e, r, x)) {
+                return Some(r);
+            }
+            let r = binomial_hypergeometric(e, x)?;
             return verify(e, &r, x).then_some(r);
         }
     };
@@ -143,6 +146,48 @@ pub fn integrate(e: &Expr, x: &Expr) -> Option<Expr> {
         return Some(raw);
     }
     None
+}
+
+/// ∫ c x^m (a + b x^n)^p dx with a > 0 and p not an integer, when no
+/// elementary form was found:
+/// c a^p x^(m+1)/(m+1) · ₂F₁(−p, (m+1)/n; (m+1)/n + 1; −b x^n / a).
+fn binomial_hypergeometric(e: &Expr, x: &Expr) -> Option<Expr> {
+    let (c, rest) = split_const(e, x);
+    let factors: Vec<Expr> = match &rest {
+        Mul(v) => v.clone(),
+        other => vec![other.clone()],
+    };
+    let (mut m, mut binomial) = (Rat::zero(), None);
+    for t in &factors {
+        match t {
+            s if s == x => m += Rat::one(),
+            Pow(b, ex) if **b == *x => m += ex.as_rat()?.clone(),
+            Pow(b, ex) if binomial.is_none() && !ex.as_rat()?.is_integer() => binomial = Some(((**b).clone(), ex.as_rat()?.clone())),
+            _ => return None,
+        }
+    }
+    let (base, p) = binomial?;
+    let terms = match &base {
+        Add(v) if v.len() == 2 => v.clone(),
+        _ => return None,
+    };
+    let (a, bx) = if terms[0].has_sym(x) { (terms[1].clone(), terms[0].clone()) } else { (terms[0].clone(), terms[1].clone()) };
+    if a.has_sym(x) || a.to_f64_const()? <= 0.0 {
+        return None;
+    }
+    let (b, power) = split_const(&bx, x);
+    let n = match &power {
+        s if s == x => Rat::one(),
+        Pow(s, ex) if **s == *x => ex.as_rat()?.clone(),
+        _ => return None,
+    };
+    if n <= Rat::zero() || m == -Rat::one() {
+        return None;
+    }
+    let q = (m.clone() + Rat::one()) / n.clone();
+    let num = |r: &Rat| Expr::Num(r.clone());
+    let z = mul(vec![int(-1), b, power, pow(a.clone(), int(-1))]);
+    Some(mul(vec![c, pow(a, num(&p)), pow(x.clone(), num(&(m.clone() + Rat::one()))), pow(num(&(m + Rat::one())), int(-1)), func("hyp2f1", vec![num(&(-p)), num(&q), num(&(q.clone() + Rat::one())), z])]))
 }
 
 /// ∫ P/Q for a proper rational function whose denominator has simple

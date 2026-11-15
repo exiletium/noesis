@@ -202,6 +202,11 @@ fn dfunc(e: &Expr, name: &str, args: &[Expr], x: &Expr, deps: &[Name]) -> Expr {
         }
         return holder(e, x);
     }
+    if args.len() == 4 && name == "hyp2f1" && args[..3].iter().all(|p| d(p, x, deps).is_zero()) {
+        let (a, b, c, z) = (&args[0], &args[1], &args[2], &args[3]);
+        let up = |p: &Expr| add(vec![p.clone(), one()]);
+        return mul(vec![a.clone(), b.clone(), pow(c.clone(), int(-1)), func("hyp2f1", vec![up(a), up(b), up(c), z.clone()]), d(z, x, deps)]);
+    }
     if args.len() == 2 {
         let (a, b) = (&args[0], &args[1]);
         let da = d(a, x, deps);

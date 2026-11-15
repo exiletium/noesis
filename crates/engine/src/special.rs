@@ -581,3 +581,24 @@ pub fn polylog(s: f64, x: f64) -> f64 {
     }
     sum
 }
+
+/// Gauss hypergeometric function ₂F₁(a, b; c; z) for real z < 1.
+pub fn hyp2f1(a: f64, b: f64, c: f64, z: f64) -> f64 {
+    if !(z < 1.0) || (c <= 0.0 && c.fract() == 0.0) {
+        return f64::NAN;
+    }
+    if z < -0.5 {
+        // Pfaff transformation maps (-∞, 0) into (0, 1)
+        return (1.0 - z).powf(-a) * hyp2f1(a, c - b, c, z / (z - 1.0));
+    }
+    let (mut term, mut sum) = (1.0, 1.0);
+    for n in 0..200_000 {
+        let nf = n as f64;
+        term *= (a + nf) * (b + nf) / ((c + nf) * (nf + 1.0)) * z;
+        sum += term;
+        if term == 0.0 || term.abs() < 1e-16 * sum.abs() {
+            return sum;
+        }
+    }
+    if z.abs() < 0.999 { sum } else { f64::NAN }
+}

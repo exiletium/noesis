@@ -55,6 +55,7 @@ pub enum Fun {
     Li,
     LambertW,
     BesselJ,
+    Hyp2F1,
     BesselY,
     BesselI,
     BesselK,
@@ -128,6 +129,7 @@ impl Fun {
             "li" => Li,
             "W" => LambertW,
             "besselj" => BesselJ,
+            "hyp2f1" => Hyp2F1,
             "bessely" => BesselY,
             "besseli" => BesselI,
             "besselk" => BesselK,
@@ -690,6 +692,13 @@ pub fn real_fn(f: Fun, a: &[f64]) -> f64 {
             }
         }
         BesselJ => sp::bessel_j(x, y),
+        Hyp2F1 => {
+            if a.len() == 4 {
+                sp::hyp2f1(a[0], a[1], a[2], a[3])
+            } else {
+                f64::NAN
+            }
+        }
         BesselY => sp::bessel_y(x, y),
         BesselI => sp::bessel_i(x, y),
         BesselK => sp::bessel_k(x, y),

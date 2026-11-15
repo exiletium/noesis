@@ -4,10 +4,13 @@
 pub mod astro;
 pub mod chem;
 pub mod chemcalc;
+pub mod ephem;
 pub mod everyday;
+pub mod facts;
 pub mod formulas;
 pub mod geo;
 pub mod knowledge;
+pub mod lexicon;
 pub mod live;
 pub mod misc;
 pub mod units;

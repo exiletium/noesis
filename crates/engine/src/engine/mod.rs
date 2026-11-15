@@ -206,6 +206,8 @@ pub type Handler = fn(&Query) -> Option<Answer>;
 fn handlers() -> Vec<(&'static str, Handler)> {
     let mut v: Vec<(&'static str, Handler)> = Vec::new();
     v.push(("pde", pde::handle));
+    v.push(("words", crate::domains::lexicon::handle));
+    v.push(("facts", crate::domains::facts::handle));
     v.push(("language", nl::handle));
     v.push(("ode", ode::handle));
     v.extend(crate::domains::handlers());

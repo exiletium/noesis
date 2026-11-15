@@ -28,6 +28,8 @@ pub struct Element {
     pub discovery_year: Option<serde_json::Value>,
     pub discoverers: Option<String>,
     pub oxidation_states: Option<Vec<i32>>,
+    #[serde(default)]
+    pub oxidation_states_all: Option<Vec<i32>>,
     pub abundance_crust_mg_kg: Option<f64>,
     pub is_radioactive: Option<bool>,
     pub name_origin: Option<String>,

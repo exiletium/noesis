@@ -40,7 +40,7 @@ pub static BODIES: &[Body] = &[
     b("Mercury", "planet", 3.3011e23, 2.4397e6, 5.791e10, 87.969, 1407.6, 440.0, 0),
     b("Venus", "planet", 4.8675e24, 6.0518e6, 1.0821e11, 224.701, -5832.5, 737.0, 0),
     b("Earth", "planet", 5.9722e24, 6.371e6, 1.495_978_707e11, 365.256, 23.9345, 288.0, 1),
-    b("Moon", "moon of Earth", 7.342e22, 1.7374e6, 3.844e8, 27.3217, 655.72, 250.0, 0),
+    b("Moon", "moon of Earth", 7.3458e22, 1.7374e6, 3.844e8, 27.3217, 655.72, 250.0, 0),
     b("Mars", "planet", 6.4171e23, 3.3895e6, 2.27956e11, 686.980, 24.6229, 210.0, 2),
     b("Jupiter", "planet", 1.89819e27, 6.9911e7, 7.7857e11, 4332.59, 9.925, 165.0, 95),
     b("Saturn", "planet", 5.6834e26, 5.8232e7, 1.43353e12, 10759.22, 10.656, 134.0, 146),
@@ -290,18 +290,32 @@ fn distance(a: &'static Body, c: &'static Body) -> Option<Answer> {
     }
     let label = format!("distance between {} and {}", a.name, c.name);
     let mut pods = vec![pod("Input", "Input interpretation", text(label.clone()))];
-    if let Some(d) = separation(a, c) {
-        pods.push(primary(pod("Result", "Average distance", text(format!("{}  ({} miles{})", km(d), sci(d / 1609.344), if d > 1e10 { format!(", {} au", sci(d / AU)) } else { String::new() })))));
+    let fmt = |d: f64| {
+        if d > 1.5e10 {
+            format!("{} au  ({}, {} miles)", sci(d / AU), km(d), sci(d / 1609.344))
+        } else {
+            format!("{}  ({} miles)", km(d), sci(d / 1609.344))
+        }
+    };
+    let now = super::ephem::separation(a.name, c.name, super::ephem::now());
+    if let Some(d) = now {
+        pods.push(primary(pod("Result", "Current distance", text(fmt(d)))));
         pods.push(pod("Light", "Light travel time", text(light_time(d))));
+    }
+    if let Some(d) = separation(a, c) {
+        let p = pod("Average", "Average distance", text(fmt(d)));
+        pods.push(if now.is_some() { p } else { primary(p) });
     } else {
         // two bodies that both orbit the Sun: the distance varies
         let orbit = |x: &Body| if x.name == "Moon" { AU } else { x.orbit };
         let (ra, rc) = (orbit(a), orbit(c));
         let (near, far) = ((ra - rc).abs(), ra + rc);
-        pods.push(primary(pod("Result", "Distance range", text(format!("about {} at closest approach to {} when on opposite sides of the Sun", km(near), km(far))))));
-        pods.push(pod("AU", "In astronomical units", text(format!("{} au to {} au", sci(near / AU), sci(far / AU)))));
-        pods.push(pod("Light", "Light travel time", text(format!("{} to {}", light_time(near), light_time(far)))));
+        let p = pod("Range", "Distance range", text(format!("about {} at closest approach to {} when on opposite sides of the Sun  ({} au to {} au)", km(near), km(far), sci(near / AU), sci(far / AU))));
+        pods.push(if now.is_some() { p } else { primary(p) });
         pods.push(pod("Note", "Note", text("Both bodies orbit the Sun, so their separation changes continuously; the range uses mean orbital radii.")));
+    }
+    if now.is_some() {
+        pods.push(pod("Method", "Method", text("Current positions from mean orbital elements (planets) and the leading terms of the lunar theory (Moon); distances are between centres and good to about four significant figures.")));
     }
     Some(Answer::new(label, pods))
 }
