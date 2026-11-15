@@ -199,6 +199,16 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 ```
  Set `NOESIS_DEBUG=1` to see panic messages from failing tests. The engine silences panics by default because it uses them for timeouts.
 
+## Benchmark against WolframAlpha
+
+`tools/benchmark/wa_bench.py` runs a list of questions through both Noesis and the WolframAlpha Full Results API and compares the main results: numbers to a relative tolerance of 10⁻⁴, expressions by evaluating both at sample points, and text after normalisation. Doubtful cases are marked for manual review.
+
+```bash
+python3 tools/benchmark/wa_bench.py tools/benchmark/questions.txt
+```
+
+The script needs a WolframAlpha AppID, either in `WOLFRAM_APPID` or supplied by a proxy as an `Authorization: Bearer` header. WolframAlpha's responses are cached in a temporary directory, not in the repository.
+
 ## Data sources
 
 * Countries and cities: [GeoNames](https://www.geonames.org), licensed CC BY 4.0, via the `geonamescache` package.
