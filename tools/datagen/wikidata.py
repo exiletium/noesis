@@ -22,6 +22,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import zlib
@@ -46,40 +47,95 @@ WORKS = [
     ("Q207628", "musical composition", "P86", "composer", 15), ("Q2743", "musical", "P86", "composer", 20),
     ("Q482994", "album", "P175", "performer", 30), ("Q7366", "song", "P175", "performer", 30), ("Q134556", "single", "P175", "performer", 30),
     ("Q7889", "video game", "P178", "developer", 35),
+    ("Q116476516", "play", "P50", "author", 15), ("Q1279564", "literary work", "P50", "author", 20),
+    ("g:Q8261", "novel", "P50", "author", 20), ("g:Q25379", "play", "P50", "author", 15), ("g:Q80930", "tragedy", "P50", "author", 15),
+    ("g:Q40831", "comedy", "P50", "author", 20), ("g:Q482", "poem", "P50", "author", 20),
+    ("g:Q1344", "opera", "P86", "composer", 10), ("g:Q9734", "symphony", "P86", "composer", 10), ("g:Q2743", "musical", "P86", "composer", 15),
+    ("g:Q1344", "opera", "P87", "librettist", 10),
 ]
 EVENTS = [("Q198", 20), ("Q178561", 30), ("Q10931", 25), ("Q131569", 25), ("Q8465", 25), ("Q124757", 30), ("Q3839081", 40), ("Q13418847", 40), ("Q1190554", 60)]
 NOBEL = ["Q38104", "Q44585", "Q80061", "Q37922", "Q35637", "Q47170"]
 
 
-def fetch(url, data=None):
-    key = hashlib.sha1((url + (data or "")).encode()).hexdigest()
+def fetch(url, data=None, accept="application/sparql-results+json", valid=None):
+    """POST a query; a body is cached only once `valid(body)` accepts it, because
+    the endpoint can cut a response off mid-stream when a query runs long."""
+    key = hashlib.sha1((url + (data or "") + accept).encode()).hexdigest()
     path = os.path.join(CACHE, key) if CACHE else None
     if path and os.path.exists(path):
-        return open(path, encoding="utf-8").read()
-    for attempt in range(5):
+        body = open(path, encoding="utf-8").read()
+        if valid is None or valid(body):
+            return body
+    for attempt in range(6):
         try:
-            req = urllib.request.Request(url, data=data.encode() if data else None, headers={"User-Agent": UA, "Accept": "application/sparql-results+json"})
+            req = urllib.request.Request(url, data=data.encode() if data else None, headers={"User-Agent": UA, "Accept": accept})
             body = urllib.request.urlopen(req, timeout=75).read().decode("utf-8")
+            time.sleep(1.0)
+            if valid is not None and not valid(body):
+                raise ValueError(f"incomplete response ({len(body)} bytes)")
             if path:
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(body)
-            time.sleep(1.0)
             return body
+        except urllib.error.HTTPError as err:
+            wait = int(err.headers.get("Retry-After", "0") or 0) if err.code == 429 else 0
+            sys.stderr.write(f"  retry {attempt + 1}: {err}\n")
+            time.sleep(max(wait, 10 * (attempt + 1)))
         except Exception as err:  # noqa: BLE001 - retry any transport error
             sys.stderr.write(f"  retry {attempt + 1}: {err}\n")
-            time.sleep(5 * (attempt + 1))
+            time.sleep(10 * (attempt + 1))
     return None
 
 
+def parses(body):
+    try:
+        json.loads(body)
+        return True
+    except ValueError:
+        return False
+
+
+LABELS = {}
+
+
+def resolve_labels(qids):
+    """English labels for items the label service left unlabelled (it returns
+    the bare id under load)."""
+    todo = sorted({q for q in qids if q not in LABELS})
+    for k in range(0, len(todo), 200):
+        values = " ".join("wd:" + q for q in todo[k:k + 200])
+        body = fetch(ENDPOINT, "query=" + urllib.parse.quote(f'SELECT ?x ?l WHERE {{ VALUES ?x {{ {values} }} ?x rdfs:label ?l . FILTER(LANG(?l) = "en") }}'), valid=parses)
+        for r in json.loads(body)["results"]["bindings"] if body else []:
+            LABELS[qid(r["x"]["value"])] = r["l"]["value"]
+
+
 def sparql(query):
-    body = fetch(ENDPOINT, "query=" + urllib.parse.quote(query))
+    body = fetch(ENDPOINT, "query=" + urllib.parse.quote(query), valid=parses)
     if not body:
         return []
-    try:
-        rows = json.loads(body)["results"]["bindings"]
-    except ValueError:
-        return []
-    return [{k: v["value"] for k, v in r.items()} for r in rows]
+    rows = [{k: v["value"] for k, v in r.items()} for r in json.loads(body)["results"]["bindings"]]
+    missing = [r[k] for r in rows for k in r if k.endswith("Label") and re.fullmatch(r"Q\d+", r[k])]
+    if missing:
+        resolve_labels(missing)
+        for r in rows:
+            for k in list(r):
+                if k.endswith("Label") and r[k] in LABELS:
+                    r[k] = LABELS[r[k]]
+    return rows
+
+
+def sparql_ids(query):
+    """{qid: sitelinks} for a query selecting ?x and ?s, fetched as TSV (small)."""
+    def whole(body):
+        return body.startswith("?") and body.endswith("\n")
+
+    body = fetch(ENDPOINT, "query=" + urllib.parse.quote(query), accept="text/tab-separated-values", valid=whole)
+    out = {}
+    for line in (body or "").splitlines()[1:]:
+        m = re.match(r"<http://www.wikidata.org/entity/(Q\d+)>\t\"?(\d+)", line)
+        if m:
+            out[m.group(1)] = int(m.group(2))
+    return out
 
 
 def qid(uri):
@@ -112,18 +168,26 @@ def main():
 
     works = {}
     for cls, kind, prop, role, least in WORKS:
-        rows = sparql(f"""SELECT ?w ?wLabel ?a ?aLabel ?s (MIN(?d) AS ?date) WHERE {{
-  ?w wdt:P31 wd:{cls} ; wikibase:sitelinks ?s . FILTER(?s >= {least})
-  ?w wdt:{prop} ?a . OPTIONAL {{ ?w wdt:P577 ?d }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }} }} GROUP BY ?w ?wLabel ?a ?aLabel ?s""")
-        sys.stderr.write(f"{kind}: {len(rows)} rows\n")
-        for r in rows:
-            if not (is_label(r.get("wLabel")) and is_label(r.get("aLabel"))):
-                continue
-            w = works.setdefault(qid(r["w"]), {"title": clean(r["wLabel"]), "kind": kind, "role": role, "names": [], "year": date(r.get("date", ""))[:5].split("-")[0] if r.get("date") else "", "links": int(r["s"])})
-            if clean(r["aLabel"]) not in w["names"]:
-                w["names"].append(clean(r["aLabel"]))
-            people[qid(r["a"])] = None
+        # step 1: the ids only (cheap); step 2: details in batches
+        via, cls = ("wdt:P136", cls[2:]) if cls.startswith("g:") else ("wdt:P31", cls)
+        links = sparql_ids(f"SELECT ?w ?s WHERE {{ ?w {via} wd:{cls} ; wikibase:sitelinks ?s . FILTER(?s >= {least}) }}")
+        found = 0
+        keys = sorted(links)
+        for k in range(0, len(keys), 150):
+            values = " ".join("wd:" + q for q in keys[k:k + 150])
+            rows = sparql(f"""SELECT ?w ?wLabel ?a ?aLabel (MIN(?d) AS ?date) WHERE {{
+  VALUES ?w {{ {values} }} ?w wdt:{prop} ?a . OPTIONAL {{ ?w wdt:P577 ?d }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }} }} GROUP BY ?w ?wLabel ?a ?aLabel""")
+            for r in rows:
+                if not (is_label(r.get("wLabel")) and is_label(r.get("aLabel"))):
+                    continue
+                key = (qid(r["w"]), role)
+                w = works.setdefault(key, {"title": clean(r["wLabel"]), "kind": kind, "role": role, "names": [], "year": date(r.get("date", "")).split("-")[0] if r.get("date") else "", "links": links[qid(r["w"])]})
+                if clean(r["aLabel"]) not in w["names"]:
+                    w["names"].append(clean(r["aLabel"]))
+                    found += 1
+                people[qid(r["a"])] = None
+        sys.stderr.write(f"{kind}: {len(links)} works, {found} creators\n")
     for w in sorted(works.values(), key=lambda x: -x["links"]):
         lines.append("\t".join(["W", w["title"], w["kind"], w["role"], "; ".join(w["names"][:6]), w["year"]]))
 
@@ -186,16 +250,19 @@ def main():
 
     for prize in NOBEL:
         rows = sparql(f"""SELECT ?p ?pLabel ?t ?awardLabel WHERE {{
-  BIND(wd:{prize} AS ?award) ?p p:P166 ?stmt . ?stmt ps:P166 ?award ; pq:P585 ?t .
+  BIND(wd:{prize} AS ?award) ?p p:P166 ?stmt . ?stmt ps:P166 ?award . OPTIONAL {{ ?stmt pq:P585 ?t }}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }} }}""")
         by_year = {}
         for r in rows:
             if is_label(r.get("pLabel")):
-                by_year.setdefault(date(r["t"])[:4], []).append(clean(r["pLabel"]))
                 people[qid(r["p"])] = None
+                if r.get("t"):
+                    by_year.setdefault(date(r["t"])[:4], []).append(clean(r["pLabel"]))
         for year, names in sorted(by_year.items()):
-            lines.append("\t".join(["A", clean(rows[0]["awardLabel"]), year, "; ".join(sorted(set(names)))]))
+            lines.append("\t".join(["A", clean(rows[0].get("awardLabel", "")), year, "; ".join(sorted(set(names)))]))
 
+    for q in sparql_ids("SELECT ?h ?s WHERE { ?h wdt:P31 wd:Q5 ; wikibase:sitelinks ?s . FILTER(?s >= 90) }"):
+        people[q] = None
     ids = sorted(people)
     sys.stderr.write(f"people: {len(ids)}\n")
     for k in range(0, len(ids), 250):

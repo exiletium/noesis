@@ -15,6 +15,9 @@ pub struct Country {
     pub capital: String,
     pub continent: String,
     pub area_km2: f64,
+    /// land area (CIA World Factbook), when known
+    #[serde(default)]
+    pub land_km2: Option<f64>,
     pub population: u64,
     pub tld: String,
     pub currency_code: String,
@@ -33,6 +36,8 @@ pub struct City {
     pub population: u64,
     pub timezone: String,
     pub capital: bool,
+    /// year of the population figure when it comes from Wikidata, else empty (GeoNames)
+    pub population_year: String,
 }
 
 pub fn countries() -> &'static HashMap<String, Country> {
@@ -40,15 +45,29 @@ pub fn countries() -> &'static HashMap<String, Country> {
     C.get_or_init(|| serde_json::from_str(include_str!("../../data/countries.json")).unwrap_or_default())
 }
 
+fn city_population(c: &City) -> String {
+    if c.population_year.is_empty() {
+        format!("{} people", fmt_int(c.population))
+    } else {
+        format!("{} people ({} figure)", fmt_int(c.population), c.population_year)
+    }
+}
+
 pub fn cities() -> &'static Vec<City> {
     static C: OnceLock<Vec<City>> = OnceLock::new();
     C.get_or_init(|| {
         #[derive(Deserialize)]
         struct Raw {
-            rows: Vec<(String, String, f64, f64, u64, String, u8, String)>,
+            rows: Vec<Vec<serde_json::Value>>,
         }
         let raw: Raw = serde_json::from_str(include_str!("../../data/cities.json")).unwrap_or(Raw { rows: vec![] });
-        raw.rows.into_iter().map(|r| City { name: r.0, country: r.1, lat: r.2, lon: r.3, population: r.4, timezone: r.5, capital: r.6 == 1 }).collect()
+        // name, country, lat, lon, population, timezone, capital, admin1[, population year]
+        let s = |r: &[serde_json::Value], k: usize| r.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let f = |r: &[serde_json::Value], k: usize| r.get(k).and_then(|v| v.as_f64()).unwrap_or(0.0);
+        raw.rows
+            .iter()
+            .map(|r| City { name: s(r, 0), country: s(r, 1), lat: f(r, 2), lon: f(r, 3), population: f(r, 4) as u64, timezone: s(r, 5), capital: f(r, 6) == 1.0, population_year: s(r, 8) })
+            .collect()
     })
 }
 
@@ -158,9 +177,16 @@ pub fn local_time(tz: &str) -> Option<chrono::DateTime<chrono_tz::Tz>> {
     Some(chrono::Utc::now().with_timezone(&tz))
 }
 
+impl Country {
+    /// Area used for population density: land area when known.
+    pub fn density_area(&self) -> f64 {
+        self.land_km2.unwrap_or(self.area_km2).max(1e-9)
+    }
+}
+
 fn country_pods(c: &Country) -> Vec<Pod> {
     let mut pods = vec![pod("Input", "Input interpretation", text(format!("{} (country)", c.name)))];
-    let density = c.population as f64 / c.area_km2.max(1e-9);
+    let density = c.population as f64 / c.density_area();
     pods.push(primary(pod(
         "Facts",
         "Basic facts",
@@ -171,7 +197,8 @@ fn country_pods(c: &Country) -> Vec<Pod> {
                 vec![text("continent"), text(continent(&c.continent))],
                 vec![text("population"), text(format!("{} people", fmt_int(c.population)))],
                 vec![text("area"), text(format!("{} km² ({} mi²)", fmt_int(c.area_km2 as u64), fmt_int((c.area_km2 / 2.589988) as u64)))],
-                vec![text("population density"), text(format!("{} people/km²", fmt_float(density, 4)))],
+                vec![text("land area"), text(c.land_km2.map(|a| format!("{} km²", fmt_int(a as u64))).unwrap_or_else(|| "not available".into()))],
+                vec![text("population density"), text(format!("{} people/km² of {}", fmt_float(density, 4), if c.land_km2.is_some() { "land" } else { "total area" }))],
                 vec![text("currency"), text(format!("{} ({})", c.currency_name, c.currency_code))],
                 vec![text("calling code"), text(format!("+{}", c.calling_code))],
                 vec![text("internet code"), text(c.tld.clone())],
@@ -215,7 +242,7 @@ fn continent(code: &str) -> String {
 fn city_pods(c: &City) -> Vec<Pod> {
     let country = countries().get(&c.country).map(|x| x.name.clone()).unwrap_or_else(|| c.country.clone());
     let mut pods = vec![pod("Input", "Input interpretation", text(format!("{}, {} (city)", c.name, country)))];
-    let mut rows = vec![vec![text("country"), text(country)], vec![text("population"), text(format!("{} people", fmt_int(c.population)))], vec![text("coordinates"), text(coords(c))], vec![text("time zone"), text(c.timezone.clone())]];
+    let mut rows = vec![vec![text("country"), text(country)], vec![text("population"), text(city_population(c))], vec![text("coordinates"), text(coords(c))], vec![text("time zone"), text(c.timezone.clone())]];
     if c.capital {
         rows.insert(1, vec![text("status"), text("national capital")]);
     }
@@ -307,7 +334,8 @@ pub fn handle(q: &Query) -> Option<Answer> {
             let v = match prop {
                 "population" => Some(format!("{} people", fmt_int(c.population))),
                 "capital" | "capital city" => Some(c.capital.clone()),
-                "area" | "size" => Some(format!("{} km²", fmt_int(c.area_km2 as u64))),
+                "area" | "size" | "total area" => Some(format!("{} km²", fmt_int(c.area_km2 as u64))),
+                "land area" => c.land_km2.map(|a| format!("{} km²", fmt_int(a as u64))),
                 "currency" => Some(format!("{} ({})", c.currency_name, c.currency_code)),
                 "calling code" | "country code" | "dialing code" => Some(format!("+{}", c.calling_code)),
                 _ => None,
@@ -323,7 +351,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
         if prop == "population" {
             if let Some(c) = find_city(place) {
-                let pods = vec![pod("Input", "Input interpretation", text(format!("{} | population", c.name))), primary(pod("Result", "Result", text(format!("{} people", fmt_int(c.population)))))];
+                let pods = vec![pod("Input", "Input interpretation", text(format!("{} | population", c.name))), primary(pod("Result", "Result", text(city_population(c))))];
                 return Some(Answer::new(format!("population of {}", c.name), pods));
             }
         }

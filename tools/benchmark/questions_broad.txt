@@ -72,7 +72,7 @@ what day of the week is july 4 2030
 age of someone born on 1985-06-15
 number of seconds in a leap year
 # finance and everyday
-convert 100 USD to EUR
+convert 100 USD to EUR  #! online tol=0.002
 monthly payment on a 25000 loan at 6% for 5 years
 how much is 30% off 79.99
 bmi 180 lb 5 ft 10 in

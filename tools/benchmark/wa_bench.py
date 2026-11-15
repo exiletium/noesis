@@ -104,18 +104,20 @@ def wa_answer(data, query=""):
     return None, interp
 
 
-def noesis_answer(query):
+def noesis_answer(query, online=None):
     """The primary answer as plain text (the CLI's --short output)."""
-    return short(query)
+    return short(query, online)
 
 
 ONLINE = "--online" in sys.argv
 
 
-def short(query):
+def short(query, online=None):
+    online = ONLINE if online is None else online
     try:
-        out = subprocess.run([NOESIS] + ([] if ONLINE else ["--offline"]) + ["--short", query], capture_output=True, text=True, timeout=30,
-                             env={**os.environ, "NOESIS_NO_GPU": "1", "XDG_RUNTIME_DIR": os.environ.get("XDG_RUNTIME_DIR", "/tmp"), **({} if ONLINE else {"NOESIS_OFFLINE": "1"})})
+        env = {k: v for k, v in os.environ.items() if not (online and k == "NOESIS_OFFLINE")}
+        out = subprocess.run([NOESIS] + ([] if online else ["--offline"]) + ["--short", query], capture_output=True, text=True, timeout=30,
+                             env={**env, "NOESIS_NO_GPU": "1", "XDG_RUNTIME_DIR": os.environ.get("XDG_RUNTIME_DIR", "/tmp"), **({} if online else {"NOESIS_OFFLINE": "1"})})
         return out.stdout.strip() if out.returncode == 0 else None
     except Exception:
         return None
@@ -251,11 +253,16 @@ def units_agree(wa, no):
 CONSTS = {"c_1": "0.613", "c_2": "1.29", "c_3": "-0.47", "C": "0.613"}
 
 
-def evaluate(expr, pt, consts=None):
+def evaluate(expr, pt, consts=None, precise=False):
     e = expr.replace("₂F₁", "hypergeometric")
     for k, v in (consts or CONSTS).items():
         e = re.sub(r"\b" + re.escape(k) + r"\b", f"({v})", e)
     e = re.sub(r"\b[xnt]\b", f"({pt})", e)
+    if precise:
+        d = noesis_decimal(e)
+        v = to_float(d.strip()[:30]) if d else None
+        if v is not None:
+            return v
     out = short(e)
     if out is None:
         return None
@@ -301,16 +308,25 @@ def ode_agree(wa, no):
         v = evaluate(a, "0.731", {"c_1": repr(k)})
         return None if v is None else v - target
 
-    k0, k1 = 0.5, 1.5
-    g0, g1 = gap(k0), gap(k1)
-    for _ in range(30):
-        if g0 is None or g1 is None or g1 == g0:
-            return None
-        if abs(g1) < 1e-10 * max(1.0, abs(target)):
+    grid = [k / 4 for k in range(-40, 41)]
+    vals = [(k, gap(k)) for k in grid]
+    k1 = None
+    for (ka, ga), (kb, gb) in zip(vals, vals[1:]):
+        if ga is None or gb is None or ga * gb > 0:
+            continue
+        for _ in range(60):
+            km = (ka + kb) / 2
+            gm = gap(km)
+            if gm is None:
+                break
+            if ga * gm <= 0:
+                kb, gb = km, gm
+            else:
+                ka, ga = km, gm
+        if abs(gap((ka + kb) / 2) or 1e9) < 1e-7 * max(1.0, abs(target)):
+            k1 = (ka + kb) / 2
             break
-        k0, k1, g0 = k1, k1 - g1 * (k1 - k0) / (g1 - g0), g1
-        g1 = gap(k1)
-    else:
+    if k1 is None:
         return None
     for pt in ["1.37", "0.21"]:
         va, vb = evaluate(a, pt, {"c_1": repr(k1)}), evaluate(b, pt, {"c_1": "0.37"})
@@ -327,9 +343,9 @@ def antiderivative_agree(query, no):
     if not m or " from " in query or "=" not in no:
         return None
     integrand, big = m.group(1), rhs(no).replace("+ constant", "")
-    h = 1e-4
+    h = 1e-3
     for pt in [0.731, 1.37]:
-        up, down, f = evaluate(big, repr(pt + h)), evaluate(big, repr(pt - h)), evaluate(integrand, repr(pt))
+        up, down, f = evaluate(big, repr(pt + h), precise=True), evaluate(big, repr(pt - h), precise=True), evaluate(integrand, repr(pt), precise=True)
         if None in (up, down, f):
             return None
         if abs((up - down) / (2 * h) - f) > 1e-5 * max(1.0, abs(f)):
@@ -425,6 +441,11 @@ def compare(query, wa, no, no_decimal=None, tol=None):
         return "wa-fail"
     if no is None:
         return "noesis-fail"
+    lines = wa.split("\n")
+    if len(lines) > 1 and all(re.fullmatch(r"[a-z](?: \| [a-z])+", ln.strip()) for ln in lines):
+        wa = " | ".join(ln.replace(" | ", "") for ln in lines)
+        found = {w.strip() for w in no.split("|")}
+        return "match" if set(wa.split(" | ")) <= found else "mismatch"
     wa_main = " | ".join(strip_labels(wa))
     a, b = normalise(rhs(wa_main)), normalise(rhs(no))
     if a == b:
@@ -481,6 +502,7 @@ def main():
     os.makedirs(cache, exist_ok=True)
     # a question may carry annotations after "#!":
     #   now            WolframAlpha is re-queried if its cached answer is over an hour old
+    #   online         Noesis may use its live data sources for this question
     #   tol=0.005      relative tolerance for this question (time-varying or dated data)
     #   wa-misread: …  WolframAlpha answered a different question; give the reason
     queries, notes = [], {}
@@ -501,7 +523,7 @@ def main():
             print(f"WolframAlpha request failed for {q!r}: {data['error']}")
             return 1
         wa, interp = wa_answer(data, q)
-        no = noesis_answer(q)
+        no = noesis_answer(q, True if re.search(r"\bonline\b", note) else None)
         verdict = compare(q, wa, no, noesis_decimal(q) if wa and no else None, tol)
         if "wa-misread" in note and verdict in ("mismatch", "review", "noesis-fail"):
             verdict = "wa-misread"

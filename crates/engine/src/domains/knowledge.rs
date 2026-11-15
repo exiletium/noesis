@@ -567,7 +567,7 @@ fn countries_q(l: &str) -> Option<Answer> {
     let place = m[2].trim();
     if let Some(c) = find_country(place) {
         let (title, value) = match what.as_str() {
-            "population density" | "density" => ("Population density", format!("{} people/km²  ({} people/mi²)", fmt_float(c.population as f64 / c.area_km2.max(1e-9), 4), fmt_float(c.population as f64 / (c.area_km2 / 2.589988).max(1e-9), 4))),
+            "population density" | "density" => ("Population density", format!("{} people/km²  ({} people/mi²)", fmt_float(c.population as f64 / c.density_area(), 4), fmt_float(c.population as f64 / (c.density_area() / 2.589988), 4))),
             w if w.starts_with("language") || w.starts_with("official") => ("Languages", {
                 let mut names: Vec<String> = Vec::new();
                 for code in c.languages.split(',') {
@@ -1081,20 +1081,19 @@ fn physics(l: &str, c: &str) -> Option<Answer> {
         ));
     }
     // boiling point of water at an altitude: standard atmosphere pressure, then
-    // the Antoine equation for water
+    // the IAPWS-IF97 saturation curve
     if let Some(m) = re!(r"^(?:the\s+)?boiling (?:point|temperature) of water\s+at\s+(?:an?\s+)?(?:altitude|elevation|height)?\s*(?:of\s+)?(.+?)(?:\s+(?:altitude|elevation|above sea level))?$").captures(l) {
         let h = quantity(m[1].trim())?;
         if !(-500.0..=11_000.0).contains(&h) {
             return None;
         }
         let p = 101_325.0 * (1.0 - 2.255_77e-5 * h).powf(5.255_88);
-        let mmhg = p / 133.322_368;
-        let t = 1730.63 / (8.071_31 - mmhg.log10()) - 233.426;
+        let t = saturation_temperature(p) - 273.15;
         return Some(simple(
             &format!("boiling point of water at {} m", n(h)),
             "Boiling point",
             format!("{} °C  ({} °F)", fmt_float(t, 4), fmt_float(t * 9.0 / 5.0 + 32.0, 4)),
-            vec![pod("Pressure", "Air pressure (standard atmosphere)", text(format!("{} kPa  ({} atm)", fmt_float(p / 1000.0, 4), fmt_float(p / 101_325.0, 4)))), pod("Method", "Method", text("International Standard Atmosphere for the pressure; Antoine equation for the vapour pressure of water."))],
+            vec![pod("Pressure", "Air pressure (standard atmosphere)", text(format!("{} kPa  ({} atm)", fmt_float(p / 1000.0, 4), fmt_float(p / 101_325.0, 4)))), pod("Method", "Method", text("International Standard Atmosphere for the pressure; IAPWS-IF97 saturation temperature of water."))],
         ));
     }
     // two equal charges
@@ -1359,3 +1358,26 @@ mod tests {
         assert_eq!(easter(2026), NaiveDate::from_ymd_opt(2026, 4, 5));
     }
 }
+
+/// Saturation temperature of water (K) at pressure `p` (Pa): the IAPWS-IF97
+/// region 4 backward equation, valid from 611 Pa to 22.064 MPa.
+pub fn saturation_temperature(p: f64) -> f64 {
+    const N: [f64; 10] = [0.116_705_214_527_67e4, -0.724_213_167_032_06e6, -0.170_738_469_400_92e2, 0.120_208_247_024_70e5, -0.323_255_503_223_33e7, 0.149_151_086_135_30e2, -0.482_326_573_615_91e4, 0.405_113_405_420_57e6, -0.238_555_575_678_49, 0.650_175_348_447_98e3];
+    let b = (p / 1e6).powf(0.25);
+    let e = b * b + N[2] * b + N[5];
+    let f = N[0] * b * b + N[3] * b + N[6];
+    let g = N[1] * b * b + N[4] * b + N[7];
+    let d = 2.0 * g / (-f - (f * f - 4.0 * e * g).sqrt());
+    (N[9] + d - ((N[9] + d).powi(2) - 4.0 * (N[8] + N[9] * d)).sqrt()) / 2.0
+}
+
+#[cfg(test)]
+mod iapws {
+    #[test]
+    fn saturation_temperature_matches_the_standard() {
+        // IAPWS-IF97 verification values: 0.1 MPa → 372.755919 K, 1 MPa → 453.035632 K
+        assert!((super::saturation_temperature(1e5) - 372.755_919).abs() < 1e-5);
+        assert!((super::saturation_temperature(1e6) - 453.035_632).abs() < 1e-5);
+    }
+}
+
