@@ -459,6 +459,13 @@ fn words_and_numbers_from_the_benchmark() {
     assert_eq!(short("100th digit of pi"), "9");
     assert_eq!(short("integrate sqrt(1 + x^4) dx"), "∫ sqrt(x^4 + 1) dx = x ₂F₁(-1/2, 1/4, 5/4, -x^4) + constant");
     assert!(short("mass of the moon").starts_with("7.3458×10^22 kg"));
+    // general knowledge from the bundled Wikidata extract
+    assert_eq!(short("who wrote hamlet"), "William Shakespeare");
+    assert_eq!(short("who composed the magic flute"), "Wolfgang Amadeus Mozart");
+    assert_eq!(short("who directed jaws"), "Steven Spielberg");
+    assert_eq!(short("when did world war 2 end"), "Sunday, September 2, 1945");
+    assert!(short("who was the first president of the united states").starts_with("George Washington"));
+    assert_eq!(short("nobel prize in physics 1921"), "Albert Einstein");
     // live positions: the Moon is always between perigee and apogee
     let d: f64 = short("distance from earth to moon").split(" km").next().unwrap().replace(',', "").parse().unwrap();
     assert!((356_000.0..407_000.0).contains(&d), "{d}");
