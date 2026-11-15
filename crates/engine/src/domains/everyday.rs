@@ -179,6 +179,14 @@ fn calendar(l: &str) -> Option<Answer> {
             return Some(Answer::new(format!("days in {label}"), pods));
         }
     }
+    if let Some(m) = re!(r"^(?:number of\s+)?(days|weeks|hours|minutes|seconds)\s+(?:are\s+)?(?:there\s+)?in\s+(?:a|one)\s+(leap|common|non-leap|regular|normal)\s+year$").captures(l) {
+        let leap = &m[2] == "leap";
+        let y = if leap { 2024 } else { 2023 };
+        return calendar(&format!("{} in {y}", &m[1])).map(|mut a| {
+            a.pods[0] = pod("Input", "Input interpretation", text(format!("number of {} in a {} year", &m[1], if leap { "leap" } else { "common" })));
+            a
+        });
+    }
     if let Some(m) = re!(r"^(?:number of\s+)?(days|weeks|hours|minutes|seconds)\s+(?:are\s+)?(?:there\s+)?in\s+(?:the year\s+)?(\d{4})$").captures(l) {
         let y: i32 = m[2].parse().ok()?;
         let days = if is_leap(y) { 366i64 } else { 365 };
@@ -486,7 +494,7 @@ fn bmi(l: &str) -> Option<Answer> {
     let (lo, hi) = (18.5 * metres * metres, 25.0 * metres * metres);
     let pods = vec![
         pod("Input", "Input interpretation", text(format!("body mass index | mass {} kg | height {} m", fmt_float(kg, 4), fmt_float(metres, 4)))),
-        primary(pod("Result", "Body mass index", text(format!("{} kg/m²  ({class})", fmt_float(b, 3))))),
+        primary(pod("Result", "Body mass index", text(format!("{} kg/m²  ({class})", fmt_float((b * 100.0).round() / 100.0, 6))))),
         pod("Formula", "Formula", text(format!("BMI = mass ÷ height² = {} ÷ {}²", fmt_float(kg, 4), fmt_float(metres, 4)))),
         pod("Range", "Normal-weight range for this height", text(format!("{} kg to {} kg  ({} lb to {} lb)", fmt_float(lo, 3), fmt_float(hi, 3), fmt_float(lo / 0.453_592_37, 3), fmt_float(hi / 0.453_592_37, 3)))),
         pod(

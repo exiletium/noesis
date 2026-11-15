@@ -166,6 +166,51 @@ pub fn numbers(q: &Query, l: &str, c: &str) -> Option<Answer> {
         let label = format!("number of {what} of a {shape}");
         return answer(label.clone(), label, vec![primary(pod("Result", "Result", text(v.to_string()))), pod("Facts", "Properties", table(None, rows))]);
     }
+    // Catalan, Bell and Stirling numbers
+    if let Some(m) = cap(re!(r"^(?:the\s+)?(?:(\d+)(?:st|nd|rd|th)\s+)?(catalan|bell)\s+numbers?\s*(?:of\s+|for\s+|number\s+)?\(?(\d+)?\)?$")) {
+        let k: usize = if !g(&m, 1).is_empty() { g(&m, 1).parse().ok()? } else { g(&m, 3).parse().ok()? };
+        if k > 2000 {
+            return None;
+        }
+        let kind = g(&m, 2).to_lowercase();
+        let v: BigInt = if kind == "catalan" {
+            nt::binomial(&BigInt::from(2 * k as u64), k as u64) / BigInt::from(k as u64 + 1)
+        } else {
+            // Bell triangle
+            let mut row = vec![BigInt::one()];
+            for _ in 0..k {
+                let mut next = vec![row.last().cloned().unwrap_or_else(BigInt::one)];
+                for x in &row {
+                    let v = next.last().cloned().unwrap_or_default() + x;
+                    next.push(v);
+                }
+                row = next;
+            }
+            row[0].clone()
+        };
+        let label = format!("{} number B({k})", if kind == "catalan" { "Catalan" } else { "Bell" }).replace("Catalan number B", "Catalan number C");
+        let note = if kind == "catalan" { "C(n) = binomial(2n, n)/(n + 1): binary trees, balanced parentheses, triangulations" } else { "B(n): number of partitions of a set of n elements" };
+        return answer(label.clone(), label, vec![primary(pod("Result", "Result", text(v.to_string()))), pod("Meaning", "Meaning", text(note))]);
+    }
+    if let Some(m) = cap(re!(r"^(?:the\s+)?stirling numbers?\s+of\s+the\s+(first|second)\s+kind\s*\(?\s*(\d+)\s*,\s*(\d+)\s*\)?$")) {
+        let (nn, kk): (usize, usize) = (g(&m, 2).parse().ok()?, g(&m, 3).parse().ok()?);
+        if nn > 500 || kk > nn {
+            return None;
+        }
+        let first = g(&m, 1).to_lowercase() == "first";
+        // S(n, k) = k S(n−1, k) + S(n−1, k−1);  c(n, k) = (n−1) c(n−1, k) + c(n−1, k−1)
+        let mut t = vec![vec![BigInt::zero(); nn + 1]; nn + 1];
+        t[0][0] = BigInt::one();
+        for i in 1..=nn {
+            for j in 1..=i {
+                let a = &t[i - 1][j] * BigInt::from(if first { i as u64 - 1 } else { j as u64 });
+                t[i][j] = a + &t[i - 1][j - 1];
+            }
+        }
+        let label = format!("Stirling number of the {} kind ({nn}, {kk})", g(&m, 1));
+        let note = if first { "unsigned: permutations of n elements with k cycles" } else { "ways to partition n elements into k non-empty subsets" };
+        return answer(label.clone(), label, vec![primary(pod("Result", "Result", text(t[nn][kk].to_string()))), pod("Meaning", "Meaning", text(note))]);
+    }
     // trailing zeros
     if let Some(m) = cap(re!(r"^(?:the\s+)?(?:number of\s+)?trailing zero(?:e?s)?\s+(?:in|of|at the end of)\s+(.+)$")) {
         let body = g(&m, 1);

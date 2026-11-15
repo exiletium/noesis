@@ -187,6 +187,14 @@ fn rewrite(l: &str, c: &str) -> Option<String> {
         let _ = v;
         return Some(format!("integrate {} from {} to {}", f.trim(), g(&m, 1), g(&m, 2)));
     }
+    // "1/(1 - x) series at x = 2"
+    if let Some(m) = cap(re!(r"^(.+?)\s+(?:taylor\s+|power\s+)?series\s+(?:at|about|around|near)\s+([a-z])\s*=\s*(.+)$")) {
+        return Some(format!("series of {} at {} = {}", g(&m, 1), g(&m, 2), g(&m, 3)));
+    }
+    // "monthly payment on a 25000 loan at 6% for 5 years"
+    if let Some(m) = cap(re!(r"^(?:the\s+)?(?:monthly\s+)?payments?\s+(?:on|for)\s+(?:a\s+)?\$?([\d,.]+k?)\s+(?:dollar\s+)?(?:loan|mortgage|car loan|student loan)\s+(.+)$")) {
+        return Some(format!("loan payment {} {}", g(&m, 1), g(&m, 2)));
+    }
     // "3 to the 4th power", "2 raised to the 10th"
     if let Some(m) = cap(re!(r"^(.+?)\s+(?:raised\s+)?to\s+the\s+(\d+)(?:st|nd|rd|th)(?:\s+power)?$")) {
         return Some(format!("({})^({})", g(&m, 1), g(&m, 2)));

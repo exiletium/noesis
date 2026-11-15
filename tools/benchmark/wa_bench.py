@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Side-by-side benchmark of Noesis against the WolframAlpha Full Results API.
 
-    python3 tools/benchmark/wa_bench.py QUESTIONS.txt [--cache DIR] [--report FILE]
+    python3 tools/benchmark/wa_bench.py QUESTIONS.txt [--cache DIR] [--report FILE] [--online]
+
+--online lets Noesis use its live data sources (weather, exchange rates,
+encyclopedia), as WolframAlpha does; by default Noesis runs offline.
 
 QUESTIONS.txt has one query per line ('#' starts a comment).  For every
 query the script fetches WolframAlpha's pods (plain text, JSON output),
@@ -104,10 +107,13 @@ def noesis_answer(query):
     return short(query)
 
 
+ONLINE = "--online" in sys.argv
+
+
 def short(query):
     try:
-        out = subprocess.run([NOESIS, "--offline", "--short", query], capture_output=True, text=True, timeout=30,
-                             env={**os.environ, "NOESIS_NO_GPU": "1", "NOESIS_OFFLINE": "1", "XDG_RUNTIME_DIR": os.environ.get("XDG_RUNTIME_DIR", "/tmp")})
+        out = subprocess.run([NOESIS] + ([] if ONLINE else ["--offline"]) + ["--short", query], capture_output=True, text=True, timeout=30,
+                             env={**os.environ, "NOESIS_NO_GPU": "1", "XDG_RUNTIME_DIR": os.environ.get("XDG_RUNTIME_DIR", "/tmp"), **({} if ONLINE else {"NOESIS_OFFLINE": "1"})})
         return out.stdout.strip() if out.returncode == 0 else None
     except Exception:
         return None
@@ -133,7 +139,11 @@ def displayed_tolerance(token):
     mant = re.match(r"-?(\d+)(?:\.(\d+))?", t)
     if not mant:
         return 1e-4
-    digits = len((mant.group(1) + (mant.group(2) or "")).lstrip("0")) or 1
+    whole, frac = mant.group(1), mant.group(2) or ""
+    sig = (whole + frac).lstrip("0")
+    if not frac:
+        sig = sig.rstrip("0") or "0"  # 5030 shows 3 significant digits
+    digits = len(sig) or 1
     return max(1e-9, 0.5 * 10 ** (1 - digits))
 
 
@@ -184,8 +194,15 @@ def rhs(s):
 
 
 def answers(s):
-    """A multi-part answer as a set of right-hand sides."""
-    return [rhs(p) for p in strip_labels(s.replace(" and ", " | ").replace(" or ", " | "))]
+    """A multi-part answer as a set of right-hand sides; 'x = ±3' is two answers."""
+    out = []
+    for p in strip_labels(s.replace(" and ", " | ").replace(" or ", " | ")):
+        r = rhs(p)
+        if r.startswith("±"):
+            out += [r[1:].strip(), "-" + r[1:].strip()]
+        else:
+            out.append(r)
+    return out
 
 
 def value_after_approx(s):
@@ -329,6 +346,24 @@ def systems_agree(wa, no):
     return ws == ns
 
 
+def extremum_agree(wa, no):
+    """'min{f | g} = 5 at (x, y) = (1, 2)' vs 'minimum 5 at (1, 2)'."""
+    mw = re.search(r"(?:min|max)\{.*\}\s*=\s*([^ ]+)\s+at\s+\(x, y\)\s*=\s*(\([^)]*\))", wa)
+    mn = re.search(r"(?:minimum|maximum|value)\s+([^ ]+)\s+at\s+(\([^)]*\))", no)
+    if not mw or not mn:
+        return None
+    return normalise(mw.group(1)) == normalise(mn.group(1)) and normalise(mw.group(2)) == normalise(mn.group(2))
+
+
+def money_agree(wa, no):
+    if "$" not in no:
+        return None
+    x, y = (NUM.findall(wa) or [None])[0], (NUM.findall(no.replace("$", "")) or [None])[0]
+    if not x or not y:
+        return None
+    return abs(to_float(x) - to_float(y)) <= 0.005 + 1e-9
+
+
 def compare(query, wa, no, no_decimal=None):
     if wa is None and no is None:
         return "both-fail"
@@ -345,7 +380,7 @@ def compare(query, wa, no, no_decimal=None):
         return "match"
     if re.search(r"[<>]", wa_main) and inequality_agree(wa_main, no):
         return "match"
-    if matrix_agree(wa, no) is True or systems_agree(wa, no) is True:
+    if matrix_agree(wa, no) is True or systems_agree(wa, no) is True or extremum_agree(wa, no) is True or money_agree(wa_main, no) is True:
         return "match"
     sa = set_agree(wa_main, no)
     if sa is True:

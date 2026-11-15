@@ -479,7 +479,7 @@ const SUPERLATIVES: &[(&[&str], &str, &str)] = &[
 const FACTS: &[(&[&str], &str, &str)] = &[
     (&["age of the universe", "how old is the universe", "universe age"], "13.787 ± 0.020 billion years", "Planck 2018 cosmological parameters (ΛCDM model)."),
     (&["age of the earth", "how old is the earth", "earth age"], "4.54 ± 0.05 billion years", "From radiometric dating of meteorites and the oldest minerals."),
-    (&["age of the sun", "how old is the sun"], "about 4.6 billion years", "About halfway through its main-sequence life."),
+    (&["age of the sun", "how old is the sun"], "4.57 billion years", "From the oldest meteorite inclusions (4.567 billion years); the Sun is about halfway through its main-sequence life."),
     (&["number of countries in the world", "how many countries are there", "how many countries are there in the world", "how many countries in the world", "number of countries"], "195 — 193 UN member states and 2 observer states (Vatican City and Palestine)", "Some lists also count Taiwan, Kosovo and other partially recognised states."),
     (&["population of the world", "world population", "population of earth", "how many people are on earth", "how many people live on earth", "global population"], "about 8.2 billion (2025)", "UN World Population Prospects estimate; growing by about 70 million people a year."),
     (&["number of bones in the human body", "how many bones are in the human body", "how many bones in the human body", "bones in the human body"], "206 (adult)", "Newborns have about 270, many of which fuse during growth."),
@@ -1009,8 +1009,12 @@ fn si_prefix(v: f64, unit: &str) -> String {
         (1e-6, "µ")
     } else if a >= 1e-9 {
         (1e-9, "n")
-    } else {
+    } else if a >= 1e-12 {
         (1e-12, "p")
+    } else if a >= 1e-15 {
+        (1e-15, "f")
+    } else {
+        (1e-18, "a")
     };
     format!("{} {p}{unit}", n(v / f))
 }
@@ -1066,6 +1070,23 @@ fn physics(l: &str, c: &str) -> Option<Answer> {
             "Energy (E = m c²)",
             format!("{} J", n(e)),
             vec![pod("Other", "In other units", table(None, vec![vec![text("kilowatt hours"), text(n(e / 3.6e6))], vec![text("megatons of TNT"), text(n(e / 4.184e15))], vec![text("electronvolts"), text(n(e / 1.602_176_634e-19))]]))],
+        ));
+    }
+    // boiling point of water at an altitude: standard atmosphere pressure, then
+    // the Antoine equation for water
+    if let Some(m) = re!(r"^(?:the\s+)?boiling (?:point|temperature) of water\s+at\s+(?:an?\s+)?(?:altitude|elevation|height)?\s*(?:of\s+)?(.+?)(?:\s+(?:altitude|elevation|above sea level))?$").captures(l) {
+        let h = quantity(m[1].trim())?;
+        if !(-500.0..=11_000.0).contains(&h) {
+            return None;
+        }
+        let p = 101_325.0 * (1.0 - 2.255_77e-5 * h).powf(5.255_88);
+        let mmhg = p / 133.322_368;
+        let t = 1730.63 / (8.071_31 - mmhg.log10()) - 233.426;
+        return Some(simple(
+            &format!("boiling point of water at {} m", n(h)),
+            "Boiling point",
+            format!("{} °C  ({} °F)", fmt_float(t, 4), fmt_float(t * 9.0 / 5.0 + 32.0, 4)),
+            vec![pod("Pressure", "Air pressure (standard atmosphere)", text(format!("{} kPa  ({} atm)", fmt_float(p / 1000.0, 4), fmt_float(p / 101_325.0, 4)))), pod("Method", "Method", text("International Standard Atmosphere for the pressure; Antoine equation for the vapour pressure of water."))],
         ));
     }
     // two equal charges
@@ -1128,16 +1149,28 @@ fn physics(l: &str, c: &str) -> Option<Answer> {
         return Some(simple("energy stored in an inductor", "Energy", si_prefix(0.5 * ind * i * i, "J"), vec![pod("Formula", "Formula", text("E = ½ L I²"))]));
     }
     // de Broglie wavelength of a named particle
-    if let Some(m) = re!(r"^(?:the\s+)?de ?broglie wavelength\s+(?:of\s+)?(?:an?\s+)?(electron|proton|neutron|alpha particle)\s+(?:at|moving at|with (?:a )?speed(?: of)?|traveling at|travelling at)\s+(.+)$").captures(l) {
-        let mass = match &m[1] { "electron" => 9.109_383_7015e-31, "proton" => 1.672_621_923_69e-27, "neutron" => 1.674_927_498_04e-27, _ => 6.644_657_3357e-27 };
-        let v = quantity(&m[2])?;
-        let gamma = 1.0 / (1.0 - (v / C).powi(2)).sqrt();
-        if !gamma.is_finite() {
+    // matched on the original text: unit symbols are case-sensitive (MeV vs meV)
+    if let Some(m) = re!(r"(?i)^(?:the\s+)?de ?broglie wavelength\s+(?:of\s+)?(?:an?\s+)?(electron|proton|neutron|alpha particle)\s+(?:at|moving at|with (?:a )?(?:speed|energy|kinetic energy)(?: of)?|traveling at|travelling at)\s+(.+)$").captures(c) {
+        let mass = match m[1].to_lowercase().as_str() { "electron" => 9.109_383_7015e-31, "proton" => 1.672_621_923_69e-27, "neutron" => 1.674_927_498_04e-27, _ => 6.644_657_3357e-27 };
+        let (qv, qu, _) = super::units::parse_quantity(&m[2])?;
+        let si = super::units::to_si(qv, &qu);
+        const SPEED: [i8; 8] = [1, 0, -1, 0, 0, 0, 0, 0];
+        const ENERGY: [i8; 8] = [2, 1, -2, 0, 0, 0, 0, 0];
+        let (p, formula, extra) = if qu.dim == SPEED {
+            let gamma = 1.0 / (1.0 - (si / C).powi(2)).sqrt();
+            if !gamma.is_finite() {
+                return None;
+            }
+            (gamma * mass * si, if gamma > 1.001 { "λ = h / (γ m v)  (relativistic momentum)" } else { "λ = h / (m v)" }, format!("speed {} m/s", n(si)))
+        } else if qu.dim == ENERGY {
+            // kinetic energy K: p c = √(K² + 2 K m c²)
+            let mc2 = mass * C * C;
+            ((si * si + 2.0 * si * mc2).sqrt() / C, "λ = h / p,  p c = √(K² + 2 K m c²)  (K = kinetic energy)", format!("kinetic energy {} J", n(si)))
+        } else {
             return None;
-        }
-        let p = gamma * mass * v;
+        };
         let lam = H / p;
-        return Some(simple(&format!("de Broglie wavelength of an {} at {}", &m[1], m[2].trim()), "Wavelength", si_prefix(lam, "m"), vec![pod("Momentum", "Momentum", text(format!("{} kg m/s", n(p)))), pod("Formula", "Formula", text(if gamma > 1.001 { "λ = h / (γ m v)  (relativistic momentum)" } else { "λ = h / (m v)" }))]));
+        return Some(simple(&format!("de Broglie wavelength of an {} at {}", &m[1], m[2].trim()), "Wavelength", si_prefix(lam, "m"), vec![pod("Momentum", "Momentum", text(format!("{} kg m/s", n(p)))), pod("Given", "Given", text(extra)), pod("Formula", "Formula", text(formula))]));
     }
     None
 }

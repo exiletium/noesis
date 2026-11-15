@@ -51,6 +51,11 @@ pub fn parse_date(s: &str) -> Option<NaiveDate> {
     if let Some(h) = holiday(&l, today().year()) {
         return Some(if h < today() { holiday(&l, today().year() + 1)? } else { h });
     }
+    if let Some(m) = re!(r"^(.+?)\s+(\d{4})$").captures(&l) {
+        if let Some(h) = holiday(m[1].trim(), m[2].parse().ok()?) {
+            return Some(h);
+        }
+    }
     let cleaned = re!(r"(\d)(st|nd|rd|th)\b").replace_all(s, "$1").to_string();
     let fmts = ["%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%d.%m.%Y", "%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y", "%d %B %Y", "%d %b %Y", "%B %d,%Y", "%A, %B %d, %Y"];
     for f in fmts {

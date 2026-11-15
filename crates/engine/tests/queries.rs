@@ -240,7 +240,7 @@ fn everyday_calculations() {
     assert!(short("is 1900 a leap year").starts_with("No"));
     assert_eq!(short("how many days in february 2024"), "29 days");
     assert!(short("unix time 1700000000").contains("November 14, 2023"));
-    assert!(short("BMI 70 kg 175 cm").starts_with("22.9"));
+    assert!(short("BMI 70 kg 175 cm").starts_with("22.86"));
     assert_eq!(short("number of letters in mississippi"), "11");
     assert_eq!(short("scrabble score of quiz"), "22 points");
     assert_eq!(short("2 hours 30 minutes in seconds"), "9000 seconds");

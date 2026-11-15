@@ -1,0 +1,88 @@
+# A broader benchmark set across WolframAlpha's subject areas, including
+# topics where curated data matters.
+# mathematics, harder
+integrate sqrt(1 + x^4) dx
+integrate x^3 ln(x)^2 dx
+solve x^4 - 10x^2 + 9 = 0
+solve sin(x) + cos(x) = 1
+minimize x^2 + y^2 subject to x + 2y = 5
+limit (tan(x) - sin(x))/x^3 as x -> 0
+sum 1/n^4 from n=1 to infinity
+product 1 - 1/(4 n^2) from n=1 to infinity
+eigenvectors of {{2, 1}, {1, 2}}
+nullspace of {{1, 2, 3}, {2, 4, 6}}
+y'' + y = sin(x)
+y' = x y^2
+fourier series of x^2 on [-pi, pi]
+continued fraction of e
+1/(1 - x) series at x = 2
+derivative of x^(sin x)
+gcd(x^4 - 1, x^3 - x)
+# number theory and combinatorics
+number of partitions of 50
+next prime after 1000000
+totient of 1000
+catalan number 10
+bell number 10
+stirling number of the second kind (10, 3)
+is 1729 a taxicab number
+digits of pi 100th
+# units and physics
+1 parsec in meters
+2 hp in watts
+20 knots in km/h
+1 bar in psi
+100 kWh in BTU
+gravitational force between earth and moon
+escape velocity of mars
+wavelength of a 2.4 GHz signal
+energy of a photon of wavelength 500 nm
+de broglie wavelength of an electron at 1 eV
+half-life of uranium-238
+speed of sound in water
+# chemistry
+molar mass of glucose
+density of aluminum
+melting point of tungsten
+pH of 0.1 M NH3
+electronegativity of fluorine
+ionization energy of sodium
+oxidation states of chromium
+# astronomy and earth
+distance from earth to mars
+radius of jupiter
+mass of the moon
+surface gravity of mars
+age of the sun
+height of mount kilimanjaro
+length of the amazon river
+deepest point in the ocean
+# geography and society
+population of tokyo
+capital of kenya
+currency of switzerland
+largest country in africa
+official languages of canada
+area of greenland
+population density of the netherlands
+time difference between new york and london
+# dates and time
+how many days until christmas 2026
+what day of the week is july 4 2030
+age of someone born on 1985-06-15
+number of seconds in a leap year
+# finance and everyday
+convert 100 USD to EUR
+monthly payment on a 25000 loan at 6% for 5 years
+how much is 30% off 79.99
+bmi 180 lb 5 ft 10 in
+calories in an apple
+how many tablespoons in a cup
+# words and culture
+anagrams of listen
+definition of serendipity
+who wrote hamlet
+when did world war 2 end
+who was the first president of the united states
+how tall is the eiffel tower
+boiling point of water at 2000 m altitude

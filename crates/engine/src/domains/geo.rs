@@ -89,7 +89,10 @@ pub fn find_country(q: &str) -> Option<&'static Country> {
     if let Some((_, code)) = ALIASES.iter().find(|(a, _)| *a == l) {
         return countries().get(*code);
     }
-    countries().values().find(|c| c.name.to_lowercase() == l || (l.len() == 3 && c.iso3.to_lowercase() == l))
+    countries().values().find(|c| {
+        let name = c.name.to_lowercase();
+        name == l || name.trim_start_matches("the ") == l || (l.len() == 3 && c.iso3.to_lowercase() == l)
+    })
 }
 
 pub fn find_city(q: &str) -> Option<&'static City> {
@@ -250,6 +253,36 @@ pub fn handle(q: &Query) -> Option<Answer> {
             pods.push(pod("Locations", "Locations", table(None, vec![vec![text(ca.name.clone()), text(coords(ca))], vec![text(cb.name.clone()), text(coords(cb))]])));
             return Some(Answer::new(format!("distance {} to {}", ca.name, cb.name), pods));
         }
+    }
+    // time difference between two places
+    if let Some(rest) = l.strip_prefix("time difference between ").or_else(|| l.strip_prefix("time difference from ")).or_else(|| l.strip_prefix("time zone difference between ")) {
+        let (a, b) = rest.split_once(" and ").or_else(|| rest.split_once(" to "))?;
+        let zone = |p: &str| -> Option<(String, String)> {
+            if let Some(c) = find_city(p) {
+                return Some((c.name.clone(), c.timezone.clone()));
+            }
+            let c = find_country(p)?;
+            let big = cities().iter().filter(|x| x.country == c.iso2 && x.capital).max_by_key(|x| x.population).or_else(|| cities().iter().filter(|x| x.country == c.iso2).max_by_key(|x| x.population))?;
+            Some((c.name.clone(), big.timezone.clone()))
+        };
+        let ((na, za), (nb, zb)) = (zone(a)?, zone(b)?);
+        use chrono::Offset;
+        let (ta, tb) = (local_time(&za)?, local_time(&zb)?);
+        let (oa, ob) = (ta.offset().fix().local_minus_utc(), tb.offset().fix().local_minus_utc());
+        let diff = ob - oa;
+        let hm = |s: i32| if s % 3600 == 0 { format!("{} hour{}", s.abs() / 3600, if s.abs() == 3600 { "" } else { "s" }) } else { format!("{} h {} min", s.abs() / 3600, s.abs() % 3600 / 60) };
+        let result = match diff {
+            0 => format!("{na} and {nb} are on the same time right now"),
+            d if d > 0 => format!("{nb} is {} ahead of {na}", hm(d)),
+            d => format!("{nb} is {} behind {na}", hm(d)),
+        };
+        let pods = vec![
+            pod("Input", "Input interpretation", text(format!("time difference between {na} and {nb}"))),
+            primary(pod("Result", "Result", text(result))),
+            pod("Clocks", "Current local times", table(None, vec![vec![text(na.clone()), text(ta.format("%-I:%M %p %Z (UTC%:z)").to_string())], vec![text(nb.clone()), text(tb.format("%-I:%M %p %Z (UTC%:z)").to_string())]])),
+            pod("Note", "Note", text("Differences can change during the year when only one of the places observes daylight saving time.")),
+        ];
+        return Some(Answer::new(format!("time difference {na} – {nb}"), pods));
     }
     // time in a place
     for p in ["time in ", "current time in ", "what time is it in ", "local time in "] {

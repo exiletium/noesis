@@ -51,7 +51,7 @@ pub fn find_element(q: &str) -> Option<&'static Element> {
     if let Ok(z) = lq.parse::<u32>() {
         return elements().iter().find(|e| e.z == z);
     }
-    let lq = if lq == "aluminum" { "aluminium" } else if lq == "sulphur" { "sulfur" } else if lq == "caesium" { "cesium" } else { lq };
+    let lq = if lq == "aluminium" { "aluminum" } else if lq == "sulphur" { "sulfur" } else if lq == "caesium" { "cesium" } else { lq };
     elements().iter().find(|e| e.name.to_lowercase() == lq).or_else(|| if q.len() <= 2 && q.chars().next()?.is_uppercase() { by_symbol(q) } else { None })
 }
 
@@ -363,6 +363,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         if let Some(e) = find_element(el) {
             let v = match prop {
                 "atomic mass" | "atomic weight" | "mass" => Some(format!("{} u", fmt_float(e.mass, 8))),
+                "ionization energy" | "first ionization energy" | "ionisation energy" | "first ionisation energy" => e.first_ionization_ev.map(|v| format!("{} kJ/mol  ({} eV, first ionization energy)", fmt_float(v * 96.485_332_12, 5), fmt_float(v, 6))),
                 "atomic number" => Some(e.z.to_string()),
                 "melting point" => e.melting_k.map(|k| format!("{} K ({} °C)", fmt_float(k, 6), fmt_float(k - 273.15, 6))),
                 "boiling point" => e.boiling_k.map(|k| format!("{} K ({} °C)", fmt_float(k, 6), fmt_float(k - 273.15, 6))),

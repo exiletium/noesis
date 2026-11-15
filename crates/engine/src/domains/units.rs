@@ -88,7 +88,10 @@ static UNITS: &[UnitDef] = &[
     u!(&["day", "days", "d"], 86400.0, T, "days"),
     u!(&["wk", "week", "weeks"], 604800.0, T, "weeks"),
     u!(&["month", "months"], 2629746.0, T, "months"),
-    u!(&["yr", "year", "years", "a"], 31556952.0, T, "years"),
+    u!(&["yr", "year", "years", "annum"], 31556952.0, T, "years"),
+    u!(&["gyr", "gigayear", "gigayears", "billion years"], 31556952.0e9, T, "billion years"),
+    u!(&["myr", "megayear", "megayears", "million years"], 31556952.0e6, T, "million years"),
+    u!(&["kyr", "kiloyear", "kiloyears", "thousand years"], 31556952.0e3, T, "thousand years"),
     u!(&["decade", "decades"], 315569520.0, T, "decades"),
     u!(&["century", "centuries"], 3155695200.0, T, "centuries"),
     // area & volume
@@ -467,6 +470,9 @@ pub static CONSTANTS: &[Constant] = &[
     Constant { names: &["distance to the moon", "earth moon distance", "distance from earth to moon"], symbol: "", value: 3.84399e8, unit: "m", exact: false },
     Constant { names: &["distance to the sun", "earth sun distance", "distance from earth to sun"], symbol: "AU", value: 1.495978707e11, unit: "m", exact: true },
     Constant { names: &["speed of sound", "speed of sound in air"], symbol: "", value: 343.0, unit: "m/s", exact: false },
+    Constant { names: &["speed of sound in water", "speed of sound in fresh water"], symbol: "", value: 1482.0, unit: "m/s", exact: false },
+    Constant { names: &["speed of sound in seawater", "speed of sound in sea water"], symbol: "", value: 1531.0, unit: "m/s", exact: false },
+    Constant { names: &["speed of sound in steel"], symbol: "", value: 5960.0, unit: "m/s", exact: false },
     Constant { names: &["absolute zero"], symbol: "", value: 0.0, unit: "K", exact: true },
 ];
 
