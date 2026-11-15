@@ -875,7 +875,8 @@ pub fn pow(b: Expr, ex: Expr) -> Expr {
         }
     }
     if b.is_one() {
-        return one();
+        // 1^∞ is an indeterminate form
+        return if ex.is_inf() { undef() } else { one() };
     }
     match (&b, &ex) {
         (Num(r), Num(q)) => return rat_pow(r, q),

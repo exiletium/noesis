@@ -471,3 +471,16 @@ fn words_and_numbers_from_the_benchmark() {
     assert!((356_000.0..407_000.0).contains(&d), "{d}");
 }
 
+#[test]
+fn questions_from_the_desktop_app() {
+    // phrasings typed into the app that were not understood
+    for q in ["the limit of x as x approaches 0 for 1/x", "the limit as x approaches 0 of 1/x", "the limit as x>0 for 1/x"] {
+        assert_eq!(short(q), "The two-sided limit does not exist: the one-sided limits differ.", "{q}");
+    }
+    assert_eq!(short("the limit as x approaches infinity of (1+1/x)^x"), "lim_(x→∞) (1/x + 1)^x = e");
+    assert_eq!(short("1+1="), "2");
+    assert_eq!(short("1^infinity"), "indeterminate");
+    assert_eq!(short("(sin(x))^cos(x)=2"), "x = 2 π n + 2.66536, n ∈ ℤ");
+    assert!(short("integrate sin(x)^e^e").contains("₂F₁(1/2, (1 - e^e)/2, 3/2, cos^2(x))"));
+}
+

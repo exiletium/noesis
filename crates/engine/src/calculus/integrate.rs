@@ -124,7 +124,7 @@ pub fn integrate(e: &Expr, x: &Expr) -> Option<Expr> {
             if let Some(r) = budget::attempt_opt(budget::remaining().min(8.0) * 0.5, || rational_by_roots(e, x)).filter(|r| verify(e, r, x)) {
                 return Some(r);
             }
-            let r = binomial_hypergeometric(e, x)?;
+            let r = binomial_hypergeometric(e, x).or_else(|| trig_power_hypergeometric(e, x))?;
             return verify(e, &r, x).then_some(r);
         }
     };
@@ -188,6 +188,29 @@ fn binomial_hypergeometric(e: &Expr, x: &Expr) -> Option<Expr> {
     let num = |r: &Rat| Expr::Num(r.clone());
     let z = mul(vec![int(-1), b, power, pow(a.clone(), int(-1))]);
     Some(mul(vec![c, pow(a, num(&p)), pow(x.clone(), num(&(m.clone() + Rat::one()))), pow(num(&(m + Rat::one())), int(-1)), func("hyp2f1", vec![num(&(-p)), num(&q), num(&(q.clone() + Rat::one())), z])]))
+}
+
+/// ∫ c sin(k x + b)^a dx and ∫ c cos(k x + b)^a dx for a constant a that is not
+/// an integer.  With u = cos and (1 − u²)^((a−1)/2) integrated termwise:
+/// ∫ sin^a = −cos · ₂F₁(1/2, (1 − a)/2; 3/2; cos²) / k  (where sin > 0), and
+/// ∫ cos^a = sin · ₂F₁(1/2, (1 − a)/2; 3/2; sin²) / k  (where cos > 0).
+fn trig_power_hypergeometric(e: &Expr, x: &Expr) -> Option<Expr> {
+    let (c, rest) = split_const(e, x);
+    let Pow(base, a) = &rest else { return None };
+    if a.has_sym(x) || a.as_rat().is_some_and(|r| r.is_integer()) {
+        return None;
+    }
+    let Func(name, args) = &**base else { return None };
+    if args.len() != 1 || !matches!(&**name, "sin" | "cos") {
+        return None;
+    }
+    let (k, _) = linear(&args[0], x)?;
+    let u = &args[0];
+    let half = rat(1, 2);
+    let second = mul(vec![half.clone(), sub(one(), (**a).clone())]);
+    let (lead, inner) = if &**name == "sin" { (neg(f("cos", u)), f("cos", u)) } else { (f("sin", u), f("sin", u)) };
+    let h = func("hyp2f1", vec![half, second, rat(3, 2), square(inner)]);
+    Some(mul(vec![c, pow(k, int(-1)), lead, h]))
 }
 
 /// ∫ P/Q for a proper rational function whose denominator has simple

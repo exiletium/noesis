@@ -275,6 +275,11 @@ pub fn clean_query(s: &str) -> String {
             break;
         }
     }
+    // "1+1=" as typed into a calculator: evaluate the left side
+    if q.ends_with('=') && !q.ends_with("==") && !q.ends_with("<=") && !q.ends_with(">=") && !q.ends_with("!=") && q.len() > 1 {
+        q.pop();
+        q = q.trim_end().to_string();
+    }
     for suf in ["?", " please", "."] {
         while q.to_lowercase().ends_with(suf) && q.len() > suf.len() {
             q.truncate(q.len() - suf.len());

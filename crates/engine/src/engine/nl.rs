@@ -383,8 +383,12 @@ fn rewrite(l: &str, c: &str) -> Option<String> {
     if let Some(m) = cap(re!(r"^(?:the\s+)?area under (?:the curve\s+)?(?:y\s*=\s*)?(.+?)\s+(?:from|between)\s+(?:x\s*=\s*)?(.+?)\s+(?:to|and)\s+(?:x\s*=\s*)?(.+)$")) {
         return Some(format!("integrate {} from {} to {}", g(&m, 1), g(&m, 2), g(&m, 3)));
     }
-    // limits
-    if let Some(m) = cap(re!(r"^(?:the\s+)?limit of\s+(.+?)\s+(?:as|when)\s+([a-z])\s+(?:approaches|goes to|tends to|gets close to|->)\s+(.+)$")) {
+    // limits: "the limit as x approaches 0 of 1/x", "the limit of x as x approaches 0 for 1/x"
+    if let Some(m) = cap(re!(r"^(?:the\s+)?limit\s+(?:of\s+[a-z]\s+)?(?:as|when)\s+([a-z])\s*(?:approaches|goes to|tends to|gets close to|->|→|=>|>)\s*(.+?)\s+(?:of|for)\s+(.+)$")) {
+        let to = g(&m, 2).replace("positive infinity", "infinity").replace("negative infinity", "-infinity").replace("minus infinity", "-infinity");
+        return Some(format!("limit of {} as {}->{}", g(&m, 3), g(&m, 1), to));
+    }
+    if let Some(m) = cap(re!(r"^(?:the\s+)?limit of\s+(.+?)\s+(?:as|when)\s+([a-z])\s+(?:approaches|goes to|tends to|gets close to|->|→)\s*(.+)$")) {
         let to = g(&m, 3).replace("positive infinity", "infinity").replace("negative infinity", "-infinity").replace("minus infinity", "-infinity");
         return Some(format!("limit of {} as {}->{}", g(&m, 1), g(&m, 2), to));
     }

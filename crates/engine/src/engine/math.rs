@@ -83,7 +83,10 @@ pub fn number_pods(p: &Parsed, opts: &Options) -> Vec<Pod> {
     let e = p.expr.clone();
     let v = s::simplify(&e);
     if v.is_undef() || matches!(v, Const(K::CInf)) {
-        pods.push(primary(pod("Result", "Result", text(if matches!(v, Const(K::CInf)) { "complex infinity" } else { "(undefined)" }))));
+        pods.push(primary(pod("Result", "Result", text(if matches!(v, Const(K::CInf)) { "complex infinity" } else { "indeterminate" }))));
+        if v.is_undef() {
+            pods.push(pod("Note", "Note", text("The expression has no single value: it is an indeterminate form such as 0/0, ∞ − ∞, 0 · ∞ or 1^∞. As a limit, its value depends on how the parts approach their limits.")));
+        }
         return pods;
     }
     if let Const(K::True | K::False) = v {
@@ -700,9 +703,7 @@ fn period(f: &Expr, x: &Expr) -> Option<Expr> {
             Add(v) | Mul(v) => v.iter().for_each(|t| walk(t, x, out, ok)),
             Pow(b, ex) => {
                 walk(b, x, out, ok);
-                if ex.has_sym(x) {
-                    *ok = false;
-                }
+                walk(ex, x, out, ok);
             }
             Sym(_) if e == x => *ok = false,
             Func(_, a) => {
@@ -1150,9 +1151,37 @@ fn solution_pods(f: &Expr, x: &Expr) -> Option<Vec<Pod>> {
     if rs.identity {
         return Some(vec![pod("Solutions", "Solution", text("The equation holds for all values."))]);
     }
-    let real = rs.real();
+    let mut real = rs.real();
     let cplx = rs.complex();
     let mut out = Vec::new();
+    // numeric roots of a periodic equation: one family x₀ + P n per root modulo the period
+    let mut families = false;
+    if rs.numeric && !rs.periodic && real.len() > 1 {
+        if let Some(p) = period(f, x) {
+            if let Some(pv) = p.to_f64_const().filter(|v| *v > 0.0) {
+                let mut reps: Vec<f64> = Vec::new();
+                for r in &real {
+                    if let Some(v) = r.to_f64_const() {
+                        let mut m = v.rem_euclid(pv);
+                        if pv - m < 1e-7 {
+                            m = 0.0;
+                        }
+                        if m > pv / 2.0 {
+                            m -= pv;
+                        }
+                        if !reps.iter().any(|a| (a - m).abs() < 1e-6) {
+                            reps.push(m);
+                        }
+                    }
+                }
+                if !reps.is_empty() && reps.len() < real.len() {
+                    reps.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    real = reps.iter().map(|m| add(vec![float(*m), mul(vec![p.clone(), solve::param()])])).collect();
+                    families = true;
+                }
+            }
+        }
+    }
     if !real.is_empty() {
         let title = if rs.periodic {
             "Real solutions".to_string()
@@ -1161,7 +1190,7 @@ fn solution_pods(f: &Expr, x: &Expr) -> Option<Vec<Pod>> {
         } else {
             "Real solutions".to_string()
         };
-        out.push(pod("RealSolutions", &title, roots_list(x, &real, rs.periodic, rs.numeric)));
+        out.push(pod("RealSolutions", &title, roots_list(x, &real, rs.periodic || families, rs.numeric)));
     }
     if !cplx.is_empty() {
         out.push(pod("ComplexSolutions", if cplx.len() == 1 { "Complex solution" } else { "Complex solutions" }, roots_list(x, &cplx, rs.periodic, rs.numeric)));
@@ -1169,7 +1198,9 @@ fn solution_pods(f: &Expr, x: &Expr) -> Option<Vec<Pod>> {
     if out.is_empty() {
         out.push(pod("Solutions", "Result", text("no solutions exist")));
     }
-    if rs.numeric && rs.partial {
+    if families {
+        out.push(pod("Note", "Note", text("Solutions were found numerically and repeat with the period of the equation.")));
+    } else if rs.numeric && rs.partial {
         out.push(pod("Note", "Note", text("Solutions were found numerically in the range −1000 ≤ x ≤ 1000.")));
     }
     Some(out)
