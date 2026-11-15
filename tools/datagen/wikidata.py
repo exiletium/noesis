@@ -11,6 +11,7 @@ crates/engine/data/facts.z (raw deflate, tab-separated lines):
   P  office  holder  start  end  ordinal     holders of the top offices of each country
   H  name   description  born  died  birthplace   the people named above
   A  award  year  winners                    Nobel prizes
+  F  name   description  works  creators  links   fictional characters
 
 Only entities with many Wikipedia language editions are kept, as a proxy
 for notability.  Dates are ISO (negative years for BCE), day precision
@@ -104,8 +105,9 @@ def resolve_labels(qids):
     todo = sorted({q for q in qids if q not in LABELS})
     for k in range(0, len(todo), 200):
         values = " ".join("wd:" + q for q in todo[k:k + 200])
-        body = fetch(ENDPOINT, "query=" + urllib.parse.quote(f'SELECT ?x ?l WHERE {{ VALUES ?x {{ {values} }} ?x rdfs:label ?l . FILTER(LANG(?l) = "en") }}'), valid=parses)
-        for r in json.loads(body)["results"]["bindings"] if body else []:
+        body = fetch(ENDPOINT, "query=" + urllib.parse.quote(f'SELECT ?x ?l (LANG(?l) AS ?lang) WHERE {{ VALUES ?x {{ {values} }} ?x rdfs:label ?l . FILTER(LANG(?l) IN ("en", "mul")) }}'), valid=parses)
+        # an English label wins over the language-neutral "mul" one
+        for r in sorted(json.loads(body)["results"]["bindings"] if body else [], key=lambda r: r["lang"]["value"] == "en"):
             LABELS[qid(r["x"]["value"])] = r["l"]["value"]
 
 
@@ -177,7 +179,7 @@ def main():
             values = " ".join("wd:" + q for q in keys[k:k + 150])
             rows = sparql(f"""SELECT ?w ?wLabel ?a ?aLabel (MIN(?d) AS ?date) WHERE {{
   VALUES ?w {{ {values} }} ?w wdt:{prop} ?a . OPTIONAL {{ ?w wdt:P577 ?d }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }} }} GROUP BY ?w ?wLabel ?a ?aLabel""")
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }} }} GROUP BY ?w ?wLabel ?a ?aLabel""")
             for r in rows:
                 if not (is_label(r.get("wLabel")) and is_label(r.get("aLabel"))):
                     continue
@@ -196,8 +198,8 @@ def main():
         rows = sparql(f"""SELECT ?e ?eLabel ?s (MIN(?st) AS ?start) (MAX(?en) AS ?end) (MIN(?pt) AS ?point) (GROUP_CONCAT(DISTINCT ?alt; separator="|") AS ?alts) WHERE {{
   ?e wdt:P31/wdt:P279* wd:{cls} ; wikibase:sitelinks ?s . FILTER(?s >= {least})
   OPTIONAL {{ ?e wdt:P580 ?st }} OPTIONAL {{ ?e wdt:P582 ?en }} OPTIONAL {{ ?e wdt:P585 ?pt }}
-  OPTIONAL {{ ?e skos:altLabel ?alt . FILTER(LANG(?alt) = "en") }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }} }} GROUP BY ?e ?eLabel ?s""")
+  OPTIONAL {{ ?e skos:altLabel ?alt . FILTER(LANG(?alt) IN ("en", "mul")) }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }} }} GROUP BY ?e ?eLabel ?s""")
         sys.stderr.write(f"events {cls}: {len(rows)} rows\n")
         for r in rows:
             if is_label(r.get("eLabel")) and (r.get("start") or r.get("end") or r.get("point")):
@@ -207,12 +209,12 @@ def main():
     offices = sparql("""SELECT DISTINCT ?o ?oLabel (GROUP_CONCAT(DISTINCT ?alt; separator="|") AS ?alts) WHERE {
   ?c wdt:P31 wd:Q3624078 . { ?c wdt:P1906 ?o } UNION { ?c wdt:P1313 ?o }
   OPTIONAL { ?o skos:altLabel ?alt . FILTER(LANG(?alt) = "en") }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } GROUP BY ?o ?oLabel""")
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". } } GROUP BY ?o ?oLabel""")
     # plain names: "president of France" for "President of the French Republic"
     plain = {}
     for r in sparql("""SELECT ?o ?cLabel ?role WHERE {
   ?c wdt:P31 wd:Q3624078 . { ?c wdt:P1906 ?o . BIND("head of state" AS ?role) } UNION { ?c wdt:P1313 ?o . BIND("head of government" AS ?role) }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } }"""):
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". } }"""):
         if is_label(r.get("cLabel")):
             plain.setdefault(qid(r["o"]), []).append((clean(r["cLabel"]), r["role"]))
     for o in offices:
@@ -233,7 +235,7 @@ def main():
         rows = sparql(f"""SELECT ?h ?hLabel ?st ?en ?ord WHERE {{
   ?h wdt:P31 wd:Q5 ; p:P39 ?stmt . ?stmt ps:P39 wd:{qid(o["o"])} .
   OPTIONAL {{ ?stmt pq:P580 ?st }} OPTIONAL {{ ?stmt pq:P582 ?en }} OPTIONAL {{ ?stmt pq:P1545 ?ord }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }} }}""")
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }} }}""")
         label = clean(o["oLabel"])
         alts = "|".join(clean(a) for a in o.get("alts", "").split("|")[:16] if a)
         terms = set()
@@ -251,7 +253,7 @@ def main():
     for prize in NOBEL:
         rows = sparql(f"""SELECT ?p ?pLabel ?t ?awardLabel WHERE {{
   BIND(wd:{prize} AS ?award) ?p p:P166 ?stmt . ?stmt ps:P166 ?award . OPTIONAL {{ ?stmt pq:P585 ?t }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }} }}""")
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }} }}""")
         by_year = {}
         for r in rows:
             if is_label(r.get("pLabel")):
@@ -263,6 +265,24 @@ def main():
 
     for q in sparql_ids("SELECT ?h ?s WHERE { ?h wdt:P31 wd:Q5 ; wikibase:sitelinks ?s . FILTER(?s >= 90) }"):
         people[q] = None
+    # fictional characters: description, the works they appear in, their creators
+    chars = {}
+    for cls, least in [("Q15632617", 25), ("Q95074", 30), ("Q1114461", 30), ("Q15773347", 30), ("Q15711870", 30)]:
+        chars.update(sparql_ids(f"SELECT ?c ?s WHERE {{ ?c wdt:P31 wd:{cls} ; wikibase:sitelinks ?s . FILTER(?s >= {least}) }}"))
+    keys = sorted(chars)
+    sys.stderr.write(f"fictional characters: {len(keys)}\n")
+    for k in range(0, len(keys), 150):
+        values = " ".join("wd:" + q for q in keys[k:k + 150])
+        rows = sparql(f"""SELECT ?c ?cLabel ?cDescription (GROUP_CONCAT(DISTINCT ?wLabel; separator="; ") AS ?works) (GROUP_CONCAT(DISTINCT ?aLabel; separator="; ") AS ?authors) WHERE {{
+  VALUES ?c {{ {values} }}
+  OPTIONAL {{ ?c wdt:P1441 ?w . ?w rdfs:label ?wLabel . FILTER(LANG(?wLabel) IN ("en", "mul")) }}
+  OPTIONAL {{ ?c wdt:P170 ?a . ?a rdfs:label ?aLabel . FILTER(LANG(?aLabel) IN ("en", "mul")) }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }} }} GROUP BY ?c ?cLabel ?cDescription""")
+        for r in rows:
+            if is_label(r.get("cLabel")):
+                works = "; ".join(dict.fromkeys(r.get("works", "").split("; "))) if r.get("works") else ""
+                lines.append("\t".join(["F", clean(r["cLabel"]), clean(r.get("cDescription", "")), clean(works)[:300], clean(r.get("authors", ""))[:200], str(chars[qid(r["c"])])]))
+
     ids = sorted(people)
     sys.stderr.write(f"people: {len(ids)}\n")
     for k in range(0, len(ids), 250):
@@ -270,8 +290,8 @@ def main():
         rows = sparql(f"""SELECT ?h ?hLabel ?hDescription (MIN(?b) AS ?born) (MIN(?d) AS ?died) (SAMPLE(?placeLabel) AS ?place) WHERE {{
   VALUES ?h {{ {values} }} ?h wdt:P31 wd:Q5 .
   OPTIONAL {{ ?h wdt:P569 ?b }} OPTIONAL {{ ?h wdt:P570 ?d }}
-  OPTIONAL {{ ?h wdt:P19 ?pl . ?pl rdfs:label ?placeLabel . FILTER(LANG(?placeLabel) = "en") }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }} }} GROUP BY ?h ?hLabel ?hDescription""")
+  OPTIONAL {{ ?h wdt:P19 ?pl . ?pl rdfs:label ?placeLabel . FILTER(LANG(?placeLabel) IN ("en", "mul")) }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }} }} GROUP BY ?h ?hLabel ?hDescription""")
         for r in rows:
             if is_label(r.get("hLabel")) and r.get("born"):
                 lines.append("\t".join(["H", clean(r["hLabel"]), clean(r.get("hDescription", "")), date(r.get("born")), date(r.get("died")), clean(r.get("place", ""))]))

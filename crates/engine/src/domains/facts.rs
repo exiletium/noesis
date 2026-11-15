@@ -47,6 +47,14 @@ struct Office {
     terms: Vec<Term>,
 }
 
+struct Character {
+    name: &'static str,
+    about: &'static str,
+    works: &'static str,
+    creators: &'static str,
+    links: u32,
+}
+
 struct Person {
     name: &'static str,
     about: &'static str,
@@ -63,6 +71,7 @@ struct Facts {
     offices: HashMap<String, usize>,
     office_list: Vec<Office>,
     people: HashMap<String, Person>,
+    characters: HashMap<String, Character>,
     /// (award, year) → winners
     awards: HashMap<(String, String), &'static str>,
 }
@@ -134,6 +143,13 @@ fn facts() -> &'static Facts {
                 }
                 "H" => {
                     f.people.entry(norm(at(1))).or_insert(Person { name: at(1), about: at(2), born: at(3), died: at(4), place: at(5) });
+                }
+                "F" => {
+                    let c = Character { name: at(1), about: at(2), works: at(3), creators: at(4), links: at(5).parse().unwrap_or(0) };
+                    let key = norm(at(1));
+                    if f.characters.get(&key).is_none_or(|old| old.links < c.links) {
+                        f.characters.insert(key, c);
+                    }
                 }
                 "A" => {
                     f.awards.insert((norm(at(1)), at(2).to_string()), at(3));
@@ -466,6 +482,39 @@ fn people(l: &str) -> Option<Answer> {
     Some(simple(format!("{} | {label}", p.name), &format!("{}{}", label[..1].to_uppercase(), &label[1..]), value, card))
 }
 
+fn characters(l: &str) -> Option<Answer> {
+    let (name, want) = if let Some(m) = re!(r"^who\s+(?:created|invented|wrote)\s+(?:the\s+character\s+)?(.+)$").captures(l) {
+        (m.get(1)?.as_str(), "creator")
+    } else if let Some(m) = re!(r"^(?:who\s+(?:is|was)\s+)?(?:the\s+)?creators?\s+of\s+(.+)$").captures(l) {
+        (m.get(1)?.as_str(), "creator")
+    } else if let Some(m) = re!(r"^(?:what|which)\s+(?:show|series|book|film|movie|work|game)s?\s+(?:is|was|does)\s+(.+?)\s+(?:in|from|appear in)$").captures(l) {
+        (m.get(1)?.as_str(), "works")
+    } else if let Some(m) = re!(r"^who\s+(?:is|was)\s+(.+)$").captures(l) {
+        (m.get(1)?.as_str(), "about")
+    } else {
+        return None;
+    };
+    let c = facts().characters.get(&norm(name))?;
+    let mut rows = vec![vec![text("type"), text("fictional character")]];
+    if !c.about.is_empty() {
+        rows.push(vec![text("description"), text(c.about)]);
+    }
+    if !c.works.is_empty() {
+        rows.push(vec![text("appears in"), text(c.works.replace("; ", ", "))]);
+    }
+    if !c.creators.is_empty() {
+        rows.push(vec![text("created by"), text(c.creators.replace("; ", ", "))]);
+    }
+    let card = pod("Character", c.name, table(None, rows));
+    let (label, value) = match want {
+        "creator" if !c.creators.is_empty() => ("creator", c.creators.replace("; ", "  |  ")),
+        "works" if !c.works.is_empty() => ("appears in", c.works.replace("; ", "  |  ")),
+        _ if !c.about.is_empty() => ("description", c.about.to_string()),
+        _ => return None,
+    };
+    Some(simple(format!("{} (fictional character) | {label}", c.name), &format!("{}{}", label[..1].to_uppercase(), &label[1..]), value, vec![card]))
+}
+
 fn awards(l: &str) -> Option<Answer> {
     let m = re!(r"^(?:who\s+won\s+)?(?:the\s+)?(?:winners?\s+of\s+(?:the\s+)?)?(\d{4}\s+)?nobel\s+(?:prize\s+)?(?:in|for)?\s*(physics|chemistry|literature|peace|medicine|physiology or medicine|economics|economic sciences)(?:\s+prize)?(?:\s+(?:winners?|laureates?))?(?:\s+(?:in\s+|of\s+)?(\d{4}))?$").captures(l)?;
     let year = m.get(1).or(m.get(3))?.as_str().trim();
@@ -485,5 +534,5 @@ pub fn handle(q: &Query) -> Option<Answer> {
     if l.len() < 6 || l.len() > 120 {
         return None;
     }
-    creators(l).or_else(|| awards(l)).or_else(|| offices(l)).or_else(|| events(l)).or_else(|| people(l))
+    creators(l).or_else(|| awards(l)).or_else(|| offices(l)).or_else(|| events(l)).or_else(|| people(l)).or_else(|| characters(l))
 }
