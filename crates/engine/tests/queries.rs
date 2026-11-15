@@ -438,3 +438,13 @@ fn course_topics() {
     assert!(short("chi square test 10 20 30 vs 20 20 20").starts_with("χ² = 10"));
     assert_eq!(short("sample size for margin of error 0.03 at 95% confidence"), "1068 (worst case p = 0.5)");
 }
+
+#[test]
+fn matrix_arithmetic_like_wolframalpha() {
+    assert_eq!(short("{{1,2},{3,4}}^2"), "{{7, 10}, {15, 22}}");
+    assert_eq!(short("{{1,2},{3,4}}^-1"), "{{-2, 1}, {3/2, -1/2}}");
+    assert_eq!(short("2 {{1,2},{3,4}}"), "{{2, 4}, {6, 8}}");
+    assert_eq!(short("1/10 {{6, -7}, {-2, 4}}"), "{{3/5, -7/10}, {-1/5, 2/5}}");
+    assert_eq!(short("{{1,2},{3,4}}^2 - 5 {{1,2},{3,4}}"), "{{2, 0}, {0, 2}}");
+    assert_eq!(short("({{1,2},{3,4}}) - ({{1,1},{1,1}})"), "{{0, 1}, {2, 3}}");
+}

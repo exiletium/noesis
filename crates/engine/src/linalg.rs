@@ -166,6 +166,11 @@ pub fn matrix_pods(p: &Parsed) -> Option<Vec<Pod>> {
     let m = from_expr(&p.expr)?;
     let (r, c) = (m.len(), m[0].len());
     let mut pods = vec![crate::engine::math::input_pod(&p.d)];
+    // arithmetic on matrices: the computed matrix is the answer
+    let literal = matches!(&p.ast, crate::parse::Ast::List(rows) if rows.iter().all(|row| matches!(row, crate::parse::Ast::List(_))));
+    if !literal {
+        pods.push(crate::engine::primary(pod("Result", "Result", math(&p.expr))));
+    }
     pods.push(pod("Dimensions", "Dimensions", text(format!("{r} (rows) × {c} (columns)"))));
     let mut jobs: Vec<PodJob> = Vec::new();
     if r == c {

@@ -944,7 +944,22 @@ pub fn pow(b: Expr, ex: Expr) -> Expr {
                 }
             }
         }
-        (List(v), _) if !ex.is_list() => return List(v.iter().map(|a| pow(a.clone(), ex.clone())).collect()),
+        // a square matrix to an integer power is a matrix power (as in
+        // WolframAlpha); other lists are raised elementwise
+        (List(v), _) if !ex.is_list() => {
+            let square = v.len() >= 2 && v.iter().all(|r| matches!(r, List(row) if row.len() == v.len()));
+            if square {
+                if let Some(k) = ex.as_i64() {
+                    if let Some(m) = crate::linalg::from_expr(&b).and_then(|m| crate::linalg::matpow(&m, k)) {
+                        return crate::linalg::to_expr(&m);
+                    }
+                    if k < 0 {
+                        return undef();
+                    }
+                }
+            }
+            return List(v.iter().map(|a| pow(a.clone(), ex.clone())).collect());
+        }
         _ => {}
     }
     if b.is_numeric() && ex.is_numeric() {

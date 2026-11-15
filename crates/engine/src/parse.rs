@@ -1091,6 +1091,8 @@ impl<'a> Parser<'a> {
         match self.peek_at(k) {
             Some(T::Num(..)) | Some(T::Func(_)) | Some(T::Sym(_)) => true,
             Some(T::Op("(")) => true,
+            // "2 {{1, 2}, {3, 4}}": a scalar times a matrix or list
+            Some(T::Op("{")) => k > 0 || self.pos > 0,
             Some(T::Op("|")) => self.abs_depth == 0,
             _ => false,
         }
