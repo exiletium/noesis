@@ -156,6 +156,13 @@ pub fn polyfit(pts: &[[f64; 2]], deg: usize) -> Option<(Vec<f64>, f64)> {
     Some((c, r2))
 }
 
+fn r_squared(pts: &[[f64; 2]], f: impl Fn(f64) -> f64) -> f64 {
+    let mean = pts.iter().map(|p| p[1]).sum::<f64>() / pts.len() as f64;
+    let ss_tot: f64 = pts.iter().map(|p| (p[1] - mean).powi(2)).sum();
+    let ss_res: f64 = pts.iter().map(|p| (p[1] - f(p[0])).powi(2)).sum();
+    if ss_tot > 0.0 { 1.0 - ss_res / ss_tot } else { 1.0 }
+}
+
 pub fn fit_pods(pts: &[[f64; 2]], kind: &str) -> Option<Vec<Pod>> {
     let x = sym("x");
     let tidy = |v: f64| crate::calculus::limit::tidy_float(v);
@@ -163,6 +170,29 @@ pub fn fit_pods(pts: &[[f64; 2]], kind: &str) -> Option<Vec<Pod>> {
         "quadratic" => {
             let (c, r2) = polyfit(pts, 2)?;
             (add(vec![mul(vec![tidy(c[2]), square(x.clone())]), mul(vec![tidy(c[1]), x.clone()]), tidy(c[0])]), r2)
+        }
+        "cubic" | "quartic" => {
+            let deg = if kind == "cubic" { 3 } else { 4 };
+            let (c, r2) = polyfit(pts, deg)?;
+            (add((0..=deg).rev().map(|k| mul(vec![tidy(c[k]), pow(x.clone(), int(k as i64))])).collect()), r2)
+        }
+        "log" | "logarithmic" => {
+            if pts.iter().any(|p| p[0] <= 0.0) {
+                return None;
+            }
+            let lp: Vec<[f64; 2]> = pts.iter().map(|p| [p[0].ln(), p[1]]).collect();
+            let (c, _) = polyfit(&lp, 1)?;
+            let r2 = r_squared(pts, |t| c[0] + c[1] * t.ln());
+            (add(vec![tidy(c[0]), mul(vec![tidy(c[1]), ln(x.clone())])]), r2)
+        }
+        "power" => {
+            if pts.iter().any(|p| p[0] <= 0.0 || p[1] <= 0.0) {
+                return None;
+            }
+            let lp: Vec<[f64; 2]> = pts.iter().map(|p| [p[0].ln(), p[1].ln()]).collect();
+            let (c, _) = polyfit(&lp, 1)?;
+            let r2 = r_squared(pts, |t| c[0].exp() * t.powf(c[1]));
+            (mul(vec![tidy(c[0].exp()), pow(x.clone(), tidy(c[1]))]), r2)
         }
         "exponential" => {
             if pts.iter().any(|p| p[1] <= 0.0) {

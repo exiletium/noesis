@@ -564,7 +564,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
         return Some(Answer::new(format!("{what} of data"), pods));
     }
-    if let Some(m) = cap(re!(r"^(linear|quadratic|exponential)?\s*(?:fit|regression|least squares(?: fit)?)\s+(?:of\s+|for\s+|to\s+)?(.+)$")) {
+    if let Some(m) = cap(re!(r"^(linear|quadratic|cubic|quartic|exponential|log|logarithmic|power)?\s*(?:fit|regression|least squares(?: fit)?)\s+(?:of\s+|for\s+|to\s+)?(.+)$")) {
         let body = m[2].as_deref()?.trim().to_string();
         // accept "{1,2},{2,3}", "(1,2), (2,3)" and flat lists "2.2, 5.8, 10.2" (x = 1, 2, …)
         let body = body.replace('(', "{").replace(')', "}");
