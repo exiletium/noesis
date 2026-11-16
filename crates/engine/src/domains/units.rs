@@ -72,6 +72,17 @@ static UNITS: &[UnitDef] = &[
     u!(&["pc", "parsec", "parsecs"], 3.0856775814913673e16, L, "parsecs", p),
     u!(&["å", "angstrom", "angstroms"], 1e-10, L, "ångströms"),
     u!(&["furlong", "furlongs"], 201.168, L, "furlongs"),
+    u!(&["fathom", "fathoms"], 1.8288, L, "fathoms"),
+    u!(&["chain", "chains"], 20.1168, L, "chains"),
+    u!(&["rod", "rods", "perch", "pole"], 5.0292, L, "rods"),
+    u!(&["league", "leagues"], 4828.032, L, "leagues"),
+    u!(&["hand", "hands"], 0.1016, L, "hands"),
+    u!(&["mil", "mils", "thou"], 2.54e-5, L, "mils"),
+    u!(&["micron", "microns"], 1e-6, L, "microns"),
+    u!(&["pica", "picas"], 0.0254 / 6.0, L, "picas"),
+    u!(&["point", "points"], 0.0254 / 72.0, L, "points"),
+    u!(&["cubit", "cubits"], 0.4572, L, "cubits"),
+    u!(&["fermi", "fermis"], 1e-15, L, "fermis"),
     // mass
     u!(&["g", "gram", "grams", "gramme"], 1e-3, M, "grams", p),
     u!(&["t", "tonne", "tonnes", "metric ton", "metric tons"], 1000.0, M, "metric tons"),
@@ -81,6 +92,13 @@ static UNITS: &[UnitDef] = &[
     u!(&["ton", "tons", "short ton", "short tons"], 907.18474, M, "short tons"),
     u!(&["u", "amu", "dalton", "daltons", "da"], 1.66053906660e-27, M, "atomic mass units"),
     u!(&["ct", "carat", "carats"], 2e-4, M, "carats"),
+    u!(&["gr", "grain", "grains"], 6.479891e-5, M, "grains"),
+    u!(&["dr", "dram", "drams", "drachm", "drachms"], 1.7718451953125e-3, M, "drams"),
+    u!(&["dwt", "pennyweight", "pennyweights"], 1.55517384e-3, M, "pennyweights"),
+    u!(&["ozt", "troy ounce", "troy ounces"], 0.0311034768, M, "troy ounces"),
+    u!(&["slug", "slugs"], 14.593902937, M, "slugs"),
+    u!(&["long ton", "long tons", "imperial ton", "imperial tons"], 1016.0469088, M, "long tons"),
+    u!(&["cwt", "hundredweight", "hundredweights"], 45.359237, M, "hundredweights"),
     // time
     u!(&["s", "sec", "secs", "second", "seconds"], 1.0, T, "seconds", p),
     u!(&["min", "mins", "minute", "minutes"], 60.0, T, "minutes"),
@@ -105,6 +123,18 @@ static UNITS: &[UnitDef] = &[
     u!(&["floz", "fl oz", "fluid ounce", "fluid ounces"], 2.95735295625e-5, VOL, "US fluid ounces"),
     u!(&["tbsp", "tablespoon", "tablespoons"], 1.478676478125e-5, VOL, "tablespoons"),
     u!(&["tsp", "teaspoon", "teaspoons"], 4.92892159375e-6, VOL, "teaspoons"),
+    u!(&["fl dr", "fluid dram", "fluid drams", "fluidram", "fluidrams"], 3.6966911953125e-6, VOL, "US fluid drams"),
+    u!(&["gill", "gills"], 1.18294118250e-4, VOL, "US gills"),
+    u!(&["bbl", "barrel", "barrels", "oil barrel", "oil barrels"], 0.158987294928, VOL, "oil barrels"),
+    u!(&["bu", "bushel", "bushels"], 0.03523907016688, VOL, "US bushels"),
+    u!(&["pk", "peck", "pecks"], 0.00880976754172, VOL, "US pecks"),
+    u!(&["cc", "ccs"], 1e-6, VOL, "cubic centimeters"),
+    u!(&["imperial gallon", "imperial gallons", "uk gallon", "uk gallons"], 4.54609e-3, VOL, "imperial gallons"),
+    u!(&["imperial pint", "imperial pints", "uk pint", "uk pints"], 5.6826125e-4, VOL, "imperial pints"),
+    u!(&["acre foot", "acre feet", "acre-foot", "acre-feet"], 1233.48183754752, VOL, "acre-feet"),
+    u!(&["danish pot", "danish pots", "pot", "pots"], 0.9661e-3, VOL, "Danish pots"),
+    u!(&["drop", "drops"], 5e-8, VOL, "drops"),
+    u!(&["barn", "barns"], 1e-28, AREA, "barns", p),
     // speed
     u!(&["mph"], 0.44704, SPEED, "miles per hour"),
     u!(&["mpg", "miles per gallon"], 425_143.707_430_272_7, d(-2, 0, 0, 0, 0, 0, 0, 0), "miles per gallon"),
@@ -126,15 +156,24 @@ static UNITS: &[UnitDef] = &[
     u!(&["btu", "btus"], 1055.05585262, ENERGY, "British thermal units"),
     u!(&["erg", "ergs"], 1e-7, ENERGY, "ergs"),
     u!(&["tnt", "ton of tnt", "tons of tnt"], 4.184e9, ENERGY, "tons of TNT"),
+    u!(&["ft lbf", "ft·lbf", "foot pound", "foot pounds", "foot-pound", "foot-pounds", "ft-lb", "ft lb", "ft-lbs", "foot pound force"], 1.3558179483314004, ENERGY, "foot-pounds"),
+    u!(&["therm", "therms"], 1.05505585262e8, ENERGY, "therms"),
+    u!(&["quad", "quads"], 1.05505585262e18, ENERGY, "quads"),
+    u!(&["hartree", "hartrees"], 4.3597447222071e-18, ENERGY, "hartrees"),
+    u!(&["rydberg", "rydbergs"], 2.1798723611035e-18, ENERGY, "rydbergs"),
     // power
     u!(&["w", "watt", "watts"], 1.0, POWER, "watts", p),
     u!(&["hp", "horsepower"], 745.69987158227022, POWER, "horsepower"),
+    u!(&["ton of refrigeration", "tons of refrigeration", "refrigeration ton"], 3516.8528420667, POWER, "tons of refrigeration"),
     // pressure
     u!(&["pa", "pascal", "pascals"], 1.0, PRESSURE, "pascals", p),
     u!(&["bar", "bars"], 1e5, PRESSURE, "bars", p),
     u!(&["atm", "atmosphere", "atmospheres"], 101325.0, PRESSURE, "atmospheres"),
     u!(&["psi"], 6894.757293168, PRESSURE, "pounds per square inch"),
     u!(&["mmhg", "torr"], 133.322387415, PRESSURE, "millimeters of mercury"),
+    u!(&["inhg", "inches of mercury"], 3386.389, PRESSURE, "inches of mercury"),
+    u!(&["mmh2o", "millimeters of water"], 9.80665, PRESSURE, "millimeters of water"),
+    u!(&["ksi"], 6894757.293168, PRESSURE, "kilopounds per square inch"),
     // electromagnetism and others
     u!(&["hz", "hertz"], 1.0, FREQ, "hertz", p),
     u!(&["rpm"], 1.0 / 60.0, FREQ, "revolutions per minute"),
@@ -152,6 +191,17 @@ static UNITS: &[UnitDef] = &[
     u!(&["earth mass", "earth masses", "mearth"], 5.9722e24, M, "Earth masses"),
     u!(&["jupiter mass", "jupiter masses"], 1.89813e27, M, "Jupiter masses"),
     u!(&["mol", "mole", "moles"], 1.0, d(0, 0, 0, 0, 0, 1, 0, 0), "moles", p),
+    u!(&["ci", "curie", "curies"], 3.7e10, FREQ, "curies", p),
+    u!(&["bq", "becquerel", "becquerels"], 1.0, FREQ, "becquerels", p),
+    u!(&["gy", "gray", "grays"], 1.0, d(2, 0, -2, 0, 0, 0, 0, 0), "grays", p),
+    u!(&["sv", "sievert", "sieverts"], 1.0, d(2, 0, -2, 0, 0, 0, 0, 0), "sieverts", p),
+    u!(&["rem", "rems"], 0.01, d(2, 0, -2, 0, 0, 0, 0, 0), "rem", p),
+    u!(&["roentgen", "roentgens"], 2.58e-4, d(0, -1, 1, 1, 0, 0, 0, 0), "roentgens", p),
+    u!(&["poise"], 0.1, d(-1, 1, -1, 0, 0, 0, 0, 0), "poise", p),
+    u!(&["stokes"], 1e-4, d(2, 0, -1, 0, 0, 0, 0, 0), "stokes", p),
+    u!(&["lm", "lumen", "lumens"], 1.0, d(0, 0, 0, 0, 0, 0, 1, 0), "lumens", p),
+    u!(&["lx", "lux"], 1.0, d(-2, 0, 0, 0, 0, 0, 1, 0), "lux", p),
+    u!(&["kat", "katal", "katals"], 1.0, d(0, 0, -1, 0, 0, 1, 0, 0), "katals", p),
     u!(&["cd", "candela"], 1.0, d(0, 0, 0, 0, 0, 0, 1, 0), "candelas", p),
     // temperature (absolute scales)
     u!(&["k", "kelvin", "kelvins"], 1.0, TEMP, "kelvins", p),
@@ -250,6 +300,7 @@ fn lookup_prefixed(w: &str, lw: &str) -> Option<Unit> {
 
 pub fn singular(name: &str) -> String {
     let (head, tail) = match name.split_once(' ') {
+        Some(("feet", t)) => return format!("foot {t}"),
         Some((h, t)) if !h.ends_with('s') => return format!("{h} {}", singular(t)),
         Some((h, t)) => (h.to_string(), format!(" {t}")),
         None => (name.to_string(), String::new()),
@@ -550,14 +601,278 @@ pub(crate) fn conversion_table(si: f64, dim: &Dim, exclude: &str) -> Option<Pod>
     Some(pod("AdditionalConversions", "Additional conversions", table(None, rows)))
 }
 
+/// The other reading of an ambiguous unit name, when the first reading
+/// has the wrong dimension: "ounces" of a volume are fluid ounces.
+fn alt_unit(word: &str, want: &Dim) -> Option<Unit> {
+    let w = word.trim().to_lowercase();
+    let alt = match w.as_str() {
+        "oz" | "ounce" | "ounces" => "fluid ounces",
+        "dr" | "dram" | "drams" => "fluid drams",
+        "lb" | "lbs" | "pound" | "pounds" => "pounds force",
+        "fluid ounce" | "fluid ounces" | "fl oz" => "ounces",
+        "c" => "coulombs",
+        "pt" | "pint" | "pints" => "pints",
+        _ => return None,
+    };
+    parse_unit(alt).filter(|u| u.dim == *want)
+}
+
+/// Number words after digits: "1 million miles" → "1000000 miles".
+fn expand_scale_words(s: &str) -> String {
+    static R: OnceLock<Regex> = OnceLock::new();
+    let r = R.get_or_init(|| re(r"(?i)\b(\d+(?:\.\d+)?)\s+(thousand|million|billion|trillion)\b"));
+    r.replace_all(s, |c: &regex::Captures| {
+        let v: f64 = c[1].parse().unwrap_or(0.0);
+        let m = match c[2].to_lowercase().as_str() {
+            "thousand" => 1e3,
+            "million" => 1e6,
+            "billion" => 1e9,
+            _ => 1e12,
+        };
+        fmt_float(v * m, 15).replace(',', "")
+    })
+    .to_string()
+}
+
+/// A product of quantities: "(20 feet)(1 mile)", "20 ft * 1 mi", "3 m x 4 m".
+fn parse_product(s: &str) -> Option<(f64, Dim, String)> {
+    static R: OnceLock<Regex> = OnceLock::new();
+    let r = R.get_or_init(|| re(r"\)\s*\(|\s*[*×·]\s*|\s+(?:x|times|by)\s+"));
+    let parts: Vec<&str> = r.split(s.trim()).map(|p| p.trim().trim_matches(|c| c == '(' || c == ')').trim()).collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    let mut si = 1.0;
+    let mut dim = NONE;
+    let mut shown = Vec::new();
+    for p in parts {
+        let (v, u, sh) = parse_quantity(p)?;
+        if u.offset != 0.0 {
+            return None;
+        }
+        si *= to_si(v, &u);
+        for k in 0..8 {
+            dim[k] += u.dim[k];
+        }
+        shown.push(format!("({sh})"));
+    }
+    Some((si, dim, shown.join(" × ")))
+}
+
+/// The unit of a measurement system that suits a value.
+fn system_unit(system: &str, dim: &Dim, si: f64) -> Option<Unit> {
+    let cands: &[&str] = match (system, *dim) {
+        ("imperial", L) => &["mi", "yd", "ft", "in"],
+        ("imperial", M) => &["ton", "lb", "oz"],
+        ("imperial", AREA) => &["mi^2", "acre", "ft^2", "in^2"],
+        ("imperial", VOL) => &["gal", "qt", "pt", "floz"],
+        ("imperial", SPEED) => &["mph", "ft/s"],
+        ("imperial", ACC) => &["ft/s^2"],
+        ("imperial", FORCE) => &["lbf"],
+        ("imperial", ENERGY) => &["BTU", "ft lbf"],
+        ("imperial", POWER) => &["hp"],
+        ("imperial", PRESSURE) => &["psi"],
+        ("imperial", TEMP) => &["°F"],
+        ("metric", L) => &["km", "m", "cm", "mm"],
+        ("metric", M) => &["t", "kg", "g", "mg"],
+        ("metric", AREA) => &["km^2", "ha", "m^2", "cm^2"],
+        ("metric", VOL) => &["m^3", "L", "mL"],
+        ("metric", SPEED) => &["km/h"],
+        ("metric", TEMP) => &["°C"],
+        ("metric", ENERGY) => &["MJ", "kJ", "J"],
+        ("metric", POWER) => &["MW", "kW", "W"],
+        ("metric", PRESSURE) => &["MPa", "kPa", "Pa"],
+        _ => return None,
+    };
+    let units: Vec<Unit> = cands.iter().filter_map(|c| parse_unit(c)).collect();
+    units.iter().find(|u| u.offset != 0.0 || from_si(si, u).abs() >= 1.0).or(units.last()).cloned()
+}
+
+const PREFIX_TABLE: &[(&str, &str, &str)] = &[
+    ("quetta", "Q", "10^30"), ("ronna", "R", "10^27"), ("yotta", "Y", "10^24"), ("zetta", "Z", "10^21"), ("exa", "E", "10^18"), ("peta", "P", "10^15"), ("tera", "T", "10^12"), ("giga", "G", "10^9"), ("mega", "M", "10^6"), ("kilo", "k", "10^3"), ("hecto", "h", "10^2"), ("deca", "da", "10^1"),
+    ("deci", "d", "10^-1"), ("centi", "c", "10^-2"), ("milli", "m", "10^-3"), ("micro", "μ", "10^-6"), ("nano", "n", "10^-9"), ("pico", "p", "10^-12"), ("femto", "f", "10^-15"), ("atto", "a", "10^-18"), ("zepto", "z", "10^-21"), ("yocto", "y", "10^-24"), ("ronto", "r", "10^-27"), ("quecto", "q", "10^-30"),
+];
+
+fn prefix_tables(l: &str) -> Option<Answer> {
+    let l = l.trim().trim_start_matches("the ").trim_start_matches("list of ").trim_start_matches("table of ");
+    if matches!(l, "si prefixes" | "metric prefixes" | "si prefix" | "metric prefix" | "unit prefixes") {
+        let rows = PREFIX_TABLE.iter().map(|(n, s, f)| vec![text(*n), text(*s), text(*f)]).collect();
+        return Some(Answer::new("SI prefixes", vec![pod("Input", "Input interpretation", text("SI prefixes")), primary(pod("Result", "SI prefixes", table(Some(vec!["prefix", "symbol", "factor"]), rows))), pod("Note", "Note", text("ronna, quetta, ronto and quecto were adopted in 2022"))]));
+    }
+    if matches!(l, "binary prefixes" | "binary prefix" | "iec prefixes" | "iec binary prefixes") {
+        let rows = [("kibi", "Ki", "2^10 = 1024"), ("mebi", "Mi", "2^20 = 1048576"), ("gibi", "Gi", "2^30 = 1073741824"), ("tebi", "Ti", "2^40"), ("pebi", "Pi", "2^50"), ("exbi", "Ei", "2^60"), ("zebi", "Zi", "2^70"), ("yobi", "Yi", "2^80")].iter().map(|(n, s, f)| vec![text(*n), text(*s), text(*f)]).collect();
+        return Some(Answer::new("binary prefixes", vec![pod("Input", "Input interpretation", text("binary (IEC) prefixes")), primary(pod("Result", "Binary prefixes", table(Some(vec!["prefix", "symbol", "factor"]), rows)))]));
+    }
+    None
+}
+
+/// A unit by itself: what it measures and what it equals.
+fn unit_info(clean: &str) -> Option<Answer> {
+    let t = clean.trim().trim_end_matches(['?', '.']).trim();
+    let tl = t.to_lowercase();
+    let t = tl.strip_prefix("what is a ").or_else(|| tl.strip_prefix("what is an ")).or_else(|| tl.strip_prefix("what is ")).or_else(|| tl.strip_prefix("1 ")).map(|x| x.to_string()).unwrap_or_else(|| t.to_string());
+    if t.chars().count() < 2 || t.chars().any(|c| c.is_ascii_digit() && !t.contains('^')) || t.split_whitespace().count() > 4 {
+        return None;
+    }
+    // words that are units only in context
+    if matches!(t.to_lowercase().as_str(), "a" | "in" | "s" | "t" | "h" | "d" | "pot" | "pots" | "point" | "points" | "hand" | "hands" | "drop" | "drops" | "chain" | "rod" | "pole" | "quad" | "rem" | "day" | "days" | "week" | "month" | "year" | "minute" | "second" | "hour" | "turn" | "da" | "pc" | "mil" | "gr" | "dr" | "pk" | "bu" | "lm" | "ct" | "st" | "cd" | "mach" | "percent" | "%" | "u" | "c" | "f" | "g" | "k" | "b" | "pt" | "kat" | "slug" | "slugs") {
+        return None;
+    }
+    let u = parse_unit(&t)?;
+    if u.offset != 0.0 {
+        return None;
+    }
+    let si_unit = si_name(&u.dim);
+    let quantity = quantity_name(&u.dim);
+    let mut pods = vec![pod("Input", "Input interpretation", text(u.name.clone()))];
+    let main = if u.factor == 1.0 && !si_unit.is_empty() { format!("SI unit: {si_unit}") } else { format!("1 {} = {} {}", singular(&u.name), fmt_val(u.factor), si_unit) };
+    pods.push(primary(pod("Result", "Unit conversion", text(main))));
+    if let Some(qn) = quantity {
+        pods.push(pod("Quantity", "Measures", text(qn)));
+    }
+    let dimtext = dim_text(&u.dim);
+    if !dimtext.is_empty() {
+        pods.push(pod("Dimensions", "Dimensions", text(dimtext)));
+    }
+    if let Some(tb) = conversion_table(u.factor, &u.dim, &u.name) {
+        pods.push(tb);
+    }
+    Some(Answer::new(u.name.clone(), pods))
+}
+
+fn dim_text(dim: &Dim) -> String {
+    let names = ["length", "mass", "time", "electric current", "temperature", "amount", "luminous intensity", "information"];
+    let mut parts = Vec::new();
+    for k in 0..8 {
+        match dim[k] {
+            0 => {}
+            1 => parts.push(format!("[{}]", names[k])),
+            p => parts.push(format!("[{}]^{p}", names[k])),
+        }
+    }
+    parts.join(" ")
+}
+
+fn quantity_name(dim: &Dim) -> Option<&'static str> {
+    QUANTITIES.iter().find(|q| q.dim == *dim && q.primary).map(|q| q.names[0])
+}
+
+struct PhysQuantity {
+    names: &'static [&'static str],
+    symbol: &'static str,
+    dim: Dim,
+    unit: &'static str,
+    definition: &'static str,
+    primary: bool,
+}
+
+macro_rules! pq {
+    ($names:expr, $sym:expr, $dim:expr, $unit:expr, $def:expr) => {
+        PhysQuantity { names: $names, symbol: $sym, dim: $dim, unit: $unit, definition: $def, primary: true }
+    };
+    ($names:expr, $sym:expr, $dim:expr, $unit:expr, $def:expr, alias) => {
+        PhysQuantity { names: $names, symbol: $sym, dim: $dim, unit: $unit, definition: $def, primary: false }
+    };
+}
+
+static QUANTITIES: &[PhysQuantity] = &[
+    pq!(&["length", "distance"], "l", L, "m (meter)", "SI base quantity"),
+    pq!(&["mass"], "m", M, "kg (kilogram)", "SI base quantity"),
+    pq!(&["time", "duration"], "t", T, "s (second)", "SI base quantity"),
+    pq!(&["electric current", "current"], "I", d(0, 0, 0, 1, 0, 0, 0, 0), "A (ampere)", "SI base quantity"),
+    pq!(&["temperature", "thermodynamic temperature"], "T", TEMP, "K (kelvin)", "SI base quantity"),
+    pq!(&["amount of substance", "amount"], "n", d(0, 0, 0, 0, 0, 1, 0, 0), "mol (mole)", "SI base quantity"),
+    pq!(&["luminous intensity"], "I_v", d(0, 0, 0, 0, 0, 0, 1, 0), "cd (candela)", "SI base quantity"),
+    pq!(&["area"], "A", AREA, "m^2", "length × length"),
+    pq!(&["volume"], "V", VOL, "m^3", "length³"),
+    pq!(&["speed", "velocity"], "v", SPEED, "m/s", "distance/time"),
+    pq!(&["acceleration"], "a", ACC, "m/s^2", "change of velocity/time"),
+    pq!(&["force", "weight"], "F", FORCE, "N (newton) = kg m/s^2", "mass × acceleration"),
+    pq!(&["energy", "work", "heat"], "E", ENERGY, "J (joule) = kg m^2/s^2", "force × distance"),
+    pq!(&["torque", "moment of force"], "τ", ENERGY, "N m", "r × F", alias),
+    pq!(&["enthalpy"], "H", ENERGY, "J (joule)", "H = U + p V", alias),
+    pq!(&["power"], "P", POWER, "W (watt) = J/s", "energy/time"),
+    pq!(&["pressure", "stress"], "p", PRESSURE, "Pa (pascal) = N/m^2", "force/area"),
+    pq!(&["momentum", "linear momentum"], "p", d(1, 1, -1, 0, 0, 0, 0, 0), "kg m/s", "mass × velocity"),
+    pq!(&["angular momentum"], "L", d(2, 1, -1, 0, 0, 0, 0, 0), "kg m^2/s", "r × p"),
+    pq!(&["impulse"], "J", d(1, 1, -1, 0, 0, 0, 0, 0), "N s", "force × time", alias),
+    pq!(&["mass density", "density"], "ρ", d(-3, 1, 0, 0, 0, 0, 0, 0), "kg/m^3", "mass/volume"),
+    pq!(&["frequency"], "f", FREQ, "Hz (hertz) = 1/s", "cycles per unit time"),
+    pq!(&["electric charge", "charge"], "Q", CHARGE, "C (coulomb) = A s", "current × time"),
+    pq!(&["voltage", "electric potential", "electric potential difference", "electromotive force"], "V", VOLT, "V (volt) = W/A", "energy per unit charge"),
+    pq!(&["electrical resistance", "resistance"], "R", OHM, "Ω (ohm) = V/A", "voltage/current"),
+    pq!(&["capacitance"], "C", d(-2, -1, 4, 2, 0, 0, 0, 0), "F (farad) = C/V", "charge/voltage"),
+    pq!(&["inductance"], "L", d(2, 1, -2, -2, 0, 0, 0, 0), "H (henry) = Wb/A", "magnetic flux/current"),
+    pq!(&["magnetic flux"], "Φ", d(2, 1, -2, -1, 0, 0, 0, 0), "Wb (weber) = V s", "∫ B · dA"),
+    pq!(&["magnetic induction", "magnetic flux density", "magnetic field"], "B", d(0, 1, -2, -1, 0, 0, 0, 0), "T (tesla) = Wb/m^2", "force on a moving charge: F = q v × B"),
+    pq!(&["magnetic field strength", "magnetizing field", "h-field", "magnetic field intensity"], "H", d(-1, 0, 0, 1, 0, 0, 0, 0), "A/m", "H = B/μ₀ − M"),
+    pq!(&["electric field strength", "electric field"], "E", d(1, 1, -3, -1, 0, 0, 0, 0), "V/m", "force per unit charge"),
+    pq!(&["electrical conductance", "conductance"], "G", d(-2, -1, 3, 2, 0, 0, 0, 0), "S (siemens) = 1/Ω", "1/resistance"),
+    pq!(&["electrical resistivity", "resistivity"], "ρ", d(3, 1, -3, -2, 0, 0, 0, 0), "Ω m", "R A/l", alias),
+    pq!(&["electrical conductivity", "conductivity"], "σ", d(-3, -1, 3, 2, 0, 0, 0, 0), "S/m", "1/resistivity"),
+    pq!(&["reluctance", "magnetic reluctance"], "ℛ", d(-2, -1, 2, 2, 0, 0, 0, 0), "1/H (per henry)", "magnetomotive force/magnetic flux"),
+    pq!(&["reluctivity"], "ν", d(-1, -1, 2, 2, 0, 0, 0, 0), "m/H", "1/permeability"),
+    pq!(&["permeability", "magnetic permeability"], "μ", d(1, 1, -2, -2, 0, 0, 0, 0), "H/m", "B/H"),
+    pq!(&["permittivity"], "ε", d(-3, -1, 4, 2, 0, 0, 0, 0), "F/m", "D/E"),
+    pq!(&["entropy", "heat capacity"], "S", d(2, 1, -2, 0, -1, 0, 0, 0), "J/K", "dQ_rev/T"),
+    pq!(&["specific heat capacity", "specific heat"], "c", d(2, 0, -2, 0, -1, 0, 0, 0), "J/(kg K)", "heat capacity per unit mass"),
+    pq!(&["thermal conductivity"], "k", d(1, 1, -3, 0, -1, 0, 0, 0), "W/(m K)", "heat flux/temperature gradient"),
+    pq!(&["seebeck coefficient", "thermopower", "thermoelectric power"], "S", d(2, 1, -3, -1, -1, 0, 0, 0), "V/K", "−ΔV/ΔT (thermoelectric voltage per kelvin)"),
+    pq!(&["dynamic viscosity", "viscosity"], "μ", d(-1, 1, -1, 0, 0, 0, 0, 0), "Pa s", "shear stress/shear rate"),
+    pq!(&["kinematic viscosity"], "ν", d(2, 0, -1, 0, 0, 0, 0, 0), "m^2/s", "μ/ρ"),
+    pq!(&["surface tension"], "γ", d(0, 1, -2, 0, 0, 0, 0, 0), "N/m", "force per unit length"),
+    pq!(&["angular velocity", "angular frequency"], "ω", FREQ, "rad/s", "dθ/dt", alias),
+    pq!(&["moment of inertia"], "I", d(2, 1, 0, 0, 0, 0, 0, 0), "kg m^2", "Σ m r²"),
+    pq!(&["molar mass"], "M", d(0, 1, 0, 0, 0, -1, 0, 0), "kg/mol", "mass/amount"),
+    pq!(&["molar concentration", "molarity", "concentration"], "c", d(-3, 0, 0, 0, 0, 1, 0, 0), "mol/m^3", "amount/volume"),
+    pq!(&["radioactivity", "activity"], "A", FREQ, "Bq (becquerel) = 1/s", "decays per unit time", alias),
+    pq!(&["absorbed dose"], "D", d(2, 0, -2, 0, 0, 0, 0, 0), "Gy (gray) = J/kg", "energy absorbed per unit mass"),
+    pq!(&["luminous flux"], "Φ_v", d(0, 0, 0, 0, 0, 0, 1, 0), "lm (lumen) = cd sr", "luminous intensity × solid angle", alias),
+    pq!(&["illuminance"], "E_v", d(-2, 0, 0, 0, 0, 0, 1, 0), "lx (lux) = lm/m^2", "luminous flux/area"),
+    pq!(&["wavenumber"], "k", d(-1, 0, 0, 0, 0, 0, 0, 0), "1/m", "2π/wavelength"),
+    pq!(&["sound pressure level", "logarithmic sound pressure level", "sound level"], "L_p", NONE, "dB (decibel)", "L_p = 20 log₁₀(p_rms/p₀), p₀ = 20 μPa"),
+    pq!(&["retroreflection coefficient", "coefficient of retroreflection"], "R'", d(-2, 0, 0, 0, 0, 0, 0, 0), "cd/(lx m^2)", "luminous intensity per illuminance per unit area"),
+    pq!(&["eckert number"], "Ec", NONE, "dimensionless", "Ec = v²/(c_p ΔT): kinetic energy relative to enthalpy difference"),
+    pq!(&["reynolds number"], "Re", NONE, "dimensionless", "Re = ρ v L/μ: inertial relative to viscous forces"),
+    pq!(&["prandtl number"], "Pr", NONE, "dimensionless", "Pr = c_p μ/k: momentum relative to thermal diffusivity"),
+    pq!(&["mach number"], "Ma", NONE, "dimensionless", "Ma = v/c: flow speed relative to the speed of sound"),
+    pq!(&["nusselt number"], "Nu", NONE, "dimensionless", "Nu = h L/k: convective relative to conductive heat transfer"),
+    pq!(&["froude number"], "Fr", NONE, "dimensionless", "Fr = v/√(g L)"),
+    pq!(&["brinkman number"], "Br", NONE, "dimensionless", "Br = μ v²/(k ΔT): viscous heating relative to conduction"),
+    pq!(&["strain"], "ε", NONE, "dimensionless", "ΔL/L"),
+    pq!(&["refractive index", "index of refraction"], "n", NONE, "dimensionless", "c/v"),
+];
+
+fn quantities(l: &str) -> Option<Answer> {
+    let t = l.trim().trim_end_matches(['?', '.']).trim_start_matches("what is ").trim_start_matches("the ").trim_start_matches("physical quantity ").trim();
+    let parts: Vec<&str> = t.split([',', '/']).flat_map(|p| p.split(" and ")).flat_map(|p| p.split(" vs ")).map(|p| p.trim()).filter(|p| !p.is_empty()).collect();
+    let found: Vec<&PhysQuantity> = parts.iter().map(|p| QUANTITIES.iter().find(|q| q.names.contains(p))).collect::<Option<_>>()?;
+    if found.len() == 1 {
+        let q = found[0];
+        let rows = vec![vec![text("symbol"), text(q.symbol)], vec![text("SI unit"), text(q.unit)], vec![text("dimensions"), text(if q.dim == NONE { "dimensionless".to_string() } else { dim_text(&q.dim) })], vec![text("definition"), text(q.definition)]];
+        return Some(Answer::new(q.names[0], vec![pod("Input", "Input interpretation", text(format!("{} (physical quantity)", q.names[0]))), primary(pod("Result", "SI unit", text(q.unit))), pod("Properties", "Properties", table(None, rows))]));
+    }
+    let rows = found.iter().map(|q| vec![text(q.names[0]), text(q.symbol), text(q.unit), text(if q.dim == NONE { "dimensionless".to_string() } else { dim_text(&q.dim) })]).collect();
+    Some(Answer::new("physical quantities", vec![pod("Input", "Input interpretation", text(found.iter().map(|q| q.names[0]).collect::<Vec<_>>().join(" | "))), primary(pod("Result", "Physical quantities", table(Some(vec!["quantity", "symbol", "SI unit", "dimensions"]), rows)))]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
-    let l = q.lower.as_str();
+    let expanded = expand_scale_words(&q.clean);
+    handle_str(&expanded)
+}
+
+fn handle_str(clean: &str) -> Option<Answer> {
+    let lower = clean.to_lowercase();
+    let l = lower.as_str();
+    if let Some(a) = prefix_tables(l).or_else(|| quantities(l)) {
+        return Some(a);
+    }
     static CONV: OnceLock<Regex> = OnceLock::new();
     let conv = CONV.get_or_init(|| re(r"^(?:convert\s+)?(.+?)\s+(?:in|to|into|as|in terms of|=\s*\?|->|→)\s+(.+?)$"));
     // constants
     let const_q = l.trim_start_matches("what is ").trim_start_matches("value of ");
     if let Some(m) = conv.captures(const_q) {
-        if let (Some(c), Some(u)) = (find_constant(&m[1]), parse_unit(&q.clean[q.clean.len() - m[2].len()..])) {
+        if let (Some(c), Some(u)) = (find_constant(&m[1]), parse_unit(&clean[clean.len() - m[2].len()..])) {
             let cu = parse_unit(c.unit)?;
             if cu.dim == u.dim {
                 let v = from_si(to_si(c.value, &cu), &u);
@@ -586,11 +901,58 @@ pub fn handle(q: &Query) -> Option<Answer> {
     static HOW: OnceLock<Regex> = OnceLock::new();
     let how = HOW.get_or_init(|| re(r"^(?:how many\s+)?([a-z°/ ]+?)\s+(?:in|per)\s+(?:a|an|one|1)\s+([a-z°/ ]+)$"));
     if let Some(m) = how.captures(l) {
-        if let (Some(to), Some(from)) = (parse_unit(&m[1]), parse_unit(&m[2])) {
+        if let (Some(mut to), Some(from)) = (parse_unit(&m[1]), parse_unit(&m[2])) {
+            if to.dim != from.dim {
+                if let Some(a) = alt_unit(&m[1], &from.dim) {
+                    to = a;
+                }
+            }
             if to.dim == from.dim && to.offset == 0.0 {
                 let r = from.factor / to.factor;
                 let pods = vec![pod("Input", "Input interpretation", text(format!("{} per {}", to.name, singular(&from.name)))), primary(pod("Result", "Result", text(format!("{} {}", fmt_val(r), to.name))))];
                 return Some(Answer::new(format!("{} in 1 {}", to.name, singular(&from.name)), pods));
+            }
+        }
+    }
+    // to a measurement system: "convert 120 km/h to imperial"
+    static SYS: OnceLock<Regex> = OnceLock::new();
+    let sys = SYS.get_or_init(|| re(r"^(?:convert\s+)?(.+?)\s+(?:to|in|into)\s+(imperial|metric|si|si units|us customary|us customary units|us units|english units|imperial units|metric units)$"));
+    if let Some(m) = sys.captures(l) {
+        let g = m.get(1)?;
+        let src = clean.get(g.start()..g.end()).unwrap_or(&m[1]).trim();
+        let (si, dim, shown, offset_unit) = match parse_quantity(src) {
+            Some((v, u, sh)) => (to_si(v, &u), u.dim, sh, u.offset != 0.0),
+            None => {
+                let (si, dim, sh) = parse_product(src)?;
+                (si, dim, sh, false)
+            }
+        };
+        let _ = offset_unit;
+        let system = if m[2].starts_with("metric") || m[2].starts_with("si") { if m[2].starts_with("si") { "si" } else { "metric" } } else { "imperial" };
+        let (val, name) = if system == "si" {
+            (si, si_name(&dim))
+        } else {
+            let u = system_unit(system, &dim, si)?;
+            (from_si(si, &u), u.name.clone())
+        };
+        let pods = vec![pod("Input", "Input interpretation", text(format!("convert {shown} to {} units", if system == "si" { "SI" } else { system }))), primary(pod("Result", "Result", text(format!("{} {name}", fmt_val(val)))))];
+        let mut pods = pods;
+        if let Some(t) = conversion_table(si, &dim, &name) {
+            pods.push(t);
+        }
+        return Some(Answer::new(format!("{shown} in {system} units"), pods));
+    }
+    // comparisons: "175lb vs 100kg"
+    static VS: OnceLock<Regex> = OnceLock::new();
+    let vs = VS.get_or_init(|| re(r"^(.+?)\s+(?:vs\.?|versus|compared to|compared with)\s+(.+)$"));
+    if let Some(m) = vs.captures(clean) {
+        if let (Some((v1, u1, s1)), Some((v2, u2, s2))) = (parse_quantity(&m[1]), parse_quantity(&m[2])) {
+            if u1.dim == u2.dim && u1.offset == 0.0 && u2.offset == 0.0 {
+                let (a, b) = (to_si(v1, &u1), to_si(v2, &u2));
+                let ratio = a / b;
+                let main = if (ratio - 1.0).abs() < 1e-12 { "equal".to_string() } else if ratio > 1.0 { format!("{s1} is {}× {s2} ({} {} larger)", fmt_float(ratio, 6), fmt_val(from_si(a - b, &u2)), u2.name) } else { format!("{s2} is {}× {s1} ({} {} larger)", fmt_float(1.0 / ratio, 6), fmt_val(from_si(b - a, &u1)), u1.name) };
+                let rows = vec![vec![text(s1.clone()), text(format!("{} {}", fmt_val(from_si(a, &u2)), u2.name)), text(format!("{} {}", fmt_val(a), si_name(&u1.dim)))], vec![text(s2.clone()), text(format!("{} {}", fmt_val(from_si(b, &u1)), u1.name)), text(format!("{} {}", fmt_val(b), si_name(&u2.dim)))]];
+                return Some(Answer::new(format!("{s1} vs {s2}"), vec![pod("Input", "Input interpretation", text(format!("{s1} vs {s2}"))), primary(pod("Result", "Comparison", text(main))), pod("Values", "Values", table(Some(vec!["quantity", "in the other unit", "SI"]), rows))]));
             }
         }
     }
@@ -599,30 +961,48 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let sep = SEP.get_or_init(|| re(r"\s+(?:in|to|into|as|in terms of|->|→)\s+"));
     let mut split: Option<(String, String)> = None;
     let _ = sep;
-    let words: Vec<(usize, &str)> = q.clean.split_whitespace().map(|w| (w.as_ptr() as usize - q.clean.as_ptr() as usize, w)).collect();
+    let words: Vec<(usize, &str)> = clean.split_whitespace().map(|w| (w.as_ptr() as usize - clean.as_ptr() as usize, w)).collect();
     for (start, w) in &words {
         if !matches!(w.to_lowercase().as_str(), "in" | "to" | "into" | "as" | "->" | "→") {
             continue;
         }
-        let (a, b) = (&q.clean[..*start], &q.clean[start + w.len()..]);
+        let (a, b) = (&clean[..*start], &clean[start + w.len()..]);
         let (a, b) = (a.trim(), b.trim());
         let a = a.trim_start_matches("convert ").trim_start_matches("Convert ");
         if parse_quantity(a).is_some() && parse_unit(b).is_some() {
             split = Some((a.to_string(), b.to_string()));
             break;
         }
+        if let (Some((si, dim, shown)), Some(to)) = (parse_product(a), parse_unit(b)) {
+            if dim == to.dim && to.offset == 0.0 {
+                let r = from_si(si, &to);
+                let mut pods = vec![pod("Input", "Input interpretation", text(format!("{shown} in {}", to.name))), primary(pod("Result", "Result", text(format!("{} {}", fmt_val(r), to.name))))];
+                if let Some(t) = conversion_table(si, &dim, &to.name) {
+                    pods.push(t);
+                }
+                return Some(Answer::new(format!("{shown} in {}", to.name), pods));
+            }
+        }
     }
     let _ = conv;
     if let Some((qs, us)) = split {
         let (qs, us) = (qs.as_str(), us.as_str());
         if let (Some((v, mut from, shown)), Some(mut to)) = (parse_quantity(qs), parse_unit(us)) {
+            let unit_word = qs.trim_start_matches(|c: char| c.is_ascii_digit() || c == '.' || c == '-' || c == ' ' || c == ',');
             if from.dim != to.dim {
-                let unit_word = qs.trim_start_matches(|c: char| c.is_ascii_digit() || c == '.' || c == '-' || c == ' ' || c == ',');
+                let _ = qs.trim_start_matches(|c: char| c.is_ascii_digit() || c == '.' || c == '-' || c == ' ' || c == ',');
                 if let (Some(a), Some(b)) = (temperature_alt(unit_word).or(Some(from.clone())), temperature_alt(us).or(Some(to.clone()))) {
                     if a.dim == b.dim {
                         from = a;
                         to = b;
                     }
+                }
+            }
+            if from.dim != to.dim {
+                if let Some(a) = alt_unit(us, &from.dim) {
+                    to = a;
+                } else if let Some(a) = alt_unit(unit_word, &to.dim) {
+                    from = a;
                 }
             }
             if from.dim != to.dim {
@@ -648,18 +1028,18 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
     }
     // a bare quantity: "60 mph", "5 ft 3 in", "100 °F"
-    if let Some((v, u, shown)) = parse_quantity(&q.clean) {
-        if u.name.is_empty() || q.clean.split_whitespace().count() > 6 {
+    if let Some((v, u, shown)) = parse_quantity(&clean) {
+        if u.name.is_empty() || clean.split_whitespace().count() > 6 {
             return None;
         }
         // avoid stealing plain math like "2 x" or "3 a"
-        let unit_part = q.clean.trim_start_matches(|c: char| c.is_ascii_digit() || c == '.' || c == ',' || c == ' ' || c == '-');
+        let unit_part = clean.trim_start_matches(|c: char| c.is_ascii_digit() || c == '.' || c == ',' || c == ' ' || c == '-');
         if unit_part.len() <= 1 && !matches!(unit_part, "m" | "g" | "s" | "K" | "J" | "W" | "N" | "V" | "A" | "L" | "B" | "h") {
             return None;
         }
         let si = to_si(v, &u);
         let mut pods = vec![pod("Input", "Input interpretation", text(format!("{shown} ({})", u.name)))];
-        let si_unit = si_name(&u.dim);
+        let si_unit = if u.dim == FREQ && (u.name.contains("curie") || u.name.contains("becquerel")) { "Bq".to_string() } else { si_name(&u.dim) };
         // a readable primary: the first related unit giving a value from 1 to 1000
         let readable = related(&u.dim).iter().filter_map(|n| lookup_word(n).map(|x| (*n, x))).filter(|(_, x)| x.name != u.name).map(|(n, x)| (n, from_si(si, &x))).find(|(_, val)| val.abs() >= 1.0 && val.abs() < 1000.0);
         match readable {
@@ -674,5 +1054,12 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
         return Some(Answer::new(format!("{shown}"), pods));
     }
-    None
+    if let Some((si, dim, shown)) = parse_product(clean) {
+        let mut pods = vec![pod("Input", "Input interpretation", text(shown.clone())), primary(pod("Result", "Result", text(format!("{} {}", fmt_val(si), si_name(&dim)))))];
+        if let Some(t) = conversion_table(si, &dim, "") {
+            pods.push(t);
+        }
+        return Some(Answer::new(shown, pods));
+    }
+    unit_info(clean)
 }

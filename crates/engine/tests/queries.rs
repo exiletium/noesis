@@ -545,3 +545,17 @@ fn physical_chemistry() {
     assert!(short("Goff-Gratch equation for water at 50 F").starts_with("12.27"));
     assert_eq!(short("Write the short electronic configuration for Sn"), "[Kr] 4d10 5s2 5p2");
 }
+
+#[test]
+fn units_and_standards() {
+    assert!(short("20mL in drams").starts_with("5.41024"));
+    assert!(short("(20 feet)(1 mile) in acres").starts_with("2.42424"));
+    assert_eq!(short("how many ounces in a cup?"), "8 US fluid ounces");
+    assert!(short("1 million miles").starts_with("1609344000"));
+    assert!(short("convert 120 km/h to imperial").starts_with("74.5645"));
+    assert!(short("175lb vs 100kg").starts_with("100 kg is 1.25978×"));
+    assert_eq!(short("thickness of steel gauge #11 in mm"), "3.0378 mm");
+    assert_eq!(short("sieve size 500"), "25 μm");
+    assert!(short("NPS 1 inch steel 25ft").starts_with("19.059 kg"));
+    assert!(short("gas mark 1/4").starts_with("225 °F"));
+}
