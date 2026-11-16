@@ -63,7 +63,28 @@ fn bound(s: &str) -> Option<Expr> {
     }
 }
 
+/// Rewrite plot ranges written as "x=0..2pi" or ", t=0 to 1" into the
+/// canonical " x = 0 to 2pi" form, and drop the "real" in "real plot".
+fn normalise_plot(c: &str) -> Option<String> {
+    let lc = c.to_lowercase();
+    if !re!(r"^(?:real\s+|2d\s+)?(?:plot|graph|draw|sketch|parametric plot|polar plot|3d plot|plot parametric|plot polar)\b").is_match(&lc) {
+        return None;
+    }
+    let mut t = re!(r"(?i)^(?:real|2d)\s+").replace(c, "").to_string();
+    t = re!(r"\s*\.\.\s*").replace_all(&t, " to ").to_string();
+    t = re!(r"(?i),\s*(?:for\s+|from\s+)?([a-zθ]+)\s*=\s*").replace_all(&t, " $1 = ").to_string();
+    t = re!(r"(?i)\s+(?:for\s+|from\s+)?([a-zθ]+)\s*=\s*(\S)").replace_all(&t, " $1 = $2").to_string();
+    t = re!(r"\s+").replace_all(t.trim(), " ").to_string();
+    (t != c).then_some(t)
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
+    if let Some(t) = normalise_plot(&q.clean) {
+        let r = super::query_with(&t, q.opts);
+        if r.success {
+            return Some(Answer::new(r.interpretation.unwrap_or_else(|| t.clone()), r.pods));
+        }
+    }
     let l = q.lower.as_str();
     let c = q.clean.as_str();
     // keep the original casing of the math part: work on byte offsets of `c`
@@ -317,9 +338,9 @@ pub fn handle(q: &Query) -> Option<Answer> {
     }
     // ---------------------------------------------------------------- plots
     if let Some(m) = cap(re!(r"^(?:plot|graph|draw|sketch)\s+(.+?)(?:\s*,?\s+(?:from\s+)?([a-z])\s*=\s*(.+?)\s+(?:to|\.\.)\s+(.+?))?(?:\s*,?\s+(?:from\s+)?([a-z])\s*=\s*(.+?)\s+(?:to|\.\.)\s+(.+?))?$")) {
-        return plot_command(q, m[1].as_deref()?, m[2].as_deref(), m[3].as_deref(), m[4].as_deref());
+        return plot_command(q, m[1].as_deref()?, m[2].as_deref(), m[3].as_deref(), m[4].as_deref(), m[6].as_deref().zip(m[7].as_deref()));
     }
-    if let Some(m) = cap(re!(r"^(?:polar plot|plot polar)\s+r\s*=\s*(.+?)(?:\s+(?:from\s+)?(?:theta|t|θ)\s*=\s*(.+?)\s+to\s+(.+))?$")) {
+    if let Some(m) = cap(re!(r"^(?:polar plot|plot polar)\s+r\s*=\s*(.+?)(?:\s*,?\s+(?:from\s+)?(?:theta|t|θ)\s*=\s*(.+?)\s+to\s+(.+))?$")) {
         let r = ex(&m[1].as_deref()?.replace("theta", "t").replace('θ', "t"))?;
         let t = sym("t");
         let a = m[2].as_deref().and_then(bound).and_then(|e| e.to_f64_const()).unwrap_or(0.0);
@@ -638,7 +659,8 @@ fn general_term(f: &Expr, x: &Expr) -> Option<Expr> {
     Some(raw_fn("Sum", vec![t, n, zero(), inf()]))
 }
 
-fn plot_command(q: &Query, body: &str, v1: Option<&str>, a1: Option<&str>, b1: Option<&str>) -> Option<Answer> {
+fn plot_command(q: &Query, body: &str, v1: Option<&str>, a1: Option<&str>, b1: Option<&str>, r2: Option<(&str, &str)>) -> Option<Answer> {
+    let yrange = r2.and_then(|(a, b)| Some((bound(a)?.to_f64_const()?, bound(b)?.to_f64_const()?)));
     // several functions separated by "and" or commas
     let parts: Vec<String> = if body.contains(" and ") {
         body.split(" and ").map(|s| s.to_string()).collect()
@@ -697,8 +719,9 @@ fn plot_command(q: &Query, body: &str, v1: Option<&str>, a1: Option<&str>, b1: O
         2 => {
             let (x, y) = (sym(&fsyms.iter().find(|n| &***n == "x").cloned().unwrap_or(fsyms[0].clone())), sym(&fsyms.iter().find(|n| &***n == "y").cloned().unwrap_or(fsyms[1].clone())));
             let rng = range.unwrap_or((-3.0, 3.0));
-            let s3 = pl::surface(&funcs[0], &x, &y, rng, rng, 72, pl::PlotKind::Surface)?;
-            let c = pl::surface(&funcs[0], &x, &y, rng, rng, 160, pl::PlotKind::Contour)?;
+            let yr = yrange.unwrap_or(rng);
+            let s3 = pl::surface(&funcs[0], &x, &y, rng, yr, 72, pl::PlotKind::Surface)?;
+            let c = pl::surface(&funcs[0], &x, &y, rng, yr, 160, pl::PlotKind::Contour)?;
             Some(Answer::new(interp, vec![input, primary(pod("3DPlot", "3D plot", plot(s3))), pod("ContourPlot", "Contour plot", plot(c))]))
         }
         _ => None,

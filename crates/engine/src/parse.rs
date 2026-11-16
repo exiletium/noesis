@@ -140,6 +140,21 @@ const FUNCS: &[(&str, &str)] = &[
     ("lambertw", "W"),
     ("productlog", "W"),
     ("besselj", "besselj"),
+    ("legendrep", "legendrep"),
+    ("legendre_p", "legendrep"),
+    ("legendreq", "legendreq"),
+    ("legendre_q", "legendreq"),
+    ("chebyshevt", "chebyshevt"),
+    ("chebyshev_t", "chebyshevt"),
+    ("chebyshevu", "chebyshevu"),
+    ("chebyshev_u", "chebyshevu"),
+    ("hermiteh", "hermiteh"),
+    ("hermite_h", "hermiteh"),
+    ("hermitehe", "hermitehe"),
+    ("laguerrel", "laguerrel"),
+    ("laguerre_l", "laguerrel"),
+    ("carlsonrf", "carlsonrf"),
+    ("carlsonrd", "carlsonrd"),
     ("hyp2f1", "hyp2f1"),
     ("hypergeometric", "hyp2f1"),
     ("bessely", "bessely"),
@@ -430,7 +445,37 @@ pub fn words_to_numbers(s: &str) -> String {
     out
 }
 
+/// Spoken names of special functions: "Legendre P(10, x)", "J2(x)", "Ai(x)".
+fn spoken_functions(input: &str) -> String {
+    static RULES: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
+        [
+            (r"(?i)\blegendre\s+([pq])\s*\(", "legendre$1("),
+            (r"(?i)\bchebyshev\s+([tu])\s*\(", "chebyshev$1("),
+            (r"(?i)\bhermite\s+(h|he)\s*\(", "hermite$1("),
+            (r"(?i)\blaguerre\s+l\s*\(", "laguerrel("),
+            (r"(?i)\bcarlson\s+(?:elliptic\s+integral\s+)?(?:function\s+)?r([fd])\s*\(", "carlsonr$1("),
+            (r"(?i)\belliptic\s+([ek])\s*\(", "elliptic$1("),
+            (r"\bJ(\d{1,2})\s*\(", "besselj($1, "),
+            (r"\bY(\d{1,2})\s*\(", "bessely($1, "),
+            (r"\bAi\s*\(", "airyai("),
+            (r"\bBi\s*\(", "airybi("),
+        ]
+        .into_iter()
+        .map(|(r, t)| (Regex::new(r).unwrap(), t))
+        .collect()
+    });
+    let mut s = input.to_string();
+    for (r, t) in RULES.iter() {
+        if r.is_match(&s) {
+            s = r.replace_all(&s, *t).to_string();
+        }
+    }
+    s
+}
+
 fn normalize(input: &str) -> String {
+    let spoken = spoken_functions(input);
+    let input = spoken.as_str();
     let mut s = String::with_capacity(input.len() + 8);
     let sup = |c: char| -> Option<char> {
         Some(match c {

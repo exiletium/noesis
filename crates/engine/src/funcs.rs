@@ -889,8 +889,134 @@ fn bool_fold(name: &str, args: &[Expr]) -> Option<Expr> {
     }
 }
 
+/// Coefficients (lowest degree first) of the classical orthogonal polynomials of degree n.
+pub fn orthopoly_coeffs(name: &str, n: usize) -> Option<Vec<Rat>> {
+    let r = |a: i64| Rat::from_integer(a.into());
+    let (p0, p1): (Vec<Rat>, Vec<Rat>) = match name {
+        "legendrep" | "chebyshevt" | "hermitehe" => (vec![r(1)], vec![r(0), r(1)]),
+        "chebyshevu" | "hermiteh" => (vec![r(1)], vec![r(0), r(2)]),
+        "laguerrel" => (vec![r(1)], vec![r(1), r(-1)]),
+        _ => return None,
+    };
+    if n == 0 {
+        return Some(p0);
+    }
+    let (mut a, mut b) = (p0, p1);
+    for k in 1..n {
+        let kk = k as i64;
+        // next = (α x + β) b − γ a
+        let (alpha, beta, gamma, div) = match name {
+            "legendrep" => (r(2 * kk + 1), r(0), r(kk), r(kk + 1)),
+            "chebyshevt" | "chebyshevu" => (r(2), r(0), r(1), r(1)),
+            "hermiteh" => (r(2), r(0), r(2 * kk), r(1)),
+            "hermitehe" => (r(1), r(0), r(kk), r(1)),
+            "laguerrel" => (r(-1), r(2 * kk + 1), r(kk), r(kk + 1)),
+            _ => return None,
+        };
+        let mut c = vec![r(0); b.len() + 1];
+        for (i, v) in b.iter().enumerate() {
+            c[i + 1] += &alpha * v;
+            c[i] += &beta * v;
+        }
+        for (i, v) in a.iter().enumerate() {
+            c[i] -= &gamma * v;
+        }
+        for v in c.iter_mut() {
+            *v /= &div;
+        }
+        a = b;
+        b = c;
+    }
+    Some(b)
+}
+
+fn small_degree(e: &Expr) -> Option<usize> {
+    let v = e.as_int()?.to_i64()?;
+    (0..=60).contains(&v).then_some(v as usize)
+}
+
+/// Carlson's symmetric elliptic integral R_F by the duplication theorem.
+pub fn carlson_rf(mut x: f64, mut y: f64, mut z: f64) -> f64 {
+    for _ in 0..60 {
+        let (sx, sy, sz) = (x.sqrt(), y.sqrt(), z.sqrt());
+        let l = sx * sy + sy * sz + sz * sx;
+        x = (x + l) / 4.0;
+        y = (y + l) / 4.0;
+        z = (z + l) / 4.0;
+        let m = (x + y + z) / 3.0;
+        if ((x - m).abs().max((y - m).abs()).max((z - m).abs())) < 1e-15 * m.abs() {
+            break;
+        }
+    }
+    let m = (x + y + z) / 3.0;
+    let (dx, dy, dz) = (1.0 - x / m, 1.0 - y / m, 1.0 - z / m);
+    let e2 = dx * dy - dz * dz;
+    let e3 = dx * dy * dz;
+    (1.0 - e2 / 10.0 + e3 / 14.0 + e2 * e2 / 24.0 - 3.0 * e2 * e3 / 44.0) / m.sqrt()
+}
+
+/// Carlson's R_D(x, y, z) by the duplication theorem.
+pub fn carlson_rd(mut x: f64, mut y: f64, mut z: f64) -> f64 {
+    let mut sum = 0.0;
+    let mut fac = 1.0;
+    for _ in 0..60 {
+        let (sx, sy, sz) = (x.sqrt(), y.sqrt(), z.sqrt());
+        let l = sx * sy + sy * sz + sz * sx;
+        sum += fac / (sz * (z + l));
+        fac /= 4.0;
+        x = (x + l) / 4.0;
+        y = (y + l) / 4.0;
+        z = (z + l) / 4.0;
+    }
+    let m = (x + y + 3.0 * z) / 5.0;
+    let (dx, dy, dz) = (1.0 - x / m, 1.0 - y / m, 1.0 - z / m);
+    let ea = dx * dy;
+    let eb = dz * dz;
+    let ec = ea - eb;
+    let ed = ea - 6.0 * eb;
+    let ee = ed + ec + ec;
+    let c1 = 3.0 / 14.0;
+    let c2 = 1.0 / 6.0;
+    let c3 = 9.0 / 22.0;
+    let c4 = 3.0 / 26.0;
+    3.0 * sum + fac * (1.0 + ed * (-c1 + 0.75 * c3 * ed - 1.5 * c4 * dz * ee) + dz * (c2 * ee + dz * (-c3 * ec + dz * c4 * ea))) / (m * m.sqrt())
+}
+
 fn evaluate(name: &str, args: &[Expr]) -> Option<Expr> {
     let n = args.len();
+    // ---- orthogonal polynomials of small integer degree expand ----------
+    if n == 2 && matches!(name, "legendrep" | "chebyshevt" | "chebyshevu" | "hermiteh" | "hermitehe" | "laguerrel") {
+        let deg = small_degree(&args[0])?;
+        let cs = orthopoly_coeffs(name, deg)?;
+        let x = &args[1];
+        let terms: Vec<Expr> = cs.iter().enumerate().filter(|(_, c)| !c.is_zero()).map(|(i, c)| mul(vec![num(c.clone()), pow(x.clone(), int(i as i64))])).collect();
+        return Some(crate::simplify::expand(&add(terms)));
+    }
+    if n == 2 && name == "legendreq" {
+        // Q_0 = artanh x, Q_1 = x Q_0 − 1, (k+1) Q_{k+1} = (2k+1) x Q_k − k Q_{k−1}
+        let deg = small_degree(&args[0]).filter(|d| *d <= 20)?;
+        let x = args[1].clone();
+        let q0 = func("atanh", vec![x.clone()]);
+        let mut a = q0.clone();
+        let mut b = sub(mul(vec![x.clone(), q0]), one());
+        if deg == 0 {
+            return Some(a);
+        }
+        for k in 1..deg {
+            let kk = k as i64;
+            let c = div(sub(mul(vec![int(2 * kk + 1), x.clone(), b.clone()]), mul(vec![int(kk), a])), int(kk + 1));
+            a = b;
+            b = crate::simplify::expand(&c);
+        }
+        return Some(b);
+    }
+    if n == 3 && (name == "carlsonrf" || name == "carlsonrd") {
+        let v: Vec<f64> = args.iter().map(|a| if a.free_symbols().is_empty() { rval(a) } else { None }).collect::<Option<_>>()?;
+        if v.iter().any(|x| *x < 0.0) {
+            return None;
+        }
+        return Some(float(if name == "carlsonrf" { carlson_rf(v[0], v[1], v[2]) } else { carlson_rd(v[0], v[1], v[2]) }));
+    }
     // ---- rewrites to canonical primitives --------------------------------
     match (name, n) {
         ("exp", 1) => return Some(exp(args[0].clone())),
