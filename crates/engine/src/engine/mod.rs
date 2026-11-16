@@ -32,6 +32,7 @@ pub mod geology;
 pub mod cfrac;
 pub mod math3;
 pub mod math4;
+pub mod tilings;
 pub mod mathfacts;
 pub mod prob2;
 
@@ -239,6 +240,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("geology", geology::handle));
     v.push(("cfrac", cfrac::handle));
     v.push(("math4", math4::handle));
+    v.push(("tilings", tilings::handle));
     v.push(("words", crate::domains::lexicon::handle));
     v.push(("facts", crate::domains::facts::handle));
     v.push(("language", nl::handle));

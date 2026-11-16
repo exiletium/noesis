@@ -595,6 +595,15 @@ pub fn scatter(points: Vec<[f64; 2]>, label: &str, fit: Option<&Expr>) -> Plot {
     plot
 }
 
+/// Line drawing from straight segments (tilings, diagrams), equal aspect.
+pub fn segments(segs: Vec<[[f64; 2]; 2]>, label: &str) -> Plot {
+    let mut plot = Plot::new(PlotKind::Parametric);
+    plot.series.push(Series { label: label.into(), segments: segs.into_iter().map(|s| s.to_vec()).collect(), points: false });
+    fit_both(&mut plot);
+    plot.equal_aspect = true;
+    plot
+}
+
 /// Line plot of sampled data series with axis labels.
 pub fn lines(series: Vec<(&str, Vec<f64>, Vec<f64>)>, x_label: &str, y_label: &str) -> Plot {
     let mut plot = Plot::new(PlotKind::Cartesian);
@@ -696,8 +705,15 @@ pub fn to_svg(plot: &Plot, dark: bool, width: f64, height: f64) -> String {
     let colors = if dark { SERIES_DARK } else { SERIES_LIGHT };
     let (ml, mr, mt, mb) = (52.0, 16.0, 14.0, 34.0);
     let (pw, ph) = (width - ml - mr, height - mt - mb);
-    let (x0, x1) = plot.x_range;
-    let (y0, y1) = plot.y_range;
+    let (mut x0, mut x1) = plot.x_range;
+    let (mut y0, mut y1) = plot.y_range;
+    if plot.equal_aspect && x1 > x0 && y1 > y0 {
+        // widen the tighter axis so one unit is the same length on both
+        let scale = ((x1 - x0) / pw).max((y1 - y0) / ph);
+        let (cx, cy) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+        (x0, x1) = (cx - scale * pw / 2.0, cx + scale * pw / 2.0);
+        (y0, y1) = (cy - scale * ph / 2.0, cy + scale * ph / 2.0);
+    }
     let sx = |x: f64| ml + (x - x0) / (x1 - x0) * pw;
     let sy = |y: f64| mt + (1.0 - (y - y0) / (y1 - y0)) * ph;
     let mut s = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\" font-family=\"Inter, Segoe UI, sans-serif\" font-size=\"11\">");

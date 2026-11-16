@@ -570,3 +570,13 @@ fn number_names_types_and_wigner_symbols() {
     assert_eq!(short("wigner 3j (1, 1, 0, 0, 0, 0)"), "-sqrt(3)/3");
     assert_eq!(short("clebsch gordan 1/2 1/2 1/2 -1/2 1 0"), "sqrt(2)/2");
 }
+
+#[test]
+fn periodic_and_substitution_tilings() {
+    assert!(pod_text(&q("snub square tiling"), "Properties").contains("3.3.4.3.4"));
+    assert!(pod_text(&q("kagome tiling"), "Properties").contains("rhombille"));
+    assert!(pod_text(&q("truncated trihexagonal tiling"), "Properties").contains("4.6.12"));
+    assert!(pod_text(&q("pinwheel tiling 4 steps"), "Properties").contains("625"));
+    assert!(pod_text(&q("domino tiling 3 steps"), "Properties").contains("64"));
+    assert!(pod_text(&q("penrose tiling"), "Properties").contains("thick"));
+}
