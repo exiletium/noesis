@@ -90,11 +90,13 @@ fn multivariable(l: &str, c: &str) -> Option<Answer> {
         return answer(label.clone(), label, pods);
     }
     // Lagrange multipliers
-    if let Some(m) = cap(re!(r"^(?:use\s+)?(?:lagrange multipliers?\s*:?\s*(?:to\s+)?)?(maximi[sz]e|minimi[sz]e|optimi[sz]e|extrema of|extreme values of|max and min of|maximum of|minimum of)\s+(.+?)\s+(?:subject to|with the constraint|with constraint|given|constrained by|on|such that)\s+(.+)$")).filter(|_| l.contains("subject to") || l.contains("constraint") || l.contains("lagrange") || l.contains("such that")) {
+    if let Some(m) = cap(re!(r"^(?:use\s+)?(?:lagrange multipliers?\s*:?\s*(?:to\s+)?)?(maximi[sz]e|minimi[sz]e|optimi[sz]e|extrema of|extreme values of|max and min of|maximum of|minimum of)\s+(.+?)\s+(?:subject to|with the constraint|with constraint|given|constrained by|on|in|such that)\s+(.+)$")).filter(|_| l.contains("subject to") || l.contains("constraint") || l.contains("lagrange") || l.contains("such that") || l.contains(" on ") || l.contains(" given ") || (l.contains(" in ") && l.contains(['<', '>', '='])) ) {
         let f = ex(&g(&m, 2))?;
         let cons = ex(&g(&m, 3))?;
+        // a region g ≤ c: extrema on the boundary g = c, plus interior critical points
+        let region = matches!(&cons, Rel(RelOp::Le | RelOp::Lt | RelOp::Ge | RelOp::Gt, _, _));
         let gexpr = match &cons {
-            Rel(RelOp::Eq, a, b) => sub((**a).clone(), (**b).clone()),
+            Rel(_, a, b) => sub((**a).clone(), (**b).clone()),
             _ => return None,
         };
         let mut vars: Vec<Expr> = f.free_symbols().union(&gexpr.free_symbols()).map(|nm| sym(nm)).collect();
@@ -121,6 +123,25 @@ fn multivariable(l: &str, c: &str) -> Option<Answer> {
                 vals.push((v, shown.clone()));
             }
             rows.push(vec![text(shown), math(&fv)]);
+        }
+        if region {
+            let sign = if matches!(&cons, Rel(RelOp::Le | RelOp::Lt, _, _)) { 1.0 } else { -1.0 };
+            let grads: Vec<Expr> = vars.iter().map(|v| diff(&f, v)).collect();
+            let inner = solve::solve_system(&grads, &vars);
+            for sset in &inner.sols {
+                let Some(pt) = vars.iter().map(|v| sset.iter().find(|(k, _)| k == v).map(|(_, e)| e.clone())).collect::<Option<Vec<Expr>>>() else { continue };
+                let subs: Vec<(Expr, Expr)> = vars.iter().cloned().zip(pt.iter().cloned()).collect();
+                let Some(gv) = s::simplify(&gexpr.subs_many(&subs)).to_f64_const() else { continue };
+                if sign * gv > 1e-12 {
+                    continue;
+                }
+                let fv = s::simplify(&f.subs_many(&subs));
+                let shown = format!("({})", pt.iter().map(ptext).collect::<Vec<_>>().join(", "));
+                if let Some(v) = fv.to_f64_const() {
+                    vals.push((v, shown.clone()));
+                }
+                rows.push(vec![text(format!("{shown} (interior)")), math(&fv)]);
+            }
         }
         if rows.is_empty() {
             return None;

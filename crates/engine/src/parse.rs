@@ -278,13 +278,13 @@ const FUNCS: &[(&str, &str)] = &[
 /// Names that are only functions when directly followed by `(`.
 const PAREN_ONLY: &[&str] = &[
     "gamma", "beta", "zeta", "delta", "theta", "sigma", "psi", "phi", "C", "P", "W", "H", "D", "N", "li", "Si", "Ci", "Ei", "re", "im", "arg", "det", "prime", "sum", "product", "prod", "int", "diff", "min", "max", "mod", "factor", "expand", "simplify", "solve", "series", "limit", "lim", "integral", "integrate", "derivative", "inverse", "inv",
-    "transpose", "trace", "tr", "rank", "norm", "cross", "dot", "mean", "median", "variance", "std", "stdev", "root", "real", "imag", "sign", "round", "catalan", "harmonic", "partitions", "divisors", "lucas", "fib", "and", "or", "not", "xor", "nand", "nor", "implies", "binomial", "binom", "frac", "lb", "lg", "tg", "ctg", "quotient", "sinc",
+    "transpose", "trace", "tr", "rank", "norm", "cross", "dot", "mean", "median", "variance", "std", "stdev", "root", "real", "imag", "sign", "round", "catalan", "harmonic", "partitions", "divisors", "lucas", "fib", "and", "or", "not", "xor", "nand", "nor", "implies", "binomial", "binom", "frac", "lb", "lg", "tg", "ctg", "quotient",
     "conj", "conjugate", "totient", "mobius", "jacobi", "bernoulli", "eigenvalues", "eigenvectors", "nullspace", "rref", "taylor", "surd", "factorial",
 ];
 
 /// Function names that may be glued to neighbouring letters: `xsinx`, `2cosx`.
 const GLUE: &[&str] = &[
-    "arcsinh", "arccosh", "arctanh", "arcsin", "arccos", "arctan", "arccot", "arcsec", "arccsc", "asinh", "acosh", "atanh", "sinh", "cosh", "tanh", "coth", "sech", "csch", "asin", "acos", "atan", "sqrt", "cbrt", "sin", "cos", "tan", "cot", "sec", "csc", "exp", "log", "ln", "abs", "pi",
+    "arcsinh", "arccosh", "arctanh", "arcsin", "arccos", "arctan", "arccot", "arcsec", "arccsc", "asinh", "acosh", "atanh", "sinh", "cosh", "tanh", "coth", "sech", "csch", "asin", "acos", "atan", "sqrt", "cbrt", "sinc", "sin", "cos", "tan", "cot", "sec", "csc", "exp", "log", "ln", "abs", "pi",
 ];
 
 /// Functions that take a single factor when written without parentheses.

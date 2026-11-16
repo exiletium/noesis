@@ -731,6 +731,280 @@ fn trig_from_one(l: &str) -> Option<Answer> {
     Some(Answer::new("trig", vec![input(format!("{}({}) given {}({}) = {}", &m[4], &m[2], &m[1], &m[2], ptext(&v))), primary(pod("Result", "Result", text(shown))), pod("Note", "Note", text(note))]))
 }
 
+
+// ---------------------------------------------------------------------------
+// calculus odds and ends: implicit tangents, sums, function continued fractions
+// ---------------------------------------------------------------------------
+
+fn implicit_line(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:the\s+)?(tangent|normal)(?:\s+line)?\s+(?:to|of)\s+(?:the\s+curve\s+)?(.+?=.+?)\s+at\s+(?:the\s+point\s+)?(?:\(?\s*x\s*=\s*(.+?)\s*,\s*y\s*=\s*(.+?)\s*\)?|\(\s*(.+?)\s*,\s*(.+?)\s*\))$").captures(l)?;
+    let e = ex(&m[2])?;
+    let Rel(RelOp::Eq, a, b) = &e else { return None };
+    let f = sub((**a).clone(), (**b).clone());
+    let (x, y) = (sym("x"), sym("y"));
+    if !f.has_sym(&y) {
+        return None;
+    }
+    let px = ex(m.get(3).or(m.get(5))?.as_str())?;
+    let py = ex(m.get(4).or(m.get(6))?.as_str())?;
+    let at = |g: &Expr| simp(g.subs(&x, &px).subs(&y, &py));
+    if num(&at(&f))?.abs() > 1e-9 {
+        return Some(Answer::new("tangent", vec![input(format!("{} line to {} at ({}, {})", &m[1], ptext(&e), ptext(&px), ptext(&py))), primary(pod("Result", "Result", text("the point is not on the curve")))]));
+    }
+    let fx = at(&crate::calculus::diff::diff(&f, &x));
+    let fy = at(&crate::calculus::diff::diff(&f, &y));
+    let tangent = &m[1] == "tangent";
+    // direction of the line: tangent ⟂ ∇F, normal ∥ ∇F
+    let (dx, dy) = if tangent { (fy.clone(), neg(fx.clone())) } else { (fx.clone(), fy.clone()) };
+    let line = if num(&dx)?.abs() < 1e-15 {
+        eq(x.clone(), px.clone())
+    } else {
+        let slope = simp(div(dy, dx));
+        eq(y.clone(), simp(add(vec![mul(vec![slope, sub(x.clone(), px.clone())]), py.clone()])))
+    };
+    let slope_txt = if num(&fy)?.abs() < 1e-15 { "vertical tangent".to_string() } else { format!("dy/dx = −F_x/F_y = {}", ptext(&simp(neg(div(fx.clone(), fy.clone()))))) };
+    let mut pods = vec![input(format!("{} line to {} at ({}, {})", &m[1], ptext(&e), ptext(&px), ptext(&py))), primary(pod("Result", if tangent { "Tangent line" } else { "Normal line" }, math(&line)))];
+    pods.push(pod("Slope", "Slope of the curve", text(slope_txt)));
+    if let Some(p) = pl::implicit(&f, &x, &y, (num(&px)? - 3.0, num(&px)? + 3.0), (num(&py)? - 3.0, num(&py)? + 3.0)) {
+        pods.push(pod("Plot", "Curve", plot(p)));
+    }
+    Some(Answer::new("tangent", pods))
+}
+
+fn sums(l: &str, q: &Query) -> Option<Answer> {
+    let index_of = |e: &Expr| -> Option<String> {
+        let fs = e.free_symbols();
+        (fs.len() == 1).then(|| fs.into_iter().next().unwrap().to_string()).filter(|v| ["n", "k", "i", "j", "m"].contains(&v.as_str()))
+    };
+    if let Some(m) = re!(r"^(?:sum\s+)?convergence\s+(?:of\s+)?(?:the\s+)?(?:sum\s+|series\s+)?(.+)$").captures(l) {
+        let e = ex(&m[1])?;
+        let v = index_of(&e)?;
+        let r = super::query_with(&format!("does sum {} from {v}=1 to infinity converge", &m[1]), &q.opts);
+        return r.success.then(|| Answer::new("convergence", r.pods));
+    }
+    if let Some(m) = re!(r"^(?:the\s+)?(?:sum|series)\s+(?:of\s+)?(.+)$").captures(l) {
+        let body = &m[1];
+        if re!(r"\b(from|to|for|over|until|where)\b|=|,").is_match(body) {
+            return None;
+        }
+        let e = ex(body)?;
+        let v = index_of(&e)?;
+        let r = super::query_with(&format!("sum {body} from {v}=1 to infinity"), &q.opts);
+        return r.success.then(|| Answer::new("sum", r.pods));
+    }
+    // 1/2^2 + 1/3^2 + 1/5^2 + 1/7^2 + ... : the prime zeta function
+    if l.ends_with("...") || l.ends_with('…') || l.ends_with('+') {
+        let terms: Vec<&str> = l.trim_end_matches("...").trim_end_matches('…').trim_end_matches(['+', ' ']).split('+').map(|t| t.trim()).filter(|t| !t.is_empty()).collect();
+        let mut exps = Vec::new();
+        let mut bases = Vec::new();
+        for t in &terms {
+            let c = re!(r"^1\s*/\s*(\d+)\s*\^\s*(\d+)$").captures(t)?;
+            bases.push(c[1].parse::<u64>().ok()?);
+            exps.push(c[2].parse::<u32>().ok()?);
+        }
+        let s0 = *exps.first()?;
+        let primes = crate::numtheory::sieve(100);
+        if terms.len() < 3 || exps.iter().any(|e| *e != s0) || s0 < 2 || bases.iter().zip(&primes).any(|(b, p)| b != p) {
+            return None;
+        }
+        let mobius = |k: u64| -> f64 {
+            let (mut n, mut c, mut p) = (k, 0, 2);
+            while p * p <= n {
+                if n % p == 0 {
+                    n /= p;
+                    if n % p == 0 {
+                        return 0.0;
+                    }
+                    c += 1;
+                }
+                p += 1;
+            }
+            if n > 1 {
+                c += 1;
+            }
+            if c % 2 == 0 { 1.0 } else { -1.0 }
+        };
+        let sv = s0 as f64;
+        let val: f64 = (1..=80u64).map(|k| mobius(k) / k as f64 * crate::special::zeta(k as f64 * sv).ln()).sum();
+        return Some(Answer::new("prime zeta", vec![input(format!("Σ over primes p of 1/p^{s0}")), primary(pod("Result", "Result", text(format!("P({s0}) ≈ {}", crate::print::fmt_float(val, 12))))), pod("Def", "Prime zeta function", text("P(s) = Σ_p p^(−s) = Σ_(k≥1) μ(k)/k · log ζ(k s)"))]));
+    }
+    None
+}
+
+fn function_cf(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:the\s+)?continued fractions?\s+(?:of\s+|for\s+|expansion of\s+)?(.+)$").captures(l)?;
+    let body = m[1].replace(' ', "");
+    let (name, cf, note) = match body.as_str() {
+        "tanx" | "tan(x)" => ("tan x", "x/(1 − x²/(3 − x²/(5 − x²/(7 − x²/(9 − …)))))", "Lambert (1768); converges for all x where tan x is defined"),
+        "tanhx" | "tanh(x)" => ("tanh x", "x/(1 + x²/(3 + x²/(5 + x²/(7 + x²/(9 + …)))))", "Lambert"),
+        "arctanx" | "arctan(x)" | "atan(x)" | "tan^-1(x)" => ("arctan x", "x/(1 + x²/(3 + 4x²/(5 + 9x²/(7 + 16x²/(9 + …)))))", "Gauss; converges in the plane cut along (−i∞, −i] and [i, i∞)"),
+        "log(1+x)" | "ln(1+x)" | "log(x+1)" | "ln(x+1)" => ("log(1 + x)", "x/(1 + x/(2 + x/(3 + 4x/(4 + 4x/(5 + 9x/(6 + 9x/(7 + …)))))))", "converges in the plane cut along (−∞, −1]"),
+        "sqrt(1+x^2)" | "sqrt(x^2+1)" => ("√(1 + x²)", "1 + x²/(2 + x²/(2 + x²/(2 + x²/(2 + …))))", "from y − 1 = x²/(y + 1)"),
+        "sqrt(1+x)" | "sqrt(x+1)" => ("√(1 + x)", "1 + x/(2 + x/(2 + x/(2 + x/(2 + …))))", "from y − 1 = x/(y + 1)"),
+        _ => return None,
+    };
+    Some(Answer::new("continued fraction", vec![input(format!("continued fraction of {name}")), primary(pod("Result", "Continued fraction", text(cf))), pod("Note", "Note", text(note))]))
+}
+
+fn percent_of(l: &str) -> Option<Answer> {
+    let m = re!(r"^([\d.]+)\s*%\s+of\s+(\$|€|£)?\s*([\d.,]+)\s*([a-z][a-z ]*)?$").captures(l)?;
+    let p: f64 = m[1].parse().ok()?;
+    let v: f64 = m[3].replace(',', "").parse().ok()?;
+    let cur = m.get(2).map(|x| x.as_str());
+    let unit = m.get(4).map(|x| x.as_str().trim());
+    if cur.is_none() && unit.is_none() {
+        return None;
+    }
+    let r = p * v / 100.0;
+    let shown = match (cur, unit) {
+        (Some(c), _) => format!("{c}{} (exactly {c}{})", fmt((r * 100.0).round() / 100.0), fmt(r)),
+        (None, Some(u)) => format!("{} {u}", fmt(r)),
+        _ => fmt(r),
+    };
+    Some(Answer::new("percent", vec![input(format!("{}% of {}{}{}", &m[1], cur.unwrap_or(""), &m[3], unit.map(|u| format!(" {u}")).unwrap_or_default())), primary(pod("Result", "Result", text(shown)))]))
+}
+
+fn several_derivatives(l: &str, q: &Query) -> Option<Answer> {
+    if !l.starts_with("d/d") || !l.contains(", d/d") {
+        return None;
+    }
+    let mut pods = Vec::new();
+    for part in l.split(", d/d") {
+        let qq = if part.starts_with("d/d") { part.to_string() } else { format!("d/d{part}") };
+        let r = super::query_with(&qq, &q.opts);
+        if !r.success {
+            return None;
+        }
+        let res = r.pods.into_iter().find(|p| p.primary)?;
+        pods.push(pod(&format!("D{}", pods.len()), &qq, res.subpods.into_iter().next()?.content));
+    }
+    if let Some(first) = pods.first_mut() {
+        first.primary = true;
+    }
+    Some(Answer::new("derivatives", pods))
+}
+
+
+// ---------------------------------------------------------------------------
+// arithmetic word problems
+// ---------------------------------------------------------------------------
+
+/// Tracks counts per (owner, object) through has/gives/takes/buys clauses.
+fn word_problem(l: &str) -> Option<Answer> {
+    if !l.contains("how many") {
+        return None;
+    }
+    use std::collections::BTreeMap;
+    let mut have: BTreeMap<(String, String), i64> = BTreeMap::new();
+    let mut last_owner = String::new();
+    let mut last_obj = String::new();
+    let mut steps: Vec<String> = Vec::new();
+    let norm = |w: &str, last: &str| -> String {
+        match w {
+            "she" | "he" | "they" => last.to_string(),
+            "i" | "me" | "my" => "me".into(),
+            x => x.to_string(),
+        }
+    };
+    let text_ = l.replace(['?', '!'], ".").replace("and then", ",").replace(" then ", ", ").replace(" how many", ", how many");
+    let clauses: Vec<String> = re!(r"\s*(?:[.,;]|\band\b)\s*").split(&text_).map(|c| c.trim().trim_start_matches("if ").trim_start_matches("so ").trim().to_string()).filter(|c| !c.is_empty()).collect();
+    let mut question: Option<String> = None;
+    for c in clauses {
+        if c.starts_with("how many") {
+            question = Some(c);
+            continue;
+        }
+        if question.is_some() {
+            // "how many more cats does jane have than i" may be split on "and": keep the rest
+            let qq = question.take().unwrap();
+            question = Some(format!("{qq} {c}"));
+            continue;
+        }
+        if let Some(m) = re!(r"^there (?:are|were|is|was)\s+(\d+)\s+([a-z]+)(?:\s+(?:all together|altogether|in total|in all))?$").captures(&c) {
+            last_obj = m[2].to_string();
+            have.insert(("(total)".into(), last_obj.clone()), m[1].parse().ok()?);
+            last_owner = "(total)".into();
+            continue;
+        }
+        if let Some(m) = re!(r"^([a-z]+)\s+(?:has|have|had|owns)\s+(\d+)\s+([a-z]+)$").captures(&c) {
+            last_owner = norm(&m[1], &last_owner);
+            last_obj = m[3].to_string();
+            have.insert((last_owner.clone(), last_obj.clone()), m[2].parse().ok()?);
+            continue;
+        }
+        if let Some(m) = re!(r"^(\d+)\s+([a-z]+)$").captures(&c) {
+            if last_owner.is_empty() {
+                return None;
+            }
+            last_obj = m[2].to_string();
+            have.insert((last_owner.clone(), last_obj.clone()), m[1].parse().ok()?);
+            continue;
+        }
+        let give = re!(r"^([a-z]+)\s+(?:gives|gave|give|hands|passes)\s+(\d+)\s*([a-z]+)?\s+to\s+([a-z]+)$").captures(&c).map(|m| (m[1].to_string(), m[2].to_string(), m.get(3).map(|x| x.as_str().to_string()), m[4].to_string()))
+            .or_else(|| re!(r"^([a-z]+)\s+(?:gives|gave|give|hands)\s+([a-z]+)\s+(\d+)\s*([a-z]+)?$").captures(&c).map(|m| (m[1].to_string(), m[3].to_string(), m.get(4).map(|x| x.as_str().to_string()), m[2].to_string())));
+        if let Some((from, n, obj, to)) = give {
+            let from = norm(&from, &last_owner);
+            let to = norm(&to, &last_owner);
+            let n: i64 = n.parse().ok()?;
+            let obj = obj.filter(|o| o != "of").unwrap_or_else(|| last_obj.clone());
+            *have.entry((from.clone(), obj.clone())).or_insert(0) -= n;
+            *have.entry((to.clone(), obj.clone())).or_insert(0) += n;
+            steps.push(format!("{from} gives {n} {obj} to {to}"));
+            last_owner = from;
+            last_obj = obj;
+            continue;
+        }
+        if let Some(m) = re!(r"^([a-z]+)\s+(takes|took|eats|ate|loses|lost|uses|used|sells|sold|gets|got|buys|bought|finds|found|receives|received|picks|picked)\s+(?:away\s+)?(\d+)\s*(?:more\s+)?([a-z]+)?$").captures(&c) {
+            let who = norm(&m[1], &last_owner);
+            let n: i64 = m[3].parse().ok()?;
+            let obj = m.get(4).map(|x| x.as_str().to_string()).unwrap_or_else(|| last_obj.clone());
+            let gain = matches!(&m[2], "gets" | "got" | "buys" | "bought" | "finds" | "found" | "receives" | "received" | "picks" | "picked");
+            let take = matches!(&m[2], "takes" | "took");
+            let owns = have.contains_key(&(who.clone(), obj.clone()));
+            if take && !owns {
+                // taking from a shared pile
+                let pile = have.keys().find(|(o, ob)| ob == &obj && o != &who).cloned()?;
+                *have.get_mut(&pile)? -= n;
+                *have.entry((who.clone(), obj.clone())).or_insert(0) += n;
+            } else {
+                *have.entry((who.clone(), obj.clone())).or_insert(0) += if gain { n } else { -n };
+            }
+            steps.push(format!("{who} {} {n} {obj}", &m[2]));
+            last_owner = who;
+            last_obj = obj;
+            continue;
+        }
+        return None;
+    }
+    let qn = question?;
+    let count = |owner: &str, obj: &str| -> i64 { have.iter().filter(|((o, ob), _)| o == owner && (obj.is_empty() || ob == obj)).map(|(_, v)| *v).sum() };
+    let (ans, desc): (i64, String) = if let Some(m) = re!(r"^how many more\s+(?:([a-z]+)\s+)?(?:does|do|did)\s+([a-z]+)\s+have than\s+([a-z]+)(?:\s+(?:does|do|did|has|have))?$").captures(&qn) {
+        let obj = m.get(1).map(|x| x.as_str().to_string()).unwrap_or_else(|| last_obj.clone());
+        let (a, b) = (norm(&m[2], &last_owner), norm(&m[3], &last_owner));
+        (count(&a, &obj) - count(&b, &obj), format!("{a} has {} {obj} and {b} has {}", count(&a, &obj), count(&b, &obj)))
+    } else if let Some(m) = re!(r"^how many\s+(?:([a-z]+)\s+)?(?:does|do|did|will)\s+([a-z]+)\s+(?:have|has)(?:\s+(?:now|left|in all|altogether))?$").captures(&qn) {
+        let obj = m.get(1).map(|x| x.as_str().to_string()).unwrap_or_else(|| last_obj.clone());
+        let who = norm(&m[2], &last_owner);
+        (count(&who, &obj), format!("{who} has {} {obj}", count(&who, &obj)))
+    } else if let Some(m) = re!(r"^how many\s+(?:([a-z]+)\s+)?(?:are|is|were)\s+(?:there\s+)?(in all|altogether|all together|in total|total|left|remaining)$").captures(&qn) {
+        let obj = m.get(1).map(|x| x.as_str().to_string()).unwrap_or_else(|| last_obj.clone());
+        if matches!(&m[2], "left" | "remaining") {
+            let pile = if have.contains_key(&("(total)".to_string(), obj.clone())) { "(total)".to_string() } else { last_owner.clone() };
+            (count(&pile, &obj), format!("{} {obj} remain", count(&pile, &obj)))
+        } else {
+            let t: i64 = have.iter().filter(|((o, ob), _)| ob == &obj && o != "(total)").map(|(_, v)| *v).sum();
+            (t, format!("{t} {obj} in all"))
+        }
+    } else {
+        return None;
+    };
+    let mut pods = vec![input("arithmetic word problem".into()), primary(pod("Result", "Result", text(ans.to_string()))), pod("Reasoning", "Reasoning", text(desc))];
+    if !steps.is_empty() {
+        pods.push(pod("Steps", "Events", text(steps.join("; "))));
+    }
+    Some(Answer::new("word problem", pods))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let raw = q.clean.trim().trim_end_matches(['?', '.']);
     let l = raw.to_lowercase();
@@ -750,6 +1024,12 @@ pub fn handle(q: &Query) -> Option<Answer> {
         .or_else(|| solve_interval(&l))
         .or_else(|| check_solution(&l))
         .or_else(|| trig_from_one(&l))
+        .or_else(|| implicit_line(&l))
+        .or_else(|| sums(&l, q))
+        .or_else(|| function_cf(&l))
+        .or_else(|| percent_of(&l))
+        .or_else(|| several_derivatives(&l, q))
+        .or_else(|| word_problem(&l))
 }
 
 #[cfg(test)]

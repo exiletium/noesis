@@ -740,6 +740,12 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
     let l = words_to_digits(&l);
     let l = l.trim_start_matches("show ").trim_start_matches("list ").trim_start_matches("find ").trim_start_matches("compute ").trim_start_matches("what is the ").trim_start_matches("what are the ").to_string();
+    // "Fibonacci sequence", "sequence of Fibonacci numbers"
+    let l = match re!(r"^(?:the\s+)?(?:sequence|list) of (?:the\s+)?(.+)$|^(?:the\s+)?([a-z' -]+?) (?:sequence|numbers sequence)$").captures(&l) {
+        Some(m) if m.get(1).is_some() => m[1].to_string(),
+        Some(m) => format!("{} numbers", &m[2]),
+        None => l,
+    };
     if let Some(a) = divisor_phrases(&l) {
         return Some(a);
     }

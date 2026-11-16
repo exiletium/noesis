@@ -498,3 +498,19 @@ fn graphs_sequences_and_poles() {
     assert_eq!(short("poles of 1/sin(z)^2"), "pole | order | residue\nπ n | 2 | 0");
     assert!(short("residues of 1/(e^(2z)+1) with |z| < 3pi").contains("(5 π i)/2 | 1 | -1/2"));
 }
+
+#[test]
+fn school_calculus_and_word_problems() {
+    assert_eq!(short("Rachel has 17 apples. She gives 9 to Sarah. How many apples does Rachel have now?"), "8");
+    assert_eq!(short("if there are 40 cookies all together and A takes 10 and B takes 5 how many are left"), "25");
+    assert_eq!(short("If Jane has 23 cats and I have 2 cats, and then Jane gives me 5 cats, how many more cats does Jane have than I?"), "11");
+    assert_eq!(short("Z transform of n^4"), "(z (z^3 + 11 z^2 + 11 z + 1))/(z - 1)^5");
+    assert_eq!(short("FT sinc t"), "ℱ(ω) = (sqrt(2) sqrt(π) θ(1 - |ω|))/2");
+    assert_eq!(short("1/2^2 + 1/3^2 + 1/5^2 + 1/7^2 + ..."), "P(2) ≈ 0.452247420041");
+    assert_eq!(short("sum n^(-2)"), "∑_(n=1)^∞ 1/n^2 = π^2/6");
+    assert_eq!(short("normal to 3x^2-2xy+y^2=1 at x=0, y=1"), "y = 1 - x");
+    assert_eq!(short("period of 6 sin(x/3) - 7"), "6 π ≈ 18.8496");
+    assert_eq!(short("if sin(a) = 3/5, what is cos(a)?"), "±4/5");
+    assert_eq!(short("7.5% of $12.95"), "$0.97 (exactly $0.97125)");
+    assert!(short("maximize xyz in x^2+2y^2+3z^2<=1").starts_with("maximum 0.0785674"));
+}

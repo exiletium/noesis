@@ -801,6 +801,26 @@ fn fourier_term(f: &Expr, x: &Expr, w: &Expr) -> Option<Expr> {
                 mul(vec![i(), sqrt(div(pi(), int(2))), sub(d1, d2)])
             }
         }
+        // sin(a x)/x: a box of half-width a
+        Mul(v) if v.len() == 2 && v.iter().any(|t| *t == pow(x.clone(), int(-1))) && v.iter().any(|t| matches!(t, Func(n, _) if &**n == "sin")) => {
+            let Some(Func(_, args)) = v.iter().find(|t| matches!(t, Func(n, _) if &**n == "sin")) else { return None };
+            let a = s::simplify(&div(args[0].clone(), x.clone()));
+            if a.has_sym(x) {
+                return None;
+            }
+            let sgn = f1("sign", a.clone());
+            let a = s::simplify(&f1("abs", a));
+            mul(vec![sgn, sqrt(div(pi(), int(2))), f1("heaviside", sub(a, f1("abs", w.clone())))])
+        }
+        // sinc(a x) = sin(a x)/(a x): a box of half-width a
+        Func(n, args) if &**n == "sinc" => {
+            let a = s::simplify(&div(args[0].clone(), x.clone()));
+            if a.has_sym(x) {
+                return None;
+            }
+            let a = s::simplify(&f1("abs", a));
+            mul(vec![div(sqrt(div(pi(), int(2))), a.clone()), f1("heaviside", sub(a, f1("abs", w.clone())))])
+        }
         Func(n, _) if &**n == "DiracDelta" => norm.clone(),
         _ if core.is_one() => mul(vec![sqrt(mul(vec![int(2), pi()])), func("DiracDelta", vec![w.clone()])]),
         _ => return None,
@@ -835,6 +855,23 @@ fn z_term(t: &Expr, n: &Expr, zz: &Expr) -> Option<Expr> {
         (None, 0) => div(zz.clone(), sub(zz.clone(), a)),
         (None, 1) => div(mul(vec![a.clone(), zz.clone()]), pow(sub(zz.clone(), a), int(2))),
         (None, 2) => div(mul(vec![a.clone(), zz.clone(), add(vec![zz.clone(), a.clone()])]), pow(sub(zz.clone(), a), int(3))),
+        (None, k) if (3..=12).contains(&k) => {
+            // Z{n^k aⁿ} = a z E_k(z, a)/(z − a)^(k+1), E_k with Eulerian numbers
+            let k = k as usize;
+            let mut eul = vec![vec![1i64]];
+            for nn in 1..=k {
+                let prev = &eul[nn - 1];
+                let row: Vec<i64> = (0..nn).map(|m| {
+                    let a1 = if m >= 1 && m - 1 < prev.len() { (nn - m) as i64 * prev[m - 1] } else { 0 };
+                    let a2 = if m < prev.len() { (m + 1) as i64 * prev[m] } else { 0 };
+                    a1 + a2
+                }).collect();
+                eul.push(row);
+            }
+            let row = &eul[k];
+            let poly_ = add(row.iter().enumerate().map(|(m, c)| mul(vec![int(*c), pow(zz.clone(), int((k - 1 - m) as i64)), pow(a.clone(), int(m as i64))])).collect());
+            div(mul(vec![a.clone(), zz.clone(), poly_]), pow(sub(zz.clone(), a), int(k as i64 + 1)))
+        }
         (Some((name, w)), 0) if a.is_one() => {
             let den = add(vec![square(zz.clone()), mul(vec![int(-2), zz.clone(), f1("cos", w.clone())]), one()]);
             if name == "sin" { div(mul(vec![zz.clone(), f1("sin", w)]), den) } else { div(mul(vec![zz.clone(), sub(zz.clone(), f1("cos", w))]), den) }
@@ -847,21 +884,79 @@ fn z_term(t: &Expr, n: &Expr, zz: &Expr) -> Option<Expr> {
 pub fn transforms(q: &Query, l: &str, c: &str) -> Option<Answer> {
     let cap = |r: &Regex| caps(r, l, c);
     let _ = q;
-    if let Some(m) = cap(re!(r"^(?:the\s+)?(inverse\s+)?fourier transform\s+(?:of\s+)?(.+?)(?:\s+with respect to\s+([a-z]))?$")) {
-        if !g(&m, 1).is_empty() {
-            return None;
-        }
+    if let Some(m) = cap(re!(r"^(?:the\s+)?(inverse\s+)?(?:fourier transform|ft)\s+(?:of\s+)?(.+?)(?:\s+with respect to\s+([a-z]))?$")) {
+        let inverse = !g(&m, 1).is_empty();
         let f = ex(&g(&m, 2))?;
         let x = if g(&m, 3).is_empty() { super::nl::main_var(&f) } else { sym(&g(&m, 3)) };
         let w = sym("ω");
         let terms = s::expand(&f).terms();
         let parts: Option<Vec<Expr>> = terms.iter().map(|t| fourier_term(t, &x, &w)).collect();
         let res = s::simplify(&add(parts?));
+        if inverse {
+            // the inverse transform is the forward one evaluated at −t
+            let out = if x == sym("x") { sym("t") } else { sym("x") };
+            let r = s::simplify(&res.subs(&w, &neg(out.clone())));
+            let label = format!("inverse Fourier transform of {}", ptext(&f));
+            return answer(label.clone(), label, vec![
+                primary(pod("Result", "Inverse Fourier transform", math(&eq(func("f", vec![out]), r)))),
+                pod("Convention", "Convention", text(format!("f(t) = 1/√(2π) ∫ F({0}) e^(−i{0}t) d{0} (WolframAlpha's default)", ptext(&x)))),
+            ]);
+        }
         let label = format!("Fourier transform of {}", ptext(&f));
         return answer(label.clone(), label, vec![
             primary(pod("Result", "Fourier transform", math(&eq(raw_fn("user:ℱ", vec![w.clone()]), res)))),
             pod("Convention", "Convention", text("F(ω) = 1/√(2π) ∫ f(t) e^(iωt) dt (WolframAlpha's default; other conventions differ by constant factors and the sign of ω)")),
         ]);
+    }
+    // Mellin transform: ∫₀^∞ x^(s−1) f(x) dx, from a table
+    if let Some(m) = cap(re!(r"^(?:the\s+)?mellin transform\s+(?:of\s+)?(.+)$")) {
+        let f = ex(&g(&m, 1))?;
+        let x = super::nl::main_var(&f);
+        let sv = sym("s");
+        let (k, core): (Vec<Expr>, Vec<Expr>) = f.factors().into_iter().partition(|t| !t.has_sym(&x));
+        let k = mul(k);
+        let core = mul(core);
+        let lin = |e: &Expr| -> Option<Expr> {
+            let a = s::simplify(&div(e.clone(), x.clone()));
+            (!a.has_sym(&x)).then_some(a)
+        };
+        let gam = |e: Expr| f1("gamma", e);
+        let (res, strip): (Expr, &str) = match &core {
+            Func(n, a) if &**n == "sin" => {
+                let c = lin(&a[0])?;
+                (div(mul(vec![gam(sv.clone()), f1("sin", div(mul(vec![pi(), sv.clone()]), int(2)))]), pow(c, sv.clone())), "−1 < Re s < 1")
+            }
+            Func(n, a) if &**n == "cos" => {
+                let c = lin(&a[0])?;
+                (div(mul(vec![gam(sv.clone()), f1("cos", div(mul(vec![pi(), sv.clone()]), int(2)))]), pow(c, sv.clone())), "0 < Re s < 1")
+            }
+            Pow(b, e) if matches!(**b, Const(K::E)) => {
+                let c = lin(&neg((**e).clone())).or_else(|| None);
+                match c {
+                    Some(c) => (div(gam(sv.clone()), pow(c, sv.clone())), "Re s > 0"),
+                    None => {
+                        let cs = poly::coeffs(&s::expand(e), &x)?;
+                        if cs.len() != 3 || !cs[1].is_zero() || !cs[0].is_zero() {
+                            return None;
+                        }
+                        let c = s::simplify(&neg(cs[2].clone()));
+                        (div(gam(div(sv.clone(), int(2))), mul(vec![int(2), pow(c, div(sv.clone(), int(2)))])), "Re s > 0")
+                    }
+                }
+            }
+            Pow(b, e) if e.as_i64() == Some(-1) => {
+                let cs = poly::coeffs(b, &x)?;
+                match cs.len() {
+                    2 if cs[0].is_one() && cs[1].is_one() => (div(pi(), f1("sin", mul(vec![pi(), sv.clone()]))), "0 < Re s < 1"),
+                    3 if cs[0].is_one() && cs[1].is_zero() && cs[2].is_one() => (div(pi(), mul(vec![int(2), f1("sin", div(mul(vec![pi(), sv.clone()]), int(2)))])), "0 < Re s < 2"),
+                    _ => return None,
+                }
+            }
+            _ => return None,
+        };
+        let res = s::simplify(&mul(vec![k, res]));
+        let label = format!("Mellin transform of {}", ptext(&f));
+        return answer(label.clone(), label, vec![primary(pod("Result", "Mellin transform", math(&res))), pod("Strip", "Fundamental strip", text(strip)), pod("Definition", "Definition", text(format!("M[f](s) = ∫₀^∞ {0}^(s−1) f({0}) d{0}", ptext(&x))))]);
     }
     // Z transform: Σ f(n) z^(−n)
     if let Some(m) = cap(re!(r"^(?:the\s+)?z[- ]transform\s+(?:of\s+)?(.+)$")) {
@@ -870,7 +965,13 @@ pub fn transforms(q: &Query, l: &str, c: &str) -> Option<Answer> {
         let zz = sym("z");
         let table: Option<Vec<Expr>> = s::expand(&f).terms().iter().map(|t| z_term(t, &n, &zz)).collect();
         let res = match table {
-            Some(parts) => s::simplify(&s::together(&add(parts))),
+            Some(parts) => {
+                // keep the denominator factored, as (z − a)^k
+                let t = s::simplify(&s::together(&add(parts)));
+                let (nu, de) = t.numer_denom();
+                let df = s::factor(&de);
+                if df.size() < de.size() { div(nu, df) } else { t }
+            }
             None => match crate::calculus::sum::sum(&mul(vec![f.clone(), pow(zz.clone(), neg(n.clone()))]), &n, &zero(), &inf()) {
                 crate::calculus::sum::SumResult::Exact(v) => s::simplify(&s::together(&v)),
                 _ => return None,
