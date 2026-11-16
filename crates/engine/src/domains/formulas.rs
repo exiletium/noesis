@@ -38,7 +38,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
 // geometry
 // ---------------------------------------------------------------------------
 
-const NUM: &str = r"(?:\d+(?:\.\d+)?(?:/\d+)?|\.\d+|pi|π|sqrt\(\d+\))";
+const NUM: &str = r"(?:(?:\d+(?:\.\d+)?\s*\*?\s*)?(?:pi|π)(?:\s*/\s*\d+)?|\d+(?:\.\d+)?(?:/\d+)?|\.\d+|sqrt\(\d+\))";
 const UNIT: &str = r"(?:\s*(?:cm|mm|km|m|in|inch|inches|ft|feet|foot|yd|yards?|mi|miles?|meters?|metres?|centimeters?|centimetres?|millimeters?|kilometers?|units?)\b)?";
 
 struct Params {
@@ -322,6 +322,8 @@ fn shape_props(shape: &str, p: &Params) -> Option<(String, Vec<Prop>)> {
         "sector" => {
             let r = or_sym(p.get(&["radius", "r"]).or_else(|| two(&p.bare, 0)), "r");
             let t = or_sym(p.get(&["angle"]).or_else(|| two(&p.bare, 1)), "θ");
+            // an angle written with π is in radians
+            let t = if t.has_const(K::Pi) { s::simplify(&div(mul(vec![t, int(180)]), pi())) } else { t };
             let v = [("r", &r), ("t", &t)];
             (format!("circular sector | radius {} | angle {}°", ptext(&r), ptext(&t)), vec![prop("area", f("t/360*pi*r^2", &v), "A = (θ/360°) π r²", 2), prop("arc length", f("t/360*2*pi*r", &v), "L = (θ/360°) 2 π r", 1)])
         }

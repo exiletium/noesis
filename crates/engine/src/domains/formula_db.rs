@@ -269,7 +269,7 @@ fn unit_info(u: &str) -> Option<(f64, f64, Dim)> {
         }
         return Some((fa / fb, 0.0, d));
     }
-    if let Some(rest) = u.strip_prefix("1/") {
+    if let Some(rest) = u.strip_prefix("1/").or_else(|| u.strip_prefix("per ")) {
         let (f, _, d) = unit_info(rest)?;
         return Some((1.0 / f, 0.0, d.map(|x| -x)));
     }
@@ -560,12 +560,14 @@ fn solve_formula(f: &Formula, text: &str) -> Solved {
     // defaults for variables that are still unknown, except the target
     let mut defaults_used = Vec::new();
     // solve, one unknown at a time
-    let mut computed = Vec::new();
+    let mut computed: Vec<usize> = Vec::new();
+    // which equation gave each computed value
+    let mut from_eq: std::collections::HashMap<usize, usize> = Default::default();
     let mut progress = true;
     let mut used_defaults = false;
     while progress {
         progress = false;
-        for (_, l, r) in &f.eqs {
+        for (ei, (_, l, r)) in f.eqs.iter().enumerate() {
             let mut ns = Vec::new();
             names(l, &mut ns);
             names(r, &mut ns);
@@ -576,6 +578,7 @@ fn solve_formula(f: &Formula, text: &str) -> Solved {
             let x = unknown[0].clone();
             let vi = f.vars.iter().position(|v| v.sym == x).unwrap();
             if let Some(v) = solve_one(l, r, &x, &values, &f.vars[vi]) {
+                from_eq.insert(vi, ei);
                 values.insert(x, v);
                 computed.push(vi);
                 progress = true;
@@ -598,6 +601,11 @@ fn solve_formula(f: &Formula, text: &str) -> Solved {
         if !computed.contains(&i) {
             given.push((i, format!("{} (assumed)", show_value(&f.vars[i], values[&f.vars[i].sym]))));
         }
+    }
+    // with no target named, the formula's main (first) equation leads: a
+    // radius worked out from a diameter follows the flow rate
+    if target.is_none() {
+        computed.sort_by_key(|c| from_eq.get(c).copied().unwrap_or(usize::MAX));
     }
     if let Some(t) = target {
         if let Some(p) = computed.iter().position(|&c| c == t) {

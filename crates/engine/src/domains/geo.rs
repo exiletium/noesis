@@ -117,7 +117,14 @@ pub fn find_country(q: &str) -> Option<&'static Country> {
 pub fn find_city(q: &str) -> Option<&'static City> {
     let l = q.trim().to_lowercase();
     let (name, cc) = match l.split_once(',') {
-        Some((n, c)) => (n.trim().to_string(), find_country(c.trim()).map(|c| c.iso2.clone())),
+        Some((n, c)) => {
+            let cc = find_country(c.trim()).map(|c| c.iso2.clone());
+            // "Madison, WI" keeps a short region; "Phoenix of traffic" is not one
+            if cc.is_none() && c.split_whitespace().count() > 2 {
+                return None;
+            }
+            (n.trim().to_string(), cc)
+        }
         None => (l.clone(), None),
     };
     let name = match name.as_str() {

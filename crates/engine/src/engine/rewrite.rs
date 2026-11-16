@@ -160,6 +160,109 @@ fn push(out: &mut Vec<String>, s: String, orig: &str) {
 }
 
 /// Candidate rewordings of a cleaned question, best first.
+/// School phrasings of algebra and arithmetic: "distribute 9 (y + 2)",
+/// "isolate b in a^2 + b^2 = c^2", "39.276 rounded to the nearest tenth".
+fn school_rules(l: &str, out: &mut Vec<String>, orig: &str, g: &dyn Fn(&regex::Captures, usize) -> String) {
+    if let Some(m) = re!(r"^(?:combine like terms(?: in| of)?|collect like terms(?: in| of)?|reduce)\s+(.+)$").captures(l) {
+        push(out, format!("simplify {}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(?:distribute|multiply out|expanded form(?: of)?|expand out|foil|use the distributive property(?: on| for)?)\s+(.+)$").captures(l) {
+        push(out, format!("expand {}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^factor(?:ise|ize)?\s+(?:by grouping|completely|fully)\s+(.+)$").captures(l) {
+        push(out, format!("factor {}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(.+?)\s+(?:solution|solutions|solved)$").captures(l) {
+        push(out, format!("solve {}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(?:show (?:the )?solution(?:s)? (?:of|to)|find (?:the )?solutions? (?:of|to)|solution(?:s)? (?:of|to))\s+(.+)$").captures(l) {
+        push(out, format!("solve {}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(solve .+?)\s+(?:over|in) the (?:reals|real numbers)$").captures(l) {
+        push(out, g(&m, 1), orig);
+    }
+    if let Some(m) = re!(r"^(?:isolate|solve for|make)\s+([a-z])\s+(?:in|from|the subject of)\s+(.+)$").captures(l) {
+        push(out, format!("solve {} for {}", g(&m, 2), g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(?:what is|what's|find|solve for)\s+([a-z])\s+(?:if|when|given)\s+(.+)$").captures(l) {
+        push(out, format!("solve {} for {}", g(&m, 2), g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^([a-z])\s+(?:if|when|given)\s+(.+=.+)$").captures(l) {
+        push(out, format!("solve {} for {}", g(&m, 2), g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(?:where|when) (?:do|does)\s+(.+?)\s+and\s+(.+?)\s+(?:intersect|meet|cross)$").captures(l) {
+        push(out, format!("solve {{{}, {}}}", g(&m, 1), g(&m, 2)), orig);
+    }
+    if let Some(m) = re!(r"^(?:intersection|intersection points?|points? of intersection) of\s+(.+?)\s+and\s+(.+)$").captures(l) {
+        push(out, format!("solve {{{}, {}}}", g(&m, 1), g(&m, 2)), orig);
+    }
+    if let Some(m) = re!(r"^f\^\(-1\)\(x\)\s+(?:if|when|for|given)\s+f\(x\)\s*=\s*(.+)$").captures(l) {
+        push(out, format!("inverse of {}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(.+?)\s+inverse(?: function)?$").captures(l) {
+        push(out, format!("inverse of {}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(?:quotient and remainder|quotient|remainder|long division|polynomial long division|synthetic division)(?: of| for)?\s+(.+)$").captures(l) {
+        push(out, format!("polynomial division {}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(.+?)\s+(?:zeros|zeroes|roots|x-intercepts)$").captures(l) {
+        push(out, format!("zeros of {}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(.+?)\s+(?:rounded|round(?:ed)?)\s+(?:off\s+)?to the nearest (tenth|hundredth|thousandth|ten-thousandth|whole number|integer|one|unit|ten|hundred|thousand)s?$").captures(l) {
+        let what = match &m[2] {
+            "tenth" => "1 decimal place",
+            "hundredth" => "2 decimal places",
+            "thousandth" => "3 decimal places",
+            "ten-thousandth" => "4 decimal places",
+            "ten" => "the nearest 10",
+            "hundred" => "the nearest 100",
+            "thousand" => "the nearest 1000",
+            _ => "0 decimal places",
+        };
+        push(out, format!("round {} to {what}", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^what percent(?:age)? (?:is|of)\s+(.+?)\s+(?:out of|is of|of)\s+(.+)$").captures(l) {
+        push(out, format!("({})/({}) as a percent", g(&m, 1), g(&m, 2)), orig);
+    }
+    if let Some(m) = re!(r"^(?:scientific notation(?: of| for)?|standard form(?: of)?)\s+(.+)$").captures(l) {
+        push(out, format!("{} in scientific notation", g(&m, 1)), orig);
+    }
+    if let Some(m) = re!(r"^(.+?)\s+(?:in\s+)?(decimal|percent|fraction) form$").captures(l) {
+        push(out, format!("{} as a {}", g(&m, 1), &m[2]), orig);
+    }
+    if let Some(m) = re!(r"^\$?([\d.,]+)\s+(?:with|at|after)\s+(?:a\s+)?([\d.]+)%\s+(?:markdown|discount|off|reduction)$").captures(l) {
+        push(out, format!("{}% off {}", &m[2], &m[1]), orig);
+    }
+    if let Some(m) = re!(r"^(?:probability|chance|odds) of (?:rolling|getting|throwing) (?:a |an )?(\d+) (?:on|with) (two|2|three|3) (?:6-sided |six-sided |fair )?dice$").captures(l) {
+        push(out, format!("probability of rolling {} with {} dice", &m[1], &m[2]), orig);
+    }
+    if let Some(m) = re!(r"^(?:linear function|line|straight line) (?:through|passing through|containing)\s+(.+)$").captures(l) {
+        push(out, format!("line through {}", g(&m, 1)), orig);
+    }
+    // arithmetic steps in words
+    if let Some(m) = re!(r"^add ([\d.]+) and ([\d.]+),? (?:and )?then (multiply|divide) (?:it |the result |that )?by ([\d.]+)$").captures(l) {
+        let op = if &m[3] == "multiply" { "*" } else { "/" };
+        push(out, format!("({} + {}) {op} {}", &m[1], &m[2], &m[4]), orig);
+    }
+    if let Some(m) = re!(r"^([\d.]+) (?:added to|plus) ([\d.]+)$").captures(l) {
+        push(out, format!("{} + {}", &m[2], &m[1]), orig);
+    }
+    if let Some(m) = re!(r"^([\d.]+) (?:subtracted from|taken away from|less than) ([\d.]+)$").captures(l) {
+        push(out, format!("{} - {}", &m[2], &m[1]), orig);
+    }
+    if let Some(m) = re!(r"^([\d.]+) (two|three|four|five|six|seven|eight|nine|ten|\d+) times$").captures(l) {
+        let k = small_value(&m[2]).map(|v| v.to_string()).unwrap_or_else(|| m[2].to_string());
+        push(out, format!("{} * {k}", &m[1]), orig);
+    }
+    if let Some(m) = re!(r"^what (times|divided by|plus|minus) ([\d.]+) (?:is|equals|makes) ([\d.]+)$").captures(l) {
+        let op = match &m[1] { "times" => "*", "divided by" => "/", "plus" => "+", _ => "-" };
+        push(out, format!("x {op} {} = {}", &m[2], &m[3]), orig);
+    }
+    if let Some(m) = re!(r"^(?:pythagorean theorem|pythagoras)\s+a\s*=\s*([\d.]+),?\s*(?:and\s+)?b\s*=\s*([\d.]+)$").captures(l) {
+        push(out, format!("sqrt({}^2 + {}^2)", &m[1], &m[2]), orig);
+    }
+}
+
 pub fn candidates(clean: &str) -> Vec<String> {
     let mut out = Vec::new();
     let c = clean.trim();
@@ -168,6 +271,12 @@ pub fn candidates(clean: &str) -> Vec<String> {
     let nw = number_words(c);
     let aw = arithmetic_words(&nw);
     let mut bases = vec![c.to_string()];
+    // typographic minus signs and dashes
+    if c.contains(['–', '−', '—']) {
+        let d = c.replace(['–', '−', '—'], "-");
+        push(&mut out, d.clone(), c);
+        bases.push(d);
+    }
     if nw != c {
         bases.push(nw.clone());
     }
@@ -189,6 +298,7 @@ pub fn candidates(clean: &str) -> Vec<String> {
 
 fn rules(c: &str, l: &str, out: &mut Vec<String>, orig: &str) {
     let g = |m: &regex::Captures, k: usize| -> String { m.get(k).map(|x| c[x.start()..x.end()].trim().to_string()).unwrap_or_default() };
+    school_rules(l, out, orig, &g);
     // "?" or "what" as the unknown
     if let Some(m) = re!(r"^(?:solve\s+)?(.*?)\s*=\s*(?:\?|what)?\s*$").captures(l) {
         if !m[1].contains('=') && !m[1].trim().is_empty() && (l.ends_with('=') || l.ends_with('?') || l.ends_with("what")) {
@@ -292,8 +402,12 @@ fn rules(c: &str, l: &str, out: &mut Vec<String>, orig: &str) {
     }
     // "fructose molar mass" → "molar mass of fructose"
     let words: Vec<&str> = c.split_whitespace().collect();
-    if words.len() >= 2 && !l.contains(" of ") && !c.contains(['=', '+', '*', '^']) {
+    // (a list such as "traffic Los Angeles, Phoenix" is not a property phrase)
+    if words.len() >= 2 && !l.contains(" of ") && !c.contains(['=', '+', '*', '^', '"']) {
         for k in 1..=3.min(words.len() - 1) {
+            if words[words.len() - k..].iter().any(|w| w.contains(',')) || words[words.len() - k - 1].ends_with(',') && k < 2 {
+                continue;
+            }
             push(out, format!("{} of {}", words[words.len() - k..].join(" "), words[..words.len() - k].join(" ")), orig);
         }
     }
