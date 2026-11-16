@@ -148,6 +148,8 @@ pub struct DbCompound {
     pub bp_k: Option<f64>,
     /// kg/m³
     pub density: Option<f64>,
+    /// SMILES (isomeric where known), empty when unknown.
+    pub smiles: &'static str,
 }
 
 static COMPOUNDS_Z: &[u8] = include_bytes!("../../data/compounds.z");
@@ -166,7 +168,7 @@ pub fn compound_db() -> &'static (Vec<DbCompound>, std::collections::HashMap<Str
             }
             let num = |s: &str| s.parse::<f64>().ok();
             let i = list.len();
-            list.push(DbCompound { name: f[0], formula: f[1], mp_k: num(f[2]), bp_k: num(f[3]), density: num(f[4]) });
+            list.push(DbCompound { name: f[0], formula: f[1], mp_k: num(f[2]), bp_k: num(f[3]), density: num(f[4]), smiles: f.get(6).copied().unwrap_or("") });
             index.insert(f[0].to_lowercase(), i);
             for a in f.get(5).map(|a| a.split('|')).into_iter().flatten() {
                 index.entry(a.to_lowercase()).or_insert(i);
@@ -258,7 +260,7 @@ pub fn molar_mass(counts: &BTreeMap<String, u32>) -> f64 {
     counts.iter().map(|(e, n)| by_symbol(e).map_or(0.0, |el| el.mass) * *n as f64).sum()
 }
 
-fn hill_formula(counts: &BTreeMap<String, u32>) -> String {
+pub fn hill_formula(counts: &BTreeMap<String, u32>) -> String {
     let mut keys: Vec<&String> = counts.keys().collect();
     let has_c = counts.contains_key("C");
     keys.sort_by_key(|k| match (has_c, k.as_str()) {

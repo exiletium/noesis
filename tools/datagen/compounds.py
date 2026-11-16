@@ -5,7 +5,7 @@ properties, written to crates/engine/data/compounds.z (raw deflate).
     python3 tools/datagen/compounds.py [--cache DIR] [--min-sitelinks N] [--ids FILE]
 
 Each line: name<TAB>formula<TAB>melting K<TAB>boiling K<TAB>density kg/m^3
-<TAB>aliases separated by "|".  Empty fields are left blank.  Only items
+<TAB>aliases separated by "|"<TAB>SMILES (isomeric where known).  Empty fields are left blank.  Only items
 with at least N Wikipedia/Wikimedia sitelinks (default 2) are kept, which
 selects the compounds people ask about.
 """
@@ -75,12 +75,22 @@ def main():
                 a = wikidata.clean(r["a"])
                 if 2 < len(a) <= 60:
                     out[q]["alias"].add(a)
+    # SMILES: isomeric (P2017) preferred, else canonical (P233)
+    for k in range(0, len(keys), 300):
+        values = " ".join("wd:" + q for q in keys[k:k + 300])
+        for r in wikidata.sparql(f'SELECT ?x ?c ?i WHERE {{ VALUES ?x {{ {values} }} OPTIONAL {{ ?x wdt:P233 ?c }} OPTIONAL {{ ?x wdt:P2017 ?i }} }}'):
+            q = wikidata.qid(r["x"])
+            if q in out:
+                smi = r.get("i") or r.get("c") or ""
+                if smi and len(smi) <= 400 and not out[q].get("smi"):
+                    out[q]["smi"] = smi
+        sys.stderr.write(f"\rsmiles {min(k + 300, len(keys))}/{len(keys)}")
     sys.stderr.write("\n")
     # one line per name; the item with more sitelinks wins a shared name
     lines = {}
     for e in sorted(out.values(), key=lambda e: e["s"]):
         aliases = "|".join(sorted(a for a in e["alias"] if a.lower() != e["name"].lower()))
-        lines[e["name"].lower()] = "\t".join([e["name"], e["f"], e["mp"], e["bp"], e["d"], aliases])
+        lines[e["name"].lower()] = "\t".join([e["name"], e["f"], e["mp"], e["bp"], e["d"], aliases, e.get("smi", "")])
     text = "\n".join(sorted(lines.values(), key=str.lower)) + "\n"
     c = zlib.compressobj(9, zlib.DEFLATED, -15)
     data = c.compress(text.encode()) + c.flush()

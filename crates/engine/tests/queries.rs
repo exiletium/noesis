@@ -525,3 +525,13 @@ fn probability_and_random_variables() {
     assert!(a("run of 3 heads in 15 flips").contains("22159/32768"));
     assert!(a("X~N(1,2), P(X>3)").contains("0.158655"));
 }
+
+#[test]
+fn molecular_graphs() {
+    assert_eq!(short("cyclopentane Schultz index"), "80");
+    assert_eq!(short("how many h-bond acceptors are in caffeine"), "3");
+    assert!(short("butane topological indices").contains("Wiener index | 10"));
+    assert!(short("trimethylamine hybridization").contains("sp³ | 3 C, 1 N"));
+    assert!(short("what are the bond energies in acetonitrile").contains("C≡N | 1 | 891 kJ/mol"));
+    assert_eq!(short("margaric acid carbon backbone"), "17 atoms");
+}
