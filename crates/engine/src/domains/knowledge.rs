@@ -46,7 +46,7 @@ fn simple(label: &str, title: &str, value: String, extra: Vec<Pod>) -> Answer {
 // chemistry: element groups, oxidation states, isotopes, composition
 // ---------------------------------------------------------------------------
 
-const GROUPS: &[(&[&str], &str)] = &[
+pub(super) const GROUPS: &[(&[&str], &str)] = &[
     (&["noble gases", "noble gas", "inert gases", "group 18", "group 18 elements"], "Noble gases"),
     (&["alkali metals", "alkali metal", "group 1 metals"], "Alkali metals"),
     (&["alkaline earth metals", "alkaline earth metal", "group 2", "group 2 elements"], "Alkaline earth metals"),

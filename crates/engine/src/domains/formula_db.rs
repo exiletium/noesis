@@ -269,6 +269,12 @@ fn unit_info(u: &str) -> Option<(f64, f64, Dim)> {
         }
         return Some((fa / fb, 0.0, d));
     }
+    if matches!(u, "molal" | "m molal") {
+        return Some((1.0, 0.0, [0, -1, 0, 0, 0, 1, 0, 0]));
+    }
+    if matches!(u, "molar" | "M") {
+        return Some((1000.0, 0.0, [-3, 0, 0, 0, 0, 1, 0, 0]));
+    }
     if let Some(rest) = u.strip_prefix("1/").or_else(|| u.strip_prefix("per ")) {
         let (f, _, d) = unit_info(rest)?;
         return Some((1.0 / f, 0.0, d.map(|x| -x)));
@@ -700,8 +706,8 @@ fn show_in(v: &Var, si: f64, pref: &[(Dim, f64, f64, String)]) -> String {
     let (factor, offset, unit) = pref.iter().find(|p| p.0 == v.dim && !v.unit.is_empty() && v.unit != "deg").map(|p| (p.1, p.2, p.3.as_str())).unwrap_or((v.factor, v.offset, v.unit.as_str()));
     let x = si / factor - offset;
     let n = fmt_float(x, 6);
-    if unit.is_empty() {
-        n
+    if unit.is_empty() || unit == "1" {
+        if v.desc.starts_with("percent") { format!("{n}%") } else { n }
     } else if unit == "deg" {
         format!("{n}°")
     } else {

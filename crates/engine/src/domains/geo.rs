@@ -266,8 +266,51 @@ fn city_pods(c: &City) -> Vec<Pod> {
     pods
 }
 
+/// "New York, Chicago, Denver", "London, Istanbul, Sydney time zones"
+fn city_list(l: &str) -> Option<Answer> {
+    let (body, what) = match re_suffix().captures(l) {
+        Some(m) => (m.get(1)?.as_str(), m.get(2).map(|x| x.as_str().to_string())),
+        None => (l, None),
+    };
+    let parts: Vec<&str> = body.split(',').flat_map(|p| p.split(" and ")).flat_map(|p| p.split(" vs ")).map(str::trim).filter(|p| !p.is_empty()).collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    let list: Vec<&City> = parts.iter().map(|p| find_city(p).filter(|c| c.population >= 50_000)).collect::<Option<_>>()?;
+    let mut header = vec!["".to_string()];
+    header.extend(list.iter().map(|c| c.name.clone()));
+    let country = |c: &City| countries().get(&c.country).map(|x| x.name.clone()).unwrap_or_else(|| c.country.clone());
+    let mut rows: Vec<Vec<Content>> = vec![
+        std::iter::once(text("country")).chain(list.iter().map(|c| text(country(c)))).collect(),
+        std::iter::once(text("population")).chain(list.iter().map(|c| text(city_population(c)))).collect(),
+        std::iter::once(text("coordinates")).chain(list.iter().map(|c| text(coords(c)))).collect(),
+        std::iter::once(text("time zone")).chain(list.iter().map(|c| text(c.timezone.clone()))).collect(),
+    ];
+    rows.push(std::iter::once(text("local time")).chain(list.iter().map(|c| text(local_time(&c.timezone).map_or(String::new(), |t| t.format("%-I:%M %p %Z").to_string())))).collect());
+    let key = match what.as_deref() {
+        Some(w) if w.contains("time") => 4,
+        Some(w) if w.contains("coordinate") || w.contains("location") => 2,
+        _ => 1,
+    };
+    let names = list.iter().map(|c| c.name.clone()).collect::<Vec<_>>().join(", ");
+    let pods = vec![
+        pod("Input", "Input interpretation", text(format!("{names} (cities)"))),
+        primary(pod("Result", "Comparison", table(Some(header.iter().map(|s| s.as_str()).collect()), rows.clone()))),
+        pod("Key", content_text(&rows[key][0]).as_str(), text(list.iter().zip(&rows[key][1..]).map(|(c, v)| format!("{}: {}", c.name, content_text(v))).collect::<Vec<_>>().join("  |  "))),
+    ];
+    Some(Answer::new(format!("{names} (cities)"), pods))
+}
+
+fn re_suffix() -> &'static regex::Regex {
+    static R: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    R.get_or_init(|| regex::Regex::new(r"^(.+?)\s+(time zones?|local times?|times|populations?|coordinates|locations?)$").unwrap())
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim();
+    if let Some(a) = city_list(l) {
+        return Some(a);
+    }
     // distance between cities
     let dist_re = ["distance from ", "distance between ", "how far is ", "how far from "];
     for p in dist_re {

@@ -8,6 +8,13 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
+macro_rules! re {
+    ($s:expr) => {{
+        static R: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+        R.get_or_init(|| Regex::new($s).unwrap())
+    }};
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Element {
     pub z: u32,
@@ -473,7 +480,8 @@ const PROPS: &[&[&str]] = &[
 
 fn canonical_prop(p: &str) -> Option<&'static str> {
     let p = p.trim().trim_start_matches("the ").trim();
-    PROPS.iter().find(|syns| syns.iter().any(|s| *s == p)).map(|syns| syns[0])
+    let single = p.replace("points", "point").replace("radii", "radius").replace("densities", "density").replace("energies", "energy").replace("masses", "mass").replace("numbers", "number").replace("configurations", "configuration");
+    PROPS.iter().find(|syns| syns.iter().any(|s| *s == p || *s == single)).map(|syns| syns[0])
 }
 
 fn noble_core(e: &Element) -> Option<(&'static Element, String)> {
@@ -662,12 +670,89 @@ fn element_question(q: &Query) -> Option<Answer> {
         if let Some(list) = element_list(&el_text) {
             return Some(element_table(&list, &[prop]));
         }
+        if let Some((series, list)) = element_group(&el_text) {
+            return Some(group_table(series, &list, prop));
+        }
+    }
+    if let Some(a) = element_ranking(l) {
+        return Some(a);
+    }
+    if re!(r"^(?:how many|number of) (?:chemical )?elements (?:are )?(?:there )?(?:in the periodic table|are there|exist|known)?$").is_match(l) || l == "elements in the periodic table" {
+        let pods = vec![pod("Input", "Input interpretation", text("number of chemical elements")), primary(pod("Result", "Result", text("118 known elements (hydrogen, Z = 1, to oganesson, Z = 118)"))), pod("Natural", "Occurring naturally", text("94 occur in nature; the rest have only been made artificially"))];
+        return Some(Answer::new("number of chemical elements", pods));
     }
     // a bare list of elements: "silver, gold", "N, O, F"
     if let Some(list) = element_list(l) {
         return Some(element_table(&list, &["atomic number", "atomic mass", "electron configuration", "density", "melting point", "boiling point", "electronegativity", "atomic radius", "ionization energy"]));
     }
     None
+}
+
+/// "lanthanides", "alkaline earth metals" → the members.
+fn element_group(t: &str) -> Option<(&'static str, Vec<&'static Element>)> {
+    let t = t.trim().trim_start_matches("the ").trim_end_matches(" elements").trim();
+    let (_, series) = super::knowledge::GROUPS.iter().find(|(names, _)| names.contains(&t))?;
+    let list: Vec<&Element> = elements().iter().filter(|e| e.series.as_deref() == Some(*series)).collect();
+    (!list.is_empty()).then_some((*series, list))
+}
+
+fn group_table(series: &str, list: &[&'static Element], prop: &str) -> Answer {
+    let rows = list.iter().map(|e| vec![text(e.name.clone()), text(element_property(e, prop).unwrap_or_else(|| "—".into()))]).collect();
+    let pods = vec![pod("Input", "Input interpretation", text(format!("{} | {prop}", series.to_lowercase()))), primary(pod("Result", "Result", table(Some(vec!["element", prop]), rows)))];
+    Answer::new(format!("{prop} of {}", series.to_lowercase()), pods)
+}
+
+/// A numeric property for ranking: (value, property name).
+fn rank_value(e: &Element, prop: &str) -> Option<f64> {
+    match prop {
+        "density" => e.density_g_cm3,
+        "atomic mass" => Some(e.mass),
+        "melting point" => e.melting_k,
+        "boiling point" => e.boiling_k,
+        "electronegativity" => e.electronegativity,
+        "atomic radius" => e.atomic_radius_pm,
+        "ionization energy" => e.first_ionization_ev,
+        "abundance" => e.abundance_crust_mg_kg,
+        _ => None,
+    }
+}
+
+/// "10 densest elements", "lightest element", "element with the highest melting point"
+fn element_ranking(l: &str) -> Option<Answer> {
+    let (count, prop, high) = if let Some(m) = re!(r"^(?:the )?(?:top )?(\d+ )?(densest|most dense|least dense|lightest|heaviest|most electronegative|least electronegative|largest|biggest|smallest|most abundant|least abundant)(?: (?:chemical )?elements?)?(?: in the periodic table)?$").captures(l) {
+        let (p, h) = match &m[2] {
+            "densest" | "most dense" => ("density", true),
+            "least dense" => ("density", false),
+            "lightest" => ("atomic mass", false),
+            "heaviest" => ("atomic mass", true),
+            "most electronegative" => ("electronegativity", true),
+            "least electronegative" => ("electronegativity", false),
+            "largest" | "biggest" => ("atomic radius", true),
+            "smallest" => ("atomic radius", false),
+            "most abundant" => ("abundance", true),
+            _ => ("abundance", false),
+        };
+        (m.get(1).and_then(|x| x.as_str().trim().parse::<usize>().ok()), p, h)
+    } else if let Some(m) = re!(r"^(?:the )?(\d+ )?(?:chemical )?elements? with (?:the )?(highest|lowest|largest|smallest|greatest|biggest) (.+)$").captures(l) {
+        let p = canonical_prop(&m[3])?;
+        (m.get(1).and_then(|x| x.as_str().trim().parse::<usize>().ok()), p, matches!(&m[2], "highest" | "largest" | "greatest" | "biggest"))
+    } else {
+        return None;
+    };
+    // superheavy elements have only predicted bulk properties
+    let mut list: Vec<(&Element, f64)> = elements().iter().filter(|e| e.z <= 103 || prop == "atomic mass").filter_map(|e| rank_value(e, prop).map(|v| (e, v))).collect();
+    if list.is_empty() {
+        return None;
+    }
+    list.sort_by(|a, b| if high { b.1.partial_cmp(&a.1).unwrap() } else { a.1.partial_cmp(&b.1).unwrap() });
+    let k = count.unwrap_or(1).clamp(1, 118);
+    let top = &list[..k.min(list.len())];
+    let rows: Vec<Vec<Content>> = top.iter().enumerate().map(|(i, (e, _))| vec![text((i + 1).to_string()), text(e.name.clone()), text(element_property(e, prop).unwrap_or_default())]).collect();
+    let res = if k == 1 { format!("{} ({})", top[0].0.name, element_property(top[0].0, prop).unwrap_or_default()) } else { top.iter().map(|(e, _)| e.name.clone()).collect::<Vec<_>>().join(", ") };
+    let word = if high { "highest" } else { "lowest" };
+    let mut pods = vec![pod("Input", "Input interpretation", text(format!("elements with the {word} {prop}"))), primary(pod("Result", "Result", text(res)))];
+    pods.push(pod("Table", "Ranking", table(Some(vec!["rank", "element", prop]), if k == 1 { list.iter().take(5).enumerate().map(|(i, (e, _))| vec![text((i + 1).to_string()), text(e.name.clone()), text(element_property(e, prop).unwrap_or_default())]).collect() } else { rows })));
+    Some(Answer::new(format!("elements by {prop}"), pods))
 }
 
 fn element_table(list: &[&'static Element], props: &[&str]) -> Answer {

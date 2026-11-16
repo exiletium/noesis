@@ -23,7 +23,7 @@ fn n(v: f64) -> String {
 }
 
 /// Formula with subscript digits: `H2SO4` → `H₂SO₄`.
-fn pretty(formula: &str) -> String {
+pub(super) fn pretty(formula: &str) -> String {
     let mut out = String::new();
     let mut prev_alpha = false;
     for ch in formula.chars() {
@@ -40,7 +40,7 @@ fn pretty(formula: &str) -> String {
 }
 
 /// A substance named in a query: a compound name, a formula or an element.
-fn substance(s: &str) -> Option<(String, String, BTreeMap<String, u32>)> {
+pub(super) fn substance(s: &str) -> Option<(String, String, BTreeMap<String, u32>)> {
     let s = s.trim().trim_matches(|c| c == '?' || c == '.');
     let s = s.strip_prefix("the ").unwrap_or(s);
     let lower = s.to_lowercase();
@@ -68,15 +68,15 @@ fn substance(s: &str) -> Option<(String, String, BTreeMap<String, u32>)> {
 // properties of common substances
 // ---------------------------------------------------------------------------
 
-struct Substance {
+pub(super) struct Substance {
     names: &'static [&'static str],
     formula: &'static str,
     /// melting point, °C
     mp: Option<f64>,
     /// boiling point at 1 atm, °C
-    bp: Option<f64>,
+    pub(super) bp: Option<f64>,
     /// density near room temperature, g/cm³
-    density: Option<f64>,
+    pub(super) density: Option<f64>,
     /// specific heat capacity, J/(g·K)
     cp: Option<f64>,
     note: &'static str,
@@ -145,7 +145,7 @@ static SUBSTANCES: &[Substance] = &[
     s(&["human body", "the human body"], "", None, None, Some(0.985), Some(3.5), "average"),
 ];
 
-fn find_substance(name: &str) -> Option<&'static Substance> {
+pub(super) fn find_substance(name: &str) -> Option<&'static Substance> {
     let l = name.trim().to_lowercase();
     let l = l.strip_prefix("the ").unwrap_or(&l);
     let l = l.strip_prefix("pure ").unwrap_or(l);
@@ -387,6 +387,20 @@ fn species(side: &str) -> Option<Vec<(String, BTreeMap<String, u32>)>> {
         out.push((formula, counts));
     }
     Some(out)
+}
+
+/// Smallest positive whole-number coefficients balancing `left → right`.
+pub(super) fn coefficients(left: &[BTreeMap<String, u32>], right: &[BTreeMap<String, u32>]) -> Option<Vec<i128>> {
+    let all: Vec<&BTreeMap<String, u32>> = left.iter().chain(right.iter()).collect();
+    let mut elements: Vec<&String> = all.iter().flat_map(|c| c.keys()).collect();
+    elements.sort();
+    elements.dedup();
+    let matrix: Vec<Vec<Q>> = elements.iter().map(|e| all.iter().enumerate().map(|(k, c)| Q(*c.get(*e).unwrap_or(&0) as i128 * if k < left.len() { 1 } else { -1 }, 1)).collect()).collect();
+    let mut v = integer_nullvector(matrix, all.len()).ok()?;
+    if v.iter().all(|a| *a < 0) {
+        v.iter_mut().for_each(|a| *a = -*a);
+    }
+    v.iter().all(|a| *a > 0).then_some(v)
 }
 
 fn balance(c: &str) -> Option<Answer> {

@@ -829,3 +829,44 @@ eq V = d / econ
 var V; fuel used; gal; fuel
 var d; distance; mi
 var econ; fuel economy; mpg; mileage, mpg
+
+# ------------------------------------------------------------- solutions
+
+== percent yield | percentage yield | reaction yield
+eq Y = 100 * ma / mt
+var Y; percent yield; 1; yield, percent yield
+var ma; actual yield; g; m_a, actual yield, actual mass
+var mt; theoretical yield; g; m_t, theoretical yield, theoretical mass
+
+== boiling point elevation | ebullioscopy | boiling point raising
+eq dT = i * Kb * m
+var dT; boiling point elevation; K; elevation, temperature change, delta t
+var i; van 't Hoff factor; 1; vant hoff factor, van't hoff factor; 1
+var Kb; ebullioscopic constant; K kg/mol; kb, ebullioscopic constant; 0.512
+var m; molality; mol/kg; molality, molal
+
+== freezing point depression | cryoscopy | melting point depression
+eq dT = i * Kf * m
+var dT; freezing point depression; K; depression, temperature change, delta t
+var i; van 't Hoff factor; 1; vant hoff factor, van't hoff factor; 1
+var Kf; cryoscopic constant; K kg/mol; kf, cryoscopic constant; 1.86
+var m; molality; mol/kg; molality, molal
+
+== osmotic pressure | van 't hoff equation for osmotic pressure | osmotic pressure equation
+eq Pi = i * c * R * T
+var Pi; osmotic pressure; atm; osmotic pressure, pressure
+var i; van 't Hoff factor; 1; vant hoff factor, van't hoff factor; 1
+var c; molar concentration; mol/L; concentration, molarity
+var T; temperature; K; temperature; 298.15
+
+== van 't hoff factor | vant hoff factor | van't hoff factor | dissociation factor
+eq i = 1 + alpha * (n - 1)
+var i; van 't Hoff factor; 1; factor
+var alpha; degree of dissociation; 1; alpha, degree of dissociation
+var n; number of ions per formula unit; 1; ions, n
+
+== raoult's law | raoults law | raoult law
+eq P = x * P0
+var P; partial vapor pressure; Pa; vapor pressure, partial pressure
+var x; mole fraction of the solvent; 1; mole fraction
+var P0; vapor pressure of the pure solvent; Pa; pure vapor pressure, p0
