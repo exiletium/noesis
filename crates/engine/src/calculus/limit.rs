@@ -126,6 +126,36 @@ fn lim0(g: &Expr, h: &Expr, depth: usize) -> Option<Expr> {
     if !g.has_sym(h) {
         return if g.is_undef() || matches!(g, Const(K::CInf)) { None } else { Some(g.clone()) };
     }
+    // (-1)^n and other negative bases with a growing exponent oscillate
+    let neg_base = |x: &Expr| matches!(x, Pow(b, ex) if ex.has_sym(h) && !b.has_sym(h) && crate::eval::eval_f64(b, &[]).is_some_and(|v| v < 0.0));
+    if g.has(&neg_base) {
+        // squeeze: |g| -> 0 gives 0, anything else oscillates
+        fn abs_bases(e: &Expr, h: &Expr) -> Expr {
+            match e {
+                Pow(b, ex) if ex.has_sym(h) && !b.has_sym(h) && crate::eval::eval_f64(b, &[]).is_some_and(|v| v < 0.0) => pow(neg((**b).clone()), (**ex).clone()),
+                Pow(b, ex) => pow(abs_bases(b, h), abs_bases(ex, h)),
+                Add(v) => add(v.iter().map(|t| abs_bases(t, h)).collect()),
+                Mul(v) => mul(v.iter().map(|t| abs_bases(t, h)).collect()),
+                Func(n, a) => Func(n.clone(), a.iter().map(|t| abs_bases(t, h)).collect()),
+                _ => e.clone(),
+            }
+        }
+        if let Add(v) = g {
+            let (osc, rest): (Vec<&Expr>, Vec<&Expr>) = v.iter().partition(|t| t.has(&neg_base));
+            if !rest.is_empty() {
+                let all_vanish = osc.iter().all(|t| matches!(lim0(&abs_bases(t, h), h, depth + 1), Some(z) if z.is_zero()));
+                return if all_vanish { lim0(&add(rest.into_iter().cloned().collect()), h, depth + 1) } else { None };
+            }
+        }
+        let g2 = abs_bases(g, h);
+        if g2.has(&neg_base) {
+            return None;
+        }
+        return match lim0(&g2, h, depth + 1) {
+            Some(v) if v.is_zero() => Some(zero()),
+            _ => None,
+        };
+    }
     if depth > 9 {
         return numeric(g, h);
     }

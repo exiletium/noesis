@@ -916,7 +916,7 @@ pub fn two_var_pods(p: &Parsed, x: &Expr, y: &Expr) -> Vec<Pod> {
             }
             let h = calculus::diff::hessian(&f, &[x.clone(), y.clone()]);
             let mut rows = Vec::new();
-            for sv in &sol.sols {
+            for sv in sol.sols.iter().filter(|sv| sv.iter().all(|(_, v)| solve::is_real_value(v))) {
                 let at = |e: &Expr| s::simplify(&e.subs_many(sv));
                 let (fxx, fyy, fxy) = (at(&h[0][0]), at(&h[1][1]), at(&h[0][1]));
                 let det = s::simplify(&sub(mul(vec![fxx.clone(), fyy]), square(fxy)));

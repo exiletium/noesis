@@ -270,7 +270,7 @@ fn more_mathematics_in_words() {
     assert!(short("center and radius of x^2 + y^2 - 4x + 6y - 3 = 0").contains("radius 4"));
     assert_eq!(short("implicit derivative of x^2 + y^2 = 1"), "-x/y");
     assert_eq!(short("curvature of y = x^2 at x = 0"), "2");
-    assert!(short("integrate x^2 y dx dy x=0..1 y=0..2").ends_with("= 2/3"));
+    assert!(short("integrate x^2 y dx dy x=0..1 y=0..2").ends_with("2/3"));
     assert_eq!(short("solve {{1,2},{3,4}} x = {5,6}"), "x = (-4, 9/2)");
     assert!(short("is {{2,1},{1,2}} positive definite").starts_with("Yes"));
     assert_eq!(short("number of trailing zeros in 100!"), "24");

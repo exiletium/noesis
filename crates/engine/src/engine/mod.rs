@@ -14,6 +14,7 @@ pub mod course;
 pub mod llm;
 pub mod rewrite;
 pub mod sequences;
+pub mod analysis;
 
 use crate::budget;
 use crate::expr::Expr;
@@ -214,6 +215,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("ode", ode::handle));
     v.push(("sequences", sequences::handle));
     v.extend(crate::domains::handlers());
+    v.push(("analysis", analysis::handle));
     v.push(("commands", commands::handle));
     v.push(("math", math::handle));
     v.push(("rephrase", llm::handle));

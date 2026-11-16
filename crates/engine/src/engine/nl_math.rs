@@ -492,7 +492,7 @@ pub fn calculus_q(q: &Query, l: &str, c: &str) -> Option<Answer> {
             return answer(format!("{kw} of {}", ptext(&e)), format!("{} of {}", title.to_lowercase(), ptext(&e)), pods);
         }
     }
-    if let Some(m) = cap(re!(r"^(?:the\s+)?(divergence|div|curl|rot|jacobian)\s+(?:matrix\s+)?(?:of\s+)?(?:the\s+)?(?:vector field\s+)?(?:f\s*=\s*)?[(\[{<]\s*(.+?)\s*[)\]}>]$")) {
+    if let Some(m) = cap(re!(r"^(?:the\s+)?(divergence|div|curl|rot)\s+(?:of\s+)?(?:the\s+)?(?:vector field\s+)?(?:f\s*=\s*)?[(\[{<]\s*(.+?)\s*[)\]}>]$")) {
         let comps: Vec<Expr> = split_top(&g(&m, 2)).iter().filter_map(|p| ex(p)).collect();
         if comps.len() >= 2 && comps.len() <= 3 {
             let vars: Vec<Expr> = ["x", "y", "z"][..comps.len()].iter().map(|n| sym(n)).collect();

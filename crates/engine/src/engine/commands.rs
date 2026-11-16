@@ -375,10 +375,11 @@ pub fn handle(q: &Query) -> Option<Answer> {
         return Some(Answer::new(title, pods));
     }
     // -------------------------------------------------------- extrema
-    if let Some(m) = cap(re!(r"^(minimize|maximize|minimum of|maximum of|min|max|extrema of|local extrema of|critical points of)\s+(.+?)$")) {
+    if let Some(m) = cap(re!(r"^(minimize|maximize|minimum of|maximum of|min|max|extrema of|local extrema of|critical points of|saddle points? of|stationary points of)\s+(.+?)$")) {
         let p = parse_e(m[2].as_deref()?)?;
         let ans = math::analyze(q, p)?;
-        let wanted: Vec<Pod> = ans.pods.iter().filter(|p| matches!(p.id.as_str(), "Input" | "GlobalMaximum" | "GlobalMinimum" | "LocalExtrema" | "CriticalPoints" | "Plot" | "3DPlot")).cloned().collect();
+        let saddle = m[1].as_deref()?.starts_with("saddle");
+        let wanted: Vec<Pod> = ans.pods.iter().filter(|p| matches!(p.id.as_str(), "Input" | "GlobalMaximum" | "GlobalMinimum" | "LocalExtrema" | "CriticalPoints" | "Plot" | "3DPlot")).filter(|p| !saddle || matches!(p.id.as_str(), "Input" | "CriticalPoints" | "3DPlot")).cloned().collect();
         if wanted.len() > 1 {
             let mut wanted = wanted;
             if let Some(p) = wanted.iter_mut().find(|p| p.id != "Input" && !p.id.contains("Plot")) {

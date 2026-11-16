@@ -34,7 +34,7 @@ pub fn param() -> Expr {
     sym(PARAM)
 }
 
-fn is_real_value(e: &Expr) -> bool {
+pub fn is_real_value(e: &Expr) -> bool {
     if e.has_sym(&param()) {
         // a family is real when its n = 0 member is real
         return is_real_value(&e.subs(&param(), &zero()));
