@@ -917,6 +917,330 @@ fn point2(s: &str) -> Option<(Expr, Expr)> {
     (v.len() == 2).then(|| (v[0].clone(), v[1].clone()))
 }
 
+// ---------------------------------------------------------------------------
+// geometric transformations
+// ---------------------------------------------------------------------------
+
+fn rad(a: &Expr, deg: bool) -> Expr {
+    if deg {
+        s::simplify(&mul(vec![a.clone(), pi(), Num(Rat::new(1.into(), 180.into()))]))
+    } else {
+        a.clone()
+    }
+}
+
+type M = Vec<Vec<Expr>>;
+
+fn mm(a: &M, b: &M) -> M {
+    (0..a.len()).map(|i| (0..b[0].len()).map(|j| s::simplify(&add((0..b.len()).map(|k| mul(vec![a[i][k].clone(), b[k][j].clone()])).collect()))).collect()).collect()
+}
+
+fn mv(a: &M, v: &[Expr]) -> Vec<Expr> {
+    a.iter().map(|row| s::simplify(&add(row.iter().zip(v).map(|(x, y)| mul(vec![x.clone(), y.clone()])).collect()))).collect()
+}
+
+fn axis_rot(axis: usize, th: &Expr) -> M {
+    let (c, sn) = (s::simplify(&func("cos", vec![th.clone()])), s::simplify(&func("sin", vec![th.clone()])));
+    let (o, z) = (one(), zero());
+    match axis {
+        0 => vec![vec![o.clone(), z.clone(), z.clone()], vec![z.clone(), c.clone(), neg(sn.clone())], vec![z, sn, c]],
+        1 => vec![vec![c.clone(), z.clone(), sn.clone()], vec![z.clone(), o, z.clone()], vec![neg(sn), z, c]],
+        _ => vec![vec![c.clone(), neg(sn.clone()), z.clone()], vec![sn, c, z.clone()], vec![z.clone(), z, o]],
+    }
+    .into_iter()
+    .map(|r| r.into_iter().map(|e| s::simplify(&e)).collect())
+    .collect()
+}
+
+/// Rotation by th about the unit direction of k (Rodrigues).
+fn rodrigues(k: &[Expr], th: &Expr) -> M {
+    let n = s::simplify(&func("sqrt", vec![add(k.iter().map(|x| square(x.clone())).collect())]));
+    let u: Vec<Expr> = k.iter().map(|x| s::simplify(&div(x.clone(), n.clone()))).collect();
+    let (c, sn) = (func("cos", vec![th.clone()]), func("sin", vec![th.clone()]));
+    let cross = [[zero(), neg(u[2].clone()), u[1].clone()], [u[2].clone(), zero(), neg(u[0].clone())], [neg(u[1].clone()), u[0].clone(), zero()]];
+    (0..3)
+        .map(|i| {
+            (0..3)
+                .map(|j| {
+                    let id = if i == j { c.clone() } else { zero() };
+                    s::simplify(&add(vec![id, mul(vec![sn.clone(), cross[i][j].clone()]), mul(vec![sub(one(), c.clone()), u[i].clone(), u[j].clone()])]))
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn mat_expr(m: &M) -> Expr {
+    List(m.iter().map(|r| List(r.clone())).collect())
+}
+
+/// Matrix pod plus a decimal version when entries are unevaluated trig values.
+fn matrix_answer(title: &str, input: String, m: &M, extra: Vec<Pod>) -> Answer {
+    let mut pods = extra;
+    let messy = m.iter().flatten().any(|e| e.has(&|n| matches!(n, Func(f, _) if matches!(&**f, "sin" | "cos" | "tan"))) && e.free_symbols().is_empty());
+    if messy {
+        let dec: M = m.iter().map(|r| r.iter().map(|e| num(e).map(|v| float((v * 1e9).round() / 1e9)).unwrap_or_else(|| e.clone())).collect()).collect();
+        pods.insert(0, pod("Decimal", "Decimal form", math(&mat_expr(&dec))));
+    }
+    ans(title, input, "Matrix", math(&mat_expr(m)), pods)
+}
+
+/// lhs − rhs of an equation (or the expression itself).
+fn implicit(t: &str) -> Option<Expr> {
+    let e = crate::parse::parse(&normalise(t)).ok()?.expr;
+    Some(match e {
+        Rel(RelOp::Eq, a, b) => s::simplify(&sub(*a, *b)),
+        Rel(..) => return None,
+        e => e,
+    })
+}
+
+/// "x + y + z = 1" → (normal, d) with n·x = d
+fn plane(t: &str) -> Option<(Vec<Expr>, Expr)> {
+    let f = implicit(t)?;
+    let xs = [sym("x"), sym("y"), sym("z")];
+    if !f.free_symbols().iter().all(|n| matches!(&**n, "x" | "y" | "z")) || !f.has_sym(&xs[2]) {
+        return None;
+    }
+    let n: Vec<Expr> = xs.iter().map(|x| s::simplify(&calculus::diff(&f, x))).collect();
+    if n.iter().any(|c| !c.free_symbols().is_empty()) {
+        return None;
+    }
+    let d = s::simplify(&neg(f.subs_many(&xs.iter().map(|x| (x.clone(), zero())).collect::<Vec<_>>())));
+    Some((n, d))
+}
+
+fn transforms(q: &Query) -> Option<Answer> {
+    let c = q.clean.trim().trim_end_matches('?').trim();
+    let l = c.to_lowercase();
+    let xyz = ["x", "y", "z"];
+    // general formulas
+    match l.as_str() {
+        "rotation transform calculator" | "rotation matrix" | "rotation transform" | "2d rotation matrix" => {
+            let th = sym("θ");
+            return Some(matrix_answer("rotation matrix", "rotation by θ about the origin (counterclockwise)".into(), &vec![vec![func("cos", vec![th.clone()]), neg(func("sin", vec![th.clone()]))], vec![func("sin", vec![th.clone()]), func("cos", vec![th])]], vec![]));
+        }
+        "mirror transformation matrix" | "reflection matrix" | "mirror matrix" | "reflection transform" => {
+            let th = mul(vec![int(2), sym("θ")]);
+            return Some(matrix_answer("reflection matrix", "reflection across the line through the origin at angle θ".into(), &vec![vec![func("cos", vec![th.clone()]), func("sin", vec![th.clone()])], vec![func("sin", vec![th.clone()]), neg(func("cos", vec![th]))]], vec![pod("Slope", "In terms of the slope m = tan θ", math(&ex("{{(1-m^2)/(1+m^2), 2m/(1+m^2)}, {2m/(1+m^2), (m^2-1)/(1+m^2)}}")?))]));
+        }
+        "shear transform" | "shear matrix" | "shear transformation" | "shear mapping" => {
+            let k = sym("k");
+            return Some(matrix_answer("shear", "horizontal shear by factor k: (x, y) → (x + k y, y)".into(), &vec![vec![one(), k.clone()], vec![zero(), one()]], vec![pod("Vertical", "Vertical shear: (x, y) → (x, y + k x)", math(&mat_expr(&vec![vec![one(), zero()], vec![k, one()]])))]));
+        }
+        "euler angles calculator" | "euler angles" | "euler rotation matrix" => {
+            let (a, b, g) = (sym("α"), sym("β"), sym("γ"));
+            let m = mm(&mm(&axis_rot(2, &a), &axis_rot(0, &b)), &axis_rot(2, &g));
+            return Some(matrix_answer("Euler angles", "rotation matrix for Euler angles α, β, γ (z-x-z convention)".into(), &m, vec![]));
+        }
+        _ => {}
+    }
+    // "sine of the complement of 72 degrees"
+    if let Some(m) = re!(r"^(.+?)\s+(?:of\s+)?the\s+(complement|supplement)\s+of\s+(.+)$").captures(&l) {
+        let (a, deg) = angle(&m[3])?;
+        let full = if &m[2] == "complement" { 90 } else { 180 };
+        let rewritten = if deg { format!("{} of ({full} degrees - ({}) degrees)", m[1].trim_end_matches(" of"), show(&a)) } else { format!("{} of ({} - ({}))", m[1].trim_end_matches(" of"), if full == 90 { "pi/2" } else { "pi" }, show(&a)) };
+        let r = super::query_with(&rewritten, q.opts);
+        if r.success {
+            let mut pods: Vec<Pod> = r.pods.into_iter().filter(|p| p.id != "Input").collect();
+            pods.insert(0, pod("Input", "Input interpretation", text(format!("{} of the {} of {}", m[1].trim_end_matches(" of"), &m[2], deg_text(&a, deg)))));
+            return Some(Answer::new(format!("{} of the {} of {}", &m[1], &m[2], &m[3]), pods));
+        }
+    }
+    // 3-D rotation about a coordinate axis
+    if let Some(m) = re!(r"^(?:rotate|rotation(?:\s+matrix)?)\s+(?:by\s+)?(.+?)\s+(?:about|around)\s+(?:the\s+)?([xyz])[- ]?axis$").captures(&l) {
+        let (a, deg) = angle(&m[1])?;
+        let axis = xyz.iter().position(|v| *v == &m[2])?;
+        let r = axis_rot(axis, &rad(&a, deg));
+        return Some(matrix_answer("rotation", format!("rotation by {} about the {}-axis", deg_text(&a, deg), &m[2]), &r, vec![]));
+    }
+    // yaw / pitch / roll and Euler angles
+    let ypr: Vec<(usize, Expr, bool)> = re!(r"(yaw|pitch|roll)\s*(?:=|:|of)?\s*([-\d./]+\s*(?:°|degrees?|deg|radians?|rad)?)").captures_iter(&l).filter_map(|m| {
+        let axis = match &m[1] { "yaw" => 2, "pitch" => 1, _ => 0 };
+        let (a, deg) = angle(&m[2])?;
+        Some((axis, a, deg))
+    }).collect();
+    if !ypr.is_empty() && re!(r"^(?:(?:rotation(?:\s+matrix)?\s+(?:for\s+)?)?(?:yaw|pitch|roll)\s*(?:=|:|of)?\s*[-\d./]+\s*(?:°|degrees?|deg|radians?|rad)?[,;]?\s*(?:and\s+)?)+$").is_match(&l) {
+        let mut m = axis_rot(ypr[0].0, &rad(&ypr[0].1, ypr[0].2));
+        for (axis, a, deg) in &ypr[1..] {
+            m = mm(&m, &axis_rot(*axis, &rad(a, *deg)));
+        }
+        let names = ["roll (x)", "pitch (y)", "yaw (z)"];
+        let desc = ypr.iter().map(|(ax, a, d)| format!("{} {}", names[*ax], deg_text(a, *d))).collect::<Vec<_>>().join(", then ");
+        return Some(matrix_answer("rotation", format!("rotation | {desc} (intrinsic, composed in the order given)"), &m, vec![]));
+    }
+    if let Some(m) = re!(r"^euler angles\s*:?\s*(?:\(\s*)?([^,]+),\s*([^,]+),\s*(?:and\s+)?([^,)]+)\)?$").captures(&l) {
+        let angs: Vec<(Expr, bool)> = (1..=3).map(|i| angle(&m[i])).collect::<Option<_>>()?;
+        let r = mm(&mm(&axis_rot(2, &rad(&angs[0].0, angs[0].1)), &axis_rot(0, &rad(&angs[1].0, angs[1].1))), &axis_rot(2, &rad(&angs[2].0, angs[2].1)));
+        return Some(matrix_answer("Euler angles", format!("Euler angles α = {}, β = {}, γ = {} (z-x-z convention)", deg_text(&angs[0].0, angs[0].1), deg_text(&angs[1].0, angs[1].1), deg_text(&angs[2].0, angs[2].1)), &r, vec![pod("Convention", "Convention", text("R = R_z(α) R_x(β) R_z(γ)"))]));
+    }
+    // shears
+    if let Some(m) = re!(r"^(horizontal|vertical|x|y)?[- ]?shear(?:\s+(?:transform(?:ation)?|matrix|mapping))?\s+(?:by\s+|of\s+|with\s+(?:factor|angle)\s+)?(.+)$").captures(&l) {
+        let vertical = m.get(1).is_some_and(|v| v.as_str() == "vertical" || v.as_str() == "y");
+        let t = m[2].trim();
+        let k = if re!(r"(?:°|degrees?|deg|rad|radians?)$").is_match(t) {
+            let (a, deg) = angle(t)?;
+            s::simplify(&func("tan", vec![rad(&a, deg)]))
+        } else {
+            ex(t.trim_start_matches("factor").trim())?
+        };
+        let mat = if vertical { vec![vec![one(), zero()], vec![k.clone(), one()]] } else { vec![vec![one(), k.clone()], vec![zero(), one()]] };
+        let map = if vertical { format!("(x, y) → (x, {})", show(&s::simplify(&add(vec![sym("y"), mul(vec![k.clone(), sym("x")])])))) } else { format!("(x, y) → ({}, y)", show(&s::simplify(&add(vec![sym("x"), mul(vec![k.clone(), sym("y")])])))) };
+        return Some(matrix_answer("shear", format!("{} shear by {}", if vertical { "vertical" } else { "horizontal" }, t), &mat, vec![pod("Map", "Mapping", text(map))]));
+    }
+    // reflection across a plane a x + b y + c z = d
+    if let Some(m) = re!(r"^reflect(?:ion)?\s+(?:of\s+)?(?:the\s+(?:point|vector|curve)\s+)?(.+?)?\s*(?:across|over|in|through|about)\s+(?:the\s+plane\s+)?([^=]+=[^=]+)$").captures(&l) {
+        if let Some((n, d)) = plane(&m[2]) {
+            let nn = s::simplify(&add(n.iter().map(|x| square(x.clone())).collect()));
+            let mat: M = (0..3).map(|i| (0..3).map(|j| s::simplify(&sub(if i == j { one() } else { zero() }, div(mul(vec![int(2), n[i].clone(), n[j].clone()]), nn.clone())))).collect()).collect();
+            let shift: Vec<Expr> = n.iter().map(|x| s::simplify(&div(mul(vec![int(2), d.clone(), x.clone()]), nn.clone()))).collect();
+            let pl = show(&eq(s::simplify(&add(n.iter().zip(xyz).map(|(c, v)| mul(vec![c.clone(), sym(v)])).collect())), d.clone()));
+            match m.get(1).map(|x| x.as_str().trim()).filter(|t| !t.is_empty()) {
+                None => {
+                    let shift_pod = pod("Translation", "Translation part", math(&List(shift.clone())));
+                    return Some(matrix_answer("reflection", format!("reflection across the plane {pl}: p → M p + t"), &mat, vec![shift_pod]));
+                }
+                Some(t) => {
+                    let v = vector(t)?;
+                    if v.len() != 3 {
+                        return None;
+                    }
+                    let img: Vec<Expr> = mv(&mat, &v).into_iter().zip(&shift).map(|(a, b)| s::simplify(&add(vec![a, b.clone()]))).collect();
+                    return Some(ans("reflection", format!("reflect {} across the plane {pl}", show(&List(v))), "Reflected", math(&List(img)), vec![]));
+                }
+            }
+        }
+    }
+    // reflect a curve across a line y = m x + b
+    if let Some(m) = re!(r"^reflect\s+(?:the\s+curve\s+)?(.+?=.+?)\s+(?:over|across|in|about|through)\s+(?:the\s+line\s+)?y\s*=\s*(.+)$").captures(&l) {
+        let f = implicit(&m[1])?;
+        let line = ex(&m[2])?;
+        let (x, y) = (sym("x"), sym("y"));
+        let slope = s::simplify(&calculus::diff(&line, &x));
+        let b = s::simplify(&line.subs(&x, &zero()));
+        if slope.has_sym(&x) || !f.free_symbols().iter().all(|n| matches!(&**n, "x" | "y")) {
+            return None;
+        }
+        let den = add(vec![one(), square(slope.clone())]);
+        let dd = div(add(vec![x.clone(), mul(vec![sub(y.clone(), b.clone()), slope.clone()])]), den);
+        let rx = sub(mul(vec![int(2), dd.clone()]), x.clone());
+        let ry = add(vec![mul(vec![int(2), dd, slope]), neg(y.clone()), mul(vec![int(2), b])]);
+        let img = s::simplify(&s::expand(&f.subs_many(&[(x.clone(), rx), (y.clone(), ry)])));
+        return Some(ans("reflection", format!("reflect {} across y = {}", show(&eq(f, zero())), show(&line)), "Reflected curve", math(&eq(img, zero())), vec![]));
+    }
+    // rotate a curve or vector: "rotate y=x^2 by 30 degrees around {0.2, -0.04}",
+    // "rotate {cos t, sin t, sin 2t} by 30 degrees about (1,0,0)"
+    if let Some(m) = re!(r"^rotate\s+(?:the\s+curve\s+)?(.+?)\s+by\s+(.+?)(?:\s+(counter-?clockwise|anticlockwise|clockwise|ccw|cw))?(?:\s+(?:about|around)\s+(?:the\s+(?:point|axis|vector)\s+)?(.+))?$").captures(&l) {
+        let (a, deg) = angle(&m[2])?;
+        let mut th = rad(&a, deg);
+        if m.get(3).is_some_and(|d| d.as_str() == "clockwise" || d.as_str() == "cw") {
+            th = neg(th);
+        }
+        let target = m[1].trim();
+        let centre = m.get(4).map(|c| vector(c.as_str())).unwrap_or(Some(vec![zero(), zero()]))?;
+        if target.contains('=') {
+            if centre.len() != 2 {
+                return None;
+            }
+            let f = implicit(target)?;
+            let (x, y) = (sym("x"), sym("y"));
+            if !f.free_symbols().iter().all(|n| matches!(&**n, "x" | "y")) {
+                return None;
+            }
+            // a point P is on the image when R(−θ)(P − c) + c is on the curve
+            let (cs, sn) = (func("cos", vec![th.clone()]), func("sin", vec![th.clone()]));
+            let (dx, dy) = (sub(x.clone(), centre[0].clone()), sub(y.clone(), centre[1].clone()));
+            let ox = add(vec![mul(vec![cs.clone(), dx.clone()]), mul(vec![sn.clone(), dy.clone()]), centre[0].clone()]);
+            let oy = add(vec![neg(mul(vec![sn, dx])), mul(vec![cs, dy]), centre[1].clone()]);
+            let img = s::simplify(&s::expand(&f.subs_many(&[(x.clone(), ox), (y.clone(), oy)])));
+            return Some(ans("rotation", format!("rotate {} by {} about {}", show(&eq(f, zero())), deg_text(&a, deg), show(&List(centre))), "Rotated curve", math(&eq(img, zero())), vec![]));
+        }
+        let v = vector(target)?;
+        if v.len() == 3 {
+            let axis = m.get(4).map(|c| vector(c.as_str())).unwrap_or(None)?;
+            if axis.len() != 3 {
+                return None;
+            }
+            let r = rodrigues(&axis, &th);
+            let img = mv(&r, &v);
+            return Some(ans("rotation", format!("rotate {} by {} about the axis {}", show(&List(v)), deg_text(&a, deg), show(&List(axis))), "Rotated", math(&List(img)), vec![pod("Matrix", "Rotation matrix", math(&mat_expr(&r)))]));
+        }
+        if v.len() == 2 && centre.len() == 2 && m.get(4).is_some() {
+            let (cs, sn) = (func("cos", vec![th.clone()]), func("sin", vec![th.clone()]));
+            let (dx, dy) = (sub(v[0].clone(), centre[0].clone()), sub(v[1].clone(), centre[1].clone()));
+            let nx = s::simplify(&add(vec![mul(vec![cs.clone(), dx.clone()]), neg(mul(vec![sn.clone(), dy.clone()])), centre[0].clone()]));
+            let ny = s::simplify(&add(vec![mul(vec![sn, dx]), mul(vec![cs, dy]), centre[1].clone()]));
+            return Some(ans("rotation", format!("rotate {} by {} about {}", show(&List(v)), deg_text(&a, deg), show(&List(centre))), "Rotated point", math(&List(vec![nx, ny])), vec![]));
+        }
+    }
+    // parabola from focus and vertex
+    if let Some(m) = re!(r"^(?:the\s+)?(?:equation of (?:the\s+|a\s+)?)?parabola\s+(?:with\s+)?(focus|vertex)\s*(?:at\s+)?(\(.+?\)),?\s+(?:and\s+)?(?:with\s+)?(focus|vertex)\s*(?:at\s+)?(\(.+?\))$").captures(&l) {
+        if m[1] == m[3] {
+            return None;
+        }
+        let (f, v) = if &m[1] == "focus" { (point2(&m[2])?, point2(&m[4])?) } else { (point2(&m[4])?, point2(&m[2])?) };
+        let (ux, uy) = (s::simplify(&sub(f.0.clone(), v.0.clone())), s::simplify(&sub(f.1.clone(), v.1.clone())));
+        let (dx, dy) = (s::simplify(&sub(v.0.clone(), ux.clone())), s::simplify(&sub(v.1.clone(), uy.clone())));
+        let (x, y) = (sym("x"), sym("y"));
+        let uu = add(vec![square(ux.clone()), square(uy.clone())]);
+        let lhs = mul(vec![uu.clone(), add(vec![square(sub(x.clone(), f.0.clone())), square(sub(y.clone(), f.1.clone()))])]);
+        let rhs = square(add(vec![mul(vec![ux.clone(), sub(x.clone(), dx.clone())]), mul(vec![uy.clone(), sub(y.clone(), dy.clone())])]));
+        let mut poly = s::simplify(&s::expand(&sub(lhs, rhs)));
+        // divide out a common integer factor
+        if let Some(g) = int_content(&poly) {
+            poly = s::simplify(&s::expand(&div(poly, int(g))));
+        }
+        let dir = s::simplify(&add(vec![mul(vec![ux.clone(), x.clone()]), mul(vec![uy.clone(), y.clone()])]));
+        let dir_rhs = s::simplify(&add(vec![mul(vec![ux.clone(), dx.clone()]), mul(vec![uy.clone(), dy.clone()])]));
+        let focal = s::simplify(&func("sqrt", vec![uu]));
+        return Some(ans("parabola", format!("parabola | focus ({}, {}) | vertex ({}, {})", show(&f.0), show(&f.1), show(&v.0), show(&v.1)), "Equation", math(&eq(poly, zero())), vec![
+            pod("Directrix", "Directrix", math(&eq(dir, dir_rhs))),
+            pod("Focal", "Focal length", math(&focal)),
+            pod("Axis", "Axis of symmetry", text(format!("the line through ({}, {}) and ({}, {})", show(&v.0), show(&v.1), show(&f.0), show(&f.1)))),
+        ]));
+    }
+    // intercepts of a plane
+    if let Some(m) = re!(r"^(?:the\s+)?(?:([xyz])[- ]?intercepts?|intercepts)\s+(?:of\s+)?(?:the\s+plane\s+)?(.+=.+)$").captures(&l) {
+        let (n, d) = plane(&m[2])?;
+        let ints: Vec<(String, Option<Expr>)> = xyz.iter().zip(&n).map(|(v, c)| (v.to_string(), (!c.is_zero()).then(|| s::simplify(&div(d.clone(), c.clone()))))).collect();
+        let fmt_i = |(v, i): &(String, Option<Expr>)| match i {
+            Some(e) => format!("{v} = {}", show(e)),
+            None => format!("none (the plane is parallel to the {v}-axis)"),
+        };
+        let pl = show(&eq(s::simplify(&add(n.iter().zip(xyz).map(|(c, v)| mul(vec![c.clone(), sym(v)])).collect())), d.clone()));
+        if let Some(axis) = m.get(1) {
+            let k = xyz.iter().position(|v| *v == axis.as_str())?;
+            let others: Vec<String> = ints.iter().enumerate().filter(|(i, _)| *i != k).map(|(_, x)| fmt_i(x)).collect();
+            return Some(ans("intercepts", format!("{}-intercept of the plane {pl}", axis.as_str()), "Result", text(fmt_i(&ints[k])), vec![pod("Other", "Other intercepts", text(others.join(", ")))]));
+        }
+        return Some(ans("intercepts", format!("intercepts of the plane {pl}"), "Result", text(ints.iter().map(fmt_i).collect::<Vec<_>>().join(", ")), vec![]));
+    }
+    None
+}
+
+/// The gcd of the integer coefficients of a sum, when all are integers.
+fn int_content(e: &Expr) -> Option<i64> {
+    let terms: Vec<Expr> = match e {
+        Add(v) => v.clone(),
+        t => vec![t.clone()],
+    };
+    let mut g: i64 = 0;
+    for t in &terms {
+        let c = match t {
+            Num(_) => t.clone(),
+            Mul(f) => f.iter().find(|x| matches!(x, Num(_))).cloned().unwrap_or_else(one),
+            _ => one(),
+        };
+        let v = crate::simplify::to_i64(&c)?;
+        let (mut a, mut b) = (g.abs(), v.abs());
+        while b != 0 {
+            (a, b) = (b, a % b);
+        }
+        g = a;
+    }
+    (g > 1).then_some(g)
+}
+
 fn geometry(q: &Query) -> Option<Answer> {
     let c = q.clean.trim().trim_end_matches('?').trim();
     let l = c.to_lowercase();
@@ -1060,6 +1384,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
     }
     behaviour_at(q)
+        .or_else(|| transforms(q))
         .or_else(|| geometry(q))
         .or_else(|| on_interval(q))
         .or_else(|| directional(q))

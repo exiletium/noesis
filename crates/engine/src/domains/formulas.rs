@@ -331,7 +331,7 @@ fn shape_props(shape: &str, p: &Params) -> Option<(String, Vec<Prop>)> {
             // regular polygons
             let n = POLYGONS.iter().find(|(name, _)| *name == shape).map(|(_, n)| *n)?;
             let nn = int(n);
-            let a = or_sym(dims.first().cloned(), "a");
+            let a = or_sym(dims.first().cloned().or_else(|| p.get(&["perimeter"]).map(|pe| s::simplify(&div(pe, int(n))))), "a");
             let v = [("n", &nn), ("a", &a)];
             let mut out = vec![
                 prop("sum of interior angles", f("(n-2)*180", &v), "(n − 2) · 180°", 0),
@@ -363,9 +363,14 @@ fn geometry(l: &str) -> Option<Answer> {
     if l.split_whitespace().count() > 18 || l.contains("plot") || l.contains("equation") || l.contains("integra") || l.contains("matrix") {
         return None;
     }
-    let pm = prop_re.find(l);
+    // a property keyword followed by a value is a given parameter
+    // ("cylinder, radius=3, height=4"), not the property asked for
+    let is_param = |m: &regex::Match| re!(r"^\s*(?:=|:|of|is)?\s*[-\d.(]").is_match(&l[m.end()..]);
+    let pm = prop_re.find_iter(l).find(|m| !(m.start() > sm.start() && is_param(m)));
+    let params_only = pm.is_none() && prop_re.is_match(l) && prop_re.find_iter(l).all(|m| m.start() > sm.start() && is_param(&m)) && re!(r"^(?:an?\s+|the\s+|regular\s+)?$").is_match(&l[..sm.start()]);
     // a property must come before the shape, or the query is just the shape
-    let rest_ok = pm.map_or(l.trim() == sm.as_str() || l.trim_start_matches("a ").trim_start_matches("an ") == sm.as_str(), |m| m.start() < sm.start() || l[sm.end()..].contains(m.as_str()));
+    let bare = l.trim().trim_start_matches("a ").trim_start_matches("an ").trim_start_matches("the ").trim_start_matches("regular ") == sm.as_str();
+    let rest_ok = pm.map_or(bare || params_only, |m| m.start() < sm.start() || l[sm.end()..].contains(m.as_str()));
     if !rest_ok {
         return None;
     }

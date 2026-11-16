@@ -18,6 +18,7 @@ pub mod practical;
 pub mod school;
 pub mod nuclides;
 pub mod physics;
+pub mod shapes;
 pub mod reactions;
 pub mod solutions;
 pub mod live;
@@ -29,5 +30,5 @@ use crate::engine::Handler;
 /// Domain handlers in priority order (they run before the general math
 /// analyzer, and only claim inputs that use their vocabulary).
 pub fn handlers() -> Vec<(&'static str, Handler)> {
-    vec![("live", live::handle), ("everyday", everyday::handle), ("practical", practical::handle), ("school", school::handle), ("music", music::handle), ("knowledge", knowledge::handle), ("nuclides", nuclides::handle), ("physics", physics::handle), ("misc", misc::handle), ("chem", chem::handle), ("chemcalc", chemcalc::handle), ("solutions", solutions::handle), ("reactions", reactions::handle), ("formulas", formulas::handle), ("formula_db", formula_db::handle), ("astro", astro::handle), ("geo", geo::handle), ("units", units::handle)]
+    vec![("live", live::handle), ("everyday", everyday::handle), ("practical", practical::handle), ("school", school::handle), ("music", music::handle), ("knowledge", knowledge::handle), ("nuclides", nuclides::handle), ("physics", physics::handle), ("shapes", shapes::handle), ("misc", misc::handle), ("chem", chem::handle), ("chemcalc", chemcalc::handle), ("solutions", solutions::handle), ("reactions", reactions::handle), ("formulas", formulas::handle), ("formula_db", formula_db::handle), ("astro", astro::handle), ("geo", geo::handle), ("units", units::handle)]
 }
