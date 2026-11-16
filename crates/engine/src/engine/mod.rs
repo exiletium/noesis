@@ -30,6 +30,7 @@ pub mod graphs;
 pub mod physics2;
 pub mod geology;
 pub mod cfrac;
+pub mod math3;
 
 use crate::budget;
 use crate::expr::Expr;
@@ -245,6 +246,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("toolbox", toolbox::handle));
     v.push(("inference", inference::handle));
     v.push(("school", school2::handle));
+    v.push(("math3", math3::handle));
     v.push(("commands", commands::handle));
     v.push(("intseq", intseq::handle));
     v.push(("math", math::handle));

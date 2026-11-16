@@ -519,8 +519,8 @@ fn properties_pod(f: &Expr, x: &Expr) -> Option<Pod> {
     let Sym(name) = x else { return None };
     let prog = crate::eval::Program::compile(f, &[name])?.with_real_roots();
     let mut rows = Vec::new();
-    // domain by sampling
-    let dom = domain_text(&prog, x);
+    // domain: exact exclusions when only denominators restrict it, else by sampling
+    let dom = symbolic_domain(f, x).unwrap_or_else(|| domain_text(&prog, x));
     rows.push(vec![text("Domain"), text(dom)]);
     // range estimate
     if let Some(r) = range_text(&prog) {
@@ -557,6 +557,110 @@ fn properties_pod(f: &Expr, x: &Expr) -> Option<Pod> {
         rows.push(vec![text("Period"), math(&per)]);
     }
     Some(pod("Properties", "Properties as a real function", table(None, rows)))
+}
+
+/// The domain of a function whose only restrictions are vanishing
+/// denominators (including tan, sec, cot, csc), solved exactly.
+fn symbolic_domain(f: &Expr, x: &Expr) -> Option<String> {
+    fn walk(e: &Expr, x: &Expr, out: &mut Vec<Expr>) -> bool {
+        if !e.has_sym(x) {
+            return true;
+        }
+        match e {
+            Sym(_) => true,
+            Add(v) | Mul(v) => v.iter().all(|t| walk(t, x, out)),
+            Pow(b, k) => {
+                if k.has_sym(x) {
+                    return false;
+                }
+                // 1/tan = cot, 1/sec = cos, …
+                if let (Func(n, a), Some(r)) = (&**b, k.as_rat()) {
+                    if r.is_integer() && r.is_negative() && a.len() == 1 && matches!(&**n, "tan" | "cot" | "sec" | "csc") {
+                        match &**n {
+                            "tan" => out.push(func("sin", vec![a[0].clone()])),
+                            "cot" => out.push(func("cos", vec![a[0].clone()])),
+                            _ => {}
+                        }
+                        return walk(&a[0], x, out);
+                    }
+                }
+                match k.as_rat() {
+                    Some(r) if r.is_integer() => {
+                        if r.is_negative() {
+                            out.push((**b).clone());
+                        }
+                        walk(b, x, out)
+                    }
+                    _ => false,
+                }
+            }
+            Func(n, a) if a.len() == 1 => {
+                match &**n {
+                    "sin" | "cos" | "exp" | "sinh" | "cosh" | "tanh" | "arctan" | "atan" | "abs" | "cbrt" => {}
+                    "tan" | "sec" => out.push(func("cos", vec![a[0].clone()])),
+                    "cot" | "csc" => out.push(func("sin", vec![a[0].clone()])),
+                    _ => return false,
+                }
+                walk(&a[0], x, out)
+            }
+            _ => false,
+        }
+    }
+    let mut dens = Vec::new();
+    if !walk(f, x, &mut dens) || dens.is_empty() {
+        return None;
+    }
+    let mut excl: Vec<Expr> = Vec::new();
+    for d in dens {
+        let rs = solve::solve(&eq(d.clone(), zero()), x);
+        if rs.partial {
+            return None;
+        }
+        let real = rs.real();
+        if real.is_empty() && crate::poly::coeffs(&d, x).is_none() {
+            return None;
+        }
+        for r in real {
+            if !excl.iter().any(|q| s::equal(q, &r)) {
+                excl.push(r);
+            }
+        }
+    }
+    let xs = ptext(x);
+    if excl.is_empty() {
+        return Some("all real numbers".into());
+    }
+    if excl.len() > 8 {
+        return None;
+    }
+    // merge families a + c n and a + c/2 + c n into a + (c/2) n
+    let n = solve::param();
+    let mut merged = true;
+    while merged {
+        merged = false;
+        'outer: for i in 0..excl.len() {
+            for j in 0..excl.len() {
+                if i == j {
+                    continue;
+                }
+                let (Some(ci), Some(cj)) = (crate::poly::coeffs(&excl[i], &n), crate::poly::coeffs(&excl[j], &n)) else { continue };
+                if ci.len() != 2 || cj.len() != 2 || !s::equal(&ci[1], &cj[1]) {
+                    continue;
+                }
+                let half = div(ci[1].clone(), int(2));
+                if s::simplify(&sub(sub(excl[j].clone(), excl[i].clone()), half.clone())).is_zero() {
+                    let m = s::simplify(&add(vec![ci[0].clone(), mul(vec![half, n.clone()])]));
+                    excl[i] = m;
+                    excl.remove(j);
+                    merged = true;
+                    break 'outer;
+                }
+            }
+        }
+    }
+    let family = excl.iter().any(|r| r.has_sym(&solve::param()));
+    let conds: Vec<String> = excl.iter().map(|r| format!("{xs} ≠ {}", ptext(r))).collect();
+    Some(format!("{{{xs} ∈ ℝ : {}}}{}", conds.join(", "), if family { " (n ∈ ℤ)" } else { "" }))
 }
 
 fn domain_text(prog: &crate::eval::Program, x: &Expr) -> String {

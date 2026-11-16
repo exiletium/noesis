@@ -602,6 +602,83 @@ pub fn ode_systems(q: &Query, l: &str, c: &str) -> Option<Answer> {
 // recurrences and generating functions
 // ---------------------------------------------------------------------------
 
+/// Rewrite "f(n+2) = … f(n+1) … f(n) … n …" as "f(n) = … f(n-1) … f(n-2) … (n-2) …".
+fn backward_form(main: &str) -> Option<String> {
+    let lhs = re!(r"^\s*([a-zA-Z])\s*[(\[]\s*n\s*\+\s*(\d+)\s*[)\]]\s*=").captures(main)?;
+    let f = lhs[1].to_string();
+    let k: i64 = lhs[2].parse().ok()?;
+    let pat = Regex::new(&format!(r"{}\s*[(\[]\s*n\s*(?:([+-])\s*(\d+)\s*)?[)\]]", regex::escape(&f))).ok()?;
+    let mut offs = Vec::new();
+    let marked = pat.replace_all(main, |c: &regex::Captures| {
+        let j: i64 = c.get(2).map(|d| d.as_str().parse().unwrap_or(0)).unwrap_or(0) * if c.get(1).map(|x| x.as_str()) == Some("-") { -1 } else { 1 };
+        offs.push(j);
+        format!("\u{1}{}\u{1}", offs.len() - 1)
+    }).to_string();
+    if offs.iter().any(|&j| j > k) {
+        return None;
+    }
+    let shifted = re!(r"\bn\b").replace_all(&marked, format!("(n-{k})").as_str()).to_string();
+    let back = re!(r"\x01(\d+)\x01").replace_all(&shifted, |c: &regex::Captures| {
+        let o = offs[c[1].parse::<usize>().unwrap_or(0)] - k;
+        if o == 0 { format!("{f}(n)") } else { format!("{f}(n-{})", -o) }
+    }).to_string();
+    Some(back)
+}
+
+/// A particular solution of a(n) − Σ c_j a(n−j) = g(n) for g a sum of
+/// polynomial × bⁿ terms, by undetermined coefficients.
+fn particular_solution(g: &Expr, coef: &[Expr], roots: &[Expr], charp: &Expr, r: &Expr) -> Option<Expr> {
+    let n = sym("n");
+    // group the terms of g by their exponential base
+    let mut groups: Vec<(Expr, Vec<Expr>)> = Vec::new();
+    for t in s::expand(g).terms() {
+        let mut base = one();
+        let mut rest = Vec::new();
+        for f in t.factors() {
+            match &f {
+                Pow(b, e) if !b.has_sym(&n) && s::equal(e, &n) => base = (**b).clone(),
+                _ => rest.push(f),
+            }
+        }
+        let p = mul(rest);
+        match groups.iter_mut().find(|(b, _)| s::equal(b, &base)) {
+            Some((_, v)) => v.push(p),
+            None => groups.push((base, vec![p])),
+        }
+    }
+    let mut total = Vec::new();
+    for (b, ps) in groups {
+        let gp = s::expand(&add(ps));
+        let deg = poly::coeffs(&gp, &n)?.len().max(1) - 1;
+        // multiplicity of b as a characteristic root
+        let mut mult = 0;
+        if roots.iter().any(|x| s::equal(x, &b)) {
+            let mut qd = charp.clone();
+            while mult < coef.len() && z(&s::simplify(&qd.subs(r, &b))) {
+                mult += 1;
+                qd = diff(&qd, r);
+            }
+        }
+        let us: Vec<Expr> = (0..=deg).map(|i| sym(&format!("u_{i}"))).collect();
+        let q = |m: &Expr| mul(vec![pow(m.clone(), int(mult as i64)), add(us.iter().enumerate().map(|(i, u)| mul(vec![u.clone(), pow(m.clone(), int(i as i64))])).collect())]);
+        let mut lhs = vec![q(&n)];
+        for (j, cj) in coef.iter().enumerate().skip(1) {
+            lhs.push(neg(mul(vec![cj.clone(), pow(b.clone(), int(-(j as i64))), q(&sub(n.clone(), int(j as i64)))])));
+        }
+        lhs.push(neg(gp));
+        let e = s::expand(&add(lhs));
+        let cs = poly::coeffs(&e, &n)?;
+        let sol = solve::solve_system(&cs, &us);
+        let first = sol.sols.first()?;
+        let qn = s::simplify(&q(&n).subs_many(first));
+        if qn.free_symbols().iter().any(|v| v.starts_with("u_")) {
+            return None;
+        }
+        total.push(if s::equal(&b, &one()) { qn } else { mul(vec![qn, pow(b, n.clone())]) });
+    }
+    Some(add(total))
+}
+
 pub fn recurrences(q: &Query, l: &str, c: &str) -> Option<Answer> {
     let _ = q;
     // named generating functions
@@ -632,7 +709,9 @@ pub fn recurrences(q: &Query, l: &str, c: &str) -> Option<Answer> {
     // linear recurrences with constant coefficients
     let body = re!(r"(?i)^(?:solve\s+)?(?:the\s+)?(?:recurrence(?:\s+relation)?|difference equation|rsolve)?\s*:?\s*").replace(c, "").to_string();
     let parts = split_top(&body);
-    let main = parts.first()?;
+    let mi = parts.iter().position(|p| re!(r"^\s*[a-zA-Z]\s*[(\[]\s*n\s*(?:[+-]\s*\d+\s*)?[)\]]\s*=").is_match(p))?;
+    let main_owned = backward_form(&parts[mi]).unwrap_or_else(|| parts[mi].clone());
+    let main = &main_owned;
     let m = re!(r"^\s*([a-zA-Z])\s*[(\[]\s*n\s*[)\]]\s*=\s*(.+)$").captures(main)?;
     let fname = m[1].to_string();
     let rhs_text = m[2].to_string();
@@ -659,13 +738,17 @@ pub fn recurrences(q: &Query, l: &str, c: &str) -> Option<Answer> {
         coef[k] = cs.get(1).cloned().unwrap_or_else(zero);
         rest = s::expand(&sub(rest, mul(vec![coef[k].clone(), v])));
     }
-    if coef.iter().any(|c| c.has_sym(&sym("n"))) || !z(&rest) {
+    if coef.iter().any(|c| c.has_sym(&sym("n"))) || rest.free_symbols().iter().any(|v| &**v != "n") {
         return None;
     }
+    let forcing = s::simplify(&rest);
     // initial values
     let mut init: Vec<(i64, Expr)> = Vec::new();
     let ip = Regex::new(&format!(r"^\s*{}\s*[(\[]\s*(\d+)\s*[)\]]\s*=\s*(.+)$", regex::escape(&fname))).ok()?;
-    for p in parts.iter().skip(1) {
+    for (pi_, p) in parts.iter().enumerate() {
+        if pi_ == mi {
+            continue;
+        }
         if let Some(cp) = ip.captures(p) {
             init.push((cp[1].parse().ok()?, ex(&cp[2])?));
         }
@@ -697,13 +780,19 @@ pub fn recurrences(q: &Query, l: &str, c: &str) -> Option<Answer> {
         return None;
     }
     let consts: Vec<Expr> = (1..=order).map(|k| sym(&format!("c_{k}"))).collect();
-    let general = add(basis.iter().zip(&consts).map(|(b, cst)| mul(vec![cst.clone(), b.clone()])).collect());
+    let particular = if z(&forcing) { zero() } else { particular_solution(&forcing, &coef, &seen, &charp, &r)? };
+    let general = add(vec![add(basis.iter().zip(&consts).map(|(b, cst)| mul(vec![cst.clone(), b.clone()])).collect()), particular.clone()]);
     let mut closed = general.clone();
     if init.len() >= order {
         let eqs: Vec<Expr> = init.iter().take(order).map(|(k, v)| sub(general.subs(&nn, &int(*k)), v.clone())).collect();
         let sol = solve::solve_system(&eqs, &consts);
         if let Some(first) = sol.sols.first() {
             closed = s::simplify(&general.subs_many(first));
+            if !z(&particular) {
+                let ex_ = s::expand(&closed);
+                let cands = vec![closed.clone(), ex_.clone(), s::factor(&ex_)];
+                closed = cands.into_iter().min_by_key(|e| ptext(e).len()).unwrap();
+            }
         }
     }
     let mut pods = vec![primary(pod("Result", if closed == general { "General solution" } else { "Closed form" }, math(&eq(func(&fname, vec![nn.clone()]), closed.clone()))))];
@@ -714,12 +803,13 @@ pub fn recurrences(q: &Query, l: &str, c: &str) -> Option<Answer> {
         let start = init[0].0;
         while vals.len() < 15 {
             let k = vals.len();
-            let next = s::simplify(&add((1..=order).map(|j| mul(vec![coef[j].clone(), vals[k - j].clone()])).collect()));
+            let g = forcing.subs(&nn, &int(start + k as i64));
+            let next = s::simplify(&add(vec![add((1..=order).map(|j| mul(vec![coef[j].clone(), vals[k - j].clone()])).collect()), g]));
             vals.push(next);
         }
         pods.push(pod("Terms", &format!("Terms from n = {start}"), text(vals.iter().map(ptext).collect::<Vec<_>>().join(", "))));
         // generating function Σ aₙ xⁿ = P(x)/Q(x)
-        if start == 0 {
+        if start == 0 && z(&forcing) {
             let x = sym("x");
             let qx = sub(one(), add((1..=order).map(|j| mul(vec![coef[j].clone(), pow(x.clone(), int(j as i64))])).collect()));
             let px = add((0..order).map(|i| mul(vec![sub(vals[i].clone(), add((1..=i).map(|j| mul(vec![coef[j].clone(), vals[i - j].clone()])).collect())), pow(x.clone(), int(i as i64))])).collect());
