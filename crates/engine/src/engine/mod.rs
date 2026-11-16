@@ -27,6 +27,7 @@ pub mod ccss;
 pub mod chance;
 pub mod intseq;
 pub mod graphs;
+pub mod physics2;
 
 use crate::budget;
 use crate::expr::Expr;
@@ -228,6 +229,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("numbers", numbers::handle));
     v.push(("daily", daily::handle));
     v.push(("chance", chance::handle));
+    v.push(("physics2", physics2::handle));
     v.push(("words", crate::domains::lexicon::handle));
     v.push(("facts", crate::domains::facts::handle));
     v.push(("language", nl::handle));
