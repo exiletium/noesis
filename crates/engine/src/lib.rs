@@ -1,4 +1,5 @@
 //! Noesis computational engine.
+pub mod algebraic;
 pub mod bigfloat;
 pub mod budget;
 pub mod calculus;
