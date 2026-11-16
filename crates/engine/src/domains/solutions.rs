@@ -550,7 +550,7 @@ fn stoichiometry(c: &str) -> Option<Answer> {
 // polyatomic ions
 // ---------------------------------------------------------------------------
 
-const IONS: &[(&str, &str, i32)] = &[
+pub(super) const IONS: &[(&str, &str, i32)] = &[
     ("ammonium", "NH4", 1),
     ("hydronium", "H3O", 1),
     ("mercury(I)", "Hg2", 2),

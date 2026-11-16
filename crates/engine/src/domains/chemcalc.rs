@@ -55,7 +55,14 @@ pub(super) fn substance(s: &str) -> Option<(String, String, BTreeMap<String, u32
             return Some((pretty(s), s.to_string(), c));
         }
     }
-    let e = find_element(s)?;
+    let Some(e) = find_element(s) else {
+        // the bundled compound database, then ionic names ("calcium hydrogen phosphate")
+        if let Some(c) = super::chem::find_db_compound(&lower).filter(|c| c.formula.chars().filter(|c| c.is_ascii_uppercase()).count() > 1) {
+            return Some((format!("{lower} ({})", pretty(c.formula)), c.formula.to_string(), parse_formula(c.formula)?));
+        }
+        let f = super::reactions::ionic_formula(&lower)?;
+        return Some((format!("{lower} ({})", pretty(&f)), f.clone(), parse_formula(&f)?));
+    };
     let mut c = BTreeMap::new();
     // the common diatomic gases are counted as molecules
     let di = matches!(e.symbol.as_str(), "H" | "N" | "O" | "F" | "Cl" | "Br" | "I") && lower.ends_with(" gas");

@@ -376,7 +376,7 @@ fn element_pods(e: &Element) -> Vec<Pod> {
     pods
 }
 
-fn compound_pods(label: &str, formula: &str, counts: &BTreeMap<String, u32>) -> Vec<Pod> {
+pub(super) fn compound_pods(label: &str, formula: &str, counts: &BTreeMap<String, u32>) -> Vec<Pod> {
     let mm = molar_mass(counts);
     let mut pods = vec![pod("Input", "Input interpretation", text(format!("{label} | molar mass")))];
     pods.push(primary(pod("Result", "Molar mass", text(format!("{} g/mol", fmt_float(mm, 7))))));
