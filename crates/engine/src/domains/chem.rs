@@ -482,7 +482,7 @@ const PROPS: &[&[&str]] = &[
 
 fn canonical_prop(p: &str) -> Option<&'static str> {
     let p = p.trim().trim_start_matches("the ").trim();
-    let single = p.replace("points", "point").replace("radii", "radius").replace("densities", "density").replace("energies", "energy").replace("masses", "mass").replace("numbers", "number").replace("configurations", "configuration");
+    let single = p.replace("points", "point").replace("radii", "radius").replace("densities", "density").replace("energies", "energy").replace("masses", "mass").replace("numbers", "number").replace("configurations", "configuration").replace("diagrams", "diagram");
     PROPS.iter().find(|syns| syns.iter().any(|s| *s == p || *s == single)).map(|syns| syns[0])
 }
 
@@ -635,6 +635,7 @@ fn element_list(s: &str) -> Option<Vec<&'static Element>> {
 
 fn element_question(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches('?').trim();
+    let l = re!(r"^(?:please )?(?:write|give|show|find|list|draw|what (?:is|are))\s+(?:me\s+)?").replace(l, "").to_string();
     let l = l.trim_start_matches("compare ").trim_start_matches("the ").trim();
     // split into (property, element text) in several word orders
     let mut tries: Vec<(String, String)> = Vec::new();
@@ -694,6 +695,14 @@ fn element_question(q: &Query) -> Option<Answer> {
 /// "lanthanides", "alkaline earth metals" → the members.
 fn element_group(t: &str) -> Option<(&'static str, Vec<&'static Element>)> {
     let t = t.trim().trim_start_matches("the ").trim_end_matches(" elements").trim();
+    let by_group = |g: u32| -> Vec<&'static Element> { elements().iter().filter(|e| e.group == Some(g) && e.z <= 118).collect() };
+    if t == "coinage metals" || t == "coinage metal" {
+        return Some(("Coinage metals", by_group(11).into_iter().filter(|e| e.z < 100).collect()));
+    }
+    if let Some(g) = t.strip_prefix("group ").and_then(|g| g.parse::<u32>().ok()).filter(|g| (1..=18).contains(g)) {
+        let list = by_group(g);
+        return (!list.is_empty()).then_some(("Group", list));
+    }
     let (_, series) = super::knowledge::GROUPS.iter().find(|(names, _)| names.contains(&t))?;
     let list: Vec<&Element> = elements().iter().filter(|e| e.series.as_deref() == Some(*series)).collect();
     (!list.is_empty()).then_some((*series, list))

@@ -535,3 +535,13 @@ fn molecular_graphs() {
     assert!(short("what are the bond energies in acetonitrile").contains("C≡N | 1 | 891 kJ/mol"));
     assert_eq!(short("margaric acid carbon backbone"), "17 atoms");
 }
+
+#[test]
+fn physical_chemistry() {
+    assert!(short("boiling point of benzene at 550 torr").starts_with("69.95"));
+    assert!(short("vapor pressure of water at 50 C").starts_with("12.30"));
+    assert!(short("titration of 50 mL of 2M of strong acid with 3M of strong base").starts_with("33.3333 mL"));
+    assert_eq!(short("ice at -78C, 2 atm"), "solid (ice Ih)");
+    assert!(short("Goff-Gratch equation for water at 50 F").starts_with("12.27"));
+    assert_eq!(short("Write the short electronic configuration for Sn"), "[Kr] 4d10 5s2 5p2");
+}

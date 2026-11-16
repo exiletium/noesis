@@ -595,6 +595,19 @@ pub fn scatter(points: Vec<[f64; 2]>, label: &str, fit: Option<&Expr>) -> Plot {
     plot
 }
 
+/// Line plot of sampled data series with axis labels.
+pub fn lines(series: Vec<(&str, Vec<f64>, Vec<f64>)>, x_label: &str, y_label: &str) -> Plot {
+    let mut plot = Plot::new(PlotKind::Cartesian);
+    for (label, xs, ys) in series {
+        let pts: Vec<[f64; 2]> = xs.iter().zip(&ys).filter(|(x, y)| x.is_finite() && y.is_finite()).map(|(x, y)| [*x, *y]).collect();
+        plot.series.push(Series { label: label.into(), segments: vec![pts], points: false });
+    }
+    fit_both(&mut plot);
+    plot.x_label = x_label.into();
+    plot.y_label = y_label.into();
+    plot
+}
+
 pub fn bars(values: Vec<(String, f64)>) -> Plot {
     let mut plot = Plot::new(PlotKind::Bars);
     let pts: Vec<[f64; 2]> = values.iter().enumerate().map(|(k, (_, v))| [k as f64, *v]).collect();
