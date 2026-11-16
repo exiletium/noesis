@@ -22,6 +22,7 @@ pub mod computing;
 pub mod inference;
 pub mod numbers;
 pub mod daily;
+pub mod school2;
 pub mod ccss;
 pub mod chance;
 pub mod intseq;
@@ -237,6 +238,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("analysis", analysis::handle));
     v.push(("toolbox", toolbox::handle));
     v.push(("inference", inference::handle));
+    v.push(("school", school2::handle));
     v.push(("commands", commands::handle));
     v.push(("intseq", intseq::handle));
     v.push(("math", math::handle));

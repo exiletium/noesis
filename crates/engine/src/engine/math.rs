@@ -1270,7 +1270,7 @@ pub fn inequality_pods(p: &Parsed, op: RelOp, a: &Expr, b: &Expr) -> Vec<Pod> {
     pods
 }
 
-fn spans_of(sol: &Expr, x: &Expr) -> Option<Vec<pl::Span>> {
+pub(crate) fn spans_of(sol: &Expr, x: &Expr) -> Option<Vec<pl::Span>> {
     let parts = match sol {
         Func(n, v) if &**n == "Or" => v.clone(),
         Const(K::True) => return Some(vec![pl::Span { lo: f64::NEG_INFINITY, hi: f64::INFINITY, lo_closed: false, hi_closed: false }]),

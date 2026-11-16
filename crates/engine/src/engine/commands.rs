@@ -564,12 +564,25 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
         return Some(Answer::new(format!("{what} of data"), pods));
     }
-    if let Some(m) = cap(re!(r"^(linear|quadratic|exponential)?\s*(?:fit|regression|least squares)\s+(?:of\s+|for\s+)?(.+)$")) {
-        let e = ex(m[2].as_deref()?)?;
-        let pts: Vec<[f64; 2]> = e.as_list()?.iter().filter_map(|p| {
-            let v = p.as_list()?;
-            Some([v.first()?.to_f64_const()?, v.get(1)?.to_f64_const()?])
-        }).collect();
+    if let Some(m) = cap(re!(r"^(linear|quadratic|exponential)?\s*(?:fit|regression|least squares(?: fit)?)\s+(?:of\s+|for\s+|to\s+)?(.+)$")) {
+        let body = m[2].as_deref()?.trim().to_string();
+        // accept "{1,2},{2,3}", "(1,2), (2,3)" and flat lists "2.2, 5.8, 10.2" (x = 1, 2, …)
+        let body = body.replace('(', "{").replace(')', "}");
+        let wrapped = if body.starts_with("{{") || !body.starts_with('{') || !body.contains("},") { body.clone() } else { format!("{{{body}}}") };
+        let wrapped = if wrapped.starts_with('{') { wrapped } else { format!("{{{wrapped}}}") };
+        let e = ex(&wrapped)?;
+        let items = e.as_list()?;
+        let pts: Vec<[f64; 2]> = if items.iter().all(|p| p.as_list().is_none()) {
+            items.iter().enumerate().filter_map(|(i, v)| Some([(i + 1) as f64, v.to_f64_const()?])).collect()
+        } else {
+            items.iter().filter_map(|p| {
+                let v = p.as_list()?;
+                Some([v.first()?.to_f64_const()?, v.get(1)?.to_f64_const()?])
+            }).collect()
+        };
+        if pts.len() != items.len() {
+            return None;
+        }
         if pts.len() < 2 {
             return None;
         }
