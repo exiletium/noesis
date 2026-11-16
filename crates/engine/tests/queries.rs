@@ -514,3 +514,14 @@ fn school_calculus_and_word_problems() {
     assert_eq!(short("7.5% of $12.95"), "$0.97 (exactly $0.97125)");
     assert!(short("maximize xyz in x^2+2y^2+3z^2<=1").starts_with("maximum 0.0785674"));
 }
+
+#[test]
+fn probability_and_random_variables() {
+    let a = |s: &str| short(s);
+    assert!(a("probability of 3rd head on 8th flip").contains("21/256"));
+    assert!(a("X~Poisson(7.3), EV[3X^4-7]").contains("166557683/10000"));
+    assert!(a("prob X<16 for X~geometric with p=0.1").contains("0.814697"));
+    assert!(a("3rd raw moment of the normal distribution").contains("3 μ σ^2"));
+    assert!(a("run of 3 heads in 15 flips").contains("22159/32768"));
+    assert!(a("X~N(1,2), P(X>3)").contains("0.158655"));
+}

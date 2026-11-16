@@ -32,6 +32,7 @@ pub mod geology;
 pub mod cfrac;
 pub mod math3;
 pub mod mathfacts;
+pub mod prob2;
 
 use crate::budget;
 use crate::expr::Expr;
@@ -242,6 +243,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("methods", methods::handle));
     v.push(("ode", ode::handle));
     v.push(("sequences", sequences::handle));
+    v.push(("prob2a", prob2::early));
     v.extend(crate::domains::handlers());
     v.push(("analysis", analysis::handle));
     v.push(("toolbox", toolbox::handle));
@@ -249,6 +251,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("school", school2::handle));
     v.push(("math3", math3::handle));
     v.push(("mathfacts", mathfacts::handle));
+    v.push(("prob2", prob2::handle));
     v.push(("commands", commands::handle));
     v.push(("intseq", intseq::handle));
     v.push(("math", math::handle));
@@ -386,6 +389,9 @@ fn run_handlers(input: &str, opts: &Options) -> QueryResult {
         for (_name, h) in hs {
             if let Some(ans) = budget::attempt_opt(budget::remaining(), || h(q)) {
                 if !ans.pods.is_empty() {
+                    if std::env::var_os("NOESIS_TRACE").is_some() {
+                        eprintln!("[handler {_name}] {}", q.clean);
+                    }
                     return Some(ans);
                 }
             }
