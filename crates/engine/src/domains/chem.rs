@@ -624,7 +624,8 @@ fn element_ref(s: &str) -> Option<&'static Element> {
 
 fn element_list(s: &str) -> Option<Vec<&'static Element>> {
     let parts: Vec<&str> = s.split(|c| c == ',' || c == '/').flat_map(|p| p.split(" and ")).flat_map(|p| p.split(" vs ")).flat_map(|p| p.split(" vs. ")).flat_map(|p| p.split(" versus ")).map(|p| p.trim()).filter(|p| !p.is_empty()).collect();
-    if parts.len() < 2 {
+    // bare numbers are arithmetic ("6/3"), not atomic numbers
+    if parts.len() < 2 || parts.iter().any(|p| p.trim_start_matches('-').parse::<f64>().is_ok()) {
         return None;
     }
     parts.iter().map(|p| element_ref(p)).collect()

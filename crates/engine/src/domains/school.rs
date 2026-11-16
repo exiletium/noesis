@@ -98,13 +98,17 @@ fn compare(l: &str) -> Option<Answer> {
         (m[1].to_string(), m[3].to_string(), Some(matches!(&m[2], "greater" | "larger" | "bigger" | "more")))
     } else if let Some(m) = re!(r"^compare (.+?) (?:and|with|to|vs\.?|versus) (.+)$").captures(l) {
         (m[1].to_string(), m[2].to_string(), None)
+    } else if let Some(m) = re!(r"^([-\d./ ]+?)\s+(?:vs\.?|versus)\s+([-\d./ ]+)$").captures(l) {
+        (m[1].to_string(), m[2].to_string(), None)
+    } else if let Some(m) = re!(r"^(?:is|are) (.+?) (?:equal to|the same as|equivalent to) (.+)$").captures(l) {
+        (m[1].to_string(), m[2].to_string(), None)
     } else {
         return None;
     };
     let (ea, va) = value(&a)?;
     let (eb, vb) = value(&b)?;
     // decimals stay as typed: 2.34, not 117/50
-    let typed = |src: &str, e: Expr| if src.contains('.') && !src.contains('/') { Expr::Sym(src.trim().into()) } else { e };
+    let typed = |src: &str, e: Expr| if src.trim().chars().all(|c| c.is_ascii_digit() || "./-".contains(c)) && src.trim().matches('/').count() <= 1 { Expr::Sym(src.trim().into()) } else { e };
     let (ea, eb) = (typed(&a, ea), typed(&b, eb));
     let rel = if (va - vb).abs() <= 1e-12 * va.abs().max(vb.abs()) { "=" } else if va < vb { "<" } else { ">" };
     let statement = format!("{} {rel} {}", show(&ea), show(&eb));

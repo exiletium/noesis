@@ -750,7 +750,8 @@ fn find(l: &str) -> Option<&'static Formula> {
 /// No formula named: "rho=1g/cm^3, h=3m, atmospheric pressure=1 bar, p=?"
 fn find_by_symbols(text: &str) -> Option<&'static Formula> {
     let syms: Vec<String> = re!(r"([A-Za-z_][A-Za-z0-9_ ]*?)\s*=").captures_iter(text).map(|m| m[1].trim().to_lowercase()).collect();
-    if syms.len() < 2 || !text.contains('?') {
+    // without a "?", at least one name must be a word ("height = 3 km")
+    if syms.len() < 2 || !text.contains('?') && !syms.iter().any(|s| s.len() >= 4 && s.chars().all(|c| c.is_ascii_alphabetic() || c == ' ')) {
         return None;
     }
     let score = |f: &Formula| syms.iter().filter(|s| f.vars.iter().any(|v| v.sym.to_lowercase() == **s || v.aliases.contains(s))).count();
@@ -761,6 +762,10 @@ fn find_by_symbols(text: &str) -> Option<&'static Formula> {
 pub fn handle(q: &Query) -> Option<Answer> {
     let f = find(&q.lower).or_else(|| find_by_symbols(q.raw))?;
     let s = solve_formula(f, if q.raw.contains('?') { q.raw.trim() } else { &q.clean });
+    if s.computed.is_empty() && s.given.is_empty() && !only_names(f, &q.lower) {
+        // "apparent magnitude of Rigel" asks about Rigel, not for the formula
+        return None;
+    }
     let mut pods = Vec::new();
     let given_text = s.given.iter().map(|(i, shown)| format!("{} = {shown}", f.vars[*i].desc)).collect::<Vec<_>>().join("  |  ");
     pods.push(pod("Input", "Input interpretation", text(if given_text.is_empty() { f.title.clone() } else { format!("{}  |  {given_text}", f.title) })));
@@ -787,6 +792,27 @@ pub fn handle(q: &Query) -> Option<Answer> {
         pods.push(pod("Notes", "Notes", text(f.note.clone())));
     }
     Some(Answer::new(f.title.clone(), pods))
+}
+
+/// Whether the text is just a name of the formula plus generic words.
+fn only_names(f: &Formula, l: &str) -> bool {
+    let n = normalise(l);
+    let mut names: Vec<String> = f.names.iter().map(|x| normalise(x)).filter(|x| contains_word(&n, x)).collect();
+    if names.is_empty() {
+        return false;
+    }
+    names.sort_by_key(|x| std::cmp::Reverse(x.len()));
+    let mut rest = n.clone();
+    for name in names {
+        if contains_word(&rest, &name) {
+            rest = rest.replacen(&name, " ", 1);
+        }
+    }
+    const GENERIC: &[&str] = &[
+        "formula", "formulas", "equation", "equations", "law", "calculator", "calculation", "calculations", "principle", "effect", "relation", "what", "is", "the", "a", "an", "show", "me", "of", "for", "give", "explain", "define", "definition", "derive", "derivation", "use", "using",
+        "how", "to", "calculate", "compute", "find", "solve", "example", "examples", "problem", "problems", "physics", "chemistry", "general", "simple", "basic", "and", "in", "?",
+    ];
+    rest.split(|c: char| c.is_whitespace() || c == ',' || c == '?').filter(|w| !w.is_empty()).all(|w| GENERIC.contains(&w))
 }
 
 fn cap(s: &str) -> String {

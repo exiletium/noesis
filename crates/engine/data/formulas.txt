@@ -227,6 +227,35 @@ var u; combined speed; m/s
 var v1; first velocity; m/s
 var v2; second velocity; m/s
 
+== proper velocity | celerity | proper speed
+eq w = v / sqrt(1 - v^2 / c^2)
+eq gamma = 1 / sqrt(1 - v^2 / c^2)
+eq phi = 0.5 * ln((1 + v / c) / (1 - v / c))
+var w; proper velocity; m/s
+var v; coordinate speed; m/s; speed, velocity
+var gamma; Lorentz factor; ; gamma
+var phi; rapidity; ; rapidity
+
+== relativistic aberration | aberration of light | relativistic aberration of light
+eq theta2 = acos((cos(theta) - v / c) / (1 - v / c * cos(theta)))
+var theta; angle in the source frame; deg; angle, theta
+var v; observer speed; m/s; speed, velocity
+var theta2; angle in the observer frame; deg
+
+== Cherenkov radiation | cerenkov radiation | cherenkov angle | cerenkov angle | cherenkov effect
+eq theta = acos(1 / (n * beta))
+eq beta = sqrt(1 - 1 / gamma^2)
+eq gamma = 1 + K / (m * c^2)
+eq Kth = m * c^2 * (1 / sqrt(1 - 1 / n^2) - 1)
+var K; kinetic energy; MeV; energy
+var m; particle mass; kg; mass; 9.1093837015e-31
+var n; refractive index; ; index, n
+var gamma; Lorentz factor; ; gamma
+var beta; speed as a fraction of c; ; beta
+var theta; Cherenkov angle; deg; angle
+var Kth; threshold kinetic energy; MeV
+note Light is emitted only when the speed exceeds c/n (the threshold); below it the angle is undefined. The electron mass is assumed unless another mass or particle is given.
+
 == mass energy equivalence formula | e=mc^2
 eq E = m * c^2
 var E; energy; J
@@ -255,7 +284,7 @@ eq p = p0 + rho * g * h
 var p; absolute pressure; Pa; pressure, p
 var p0; surface pressure; Pa; atmospheric pressure, surface pressure, p0; 101325
 var rho; fluid density; kg/m^3; density, rho; 1000
-var h; depth; m; height, depth, h
+var h; depth; m; depth, h, water height
 var g; gravitational acceleration; m/s^2; gravity; 9.80665
 
 == barometric formula | pressure at altitude | atmospheric pressure at altitude
@@ -263,7 +292,7 @@ eq p = p0 * exp(-Mair * g * h / (R * T))
 var p; pressure; Pa
 var p0; pressure at sea level; Pa; p0, sea level pressure; 101325
 var h; altitude; m; height, elevation
-var T; temperature; K; 288.15
+var T; temperature; K; ; 288.15
 var Mair; molar mass of air; kg/mol; ; 0.0289644
 var g; gravitational acceleration; m/s^2; gravity; 9.80665
 
@@ -333,7 +362,7 @@ var Ti; initial temperature; K; t1, initial temperature; 293.15
 var Tf; final temperature; K; t2, final temperature
 var gamma; heat capacity ratio; ; gamma, adiabatic index; 1.4
 
-== isothermal process | boyle's law
+== isothermal process | boyle's law | isothermal | isothermal expansion | isothermal compression
 eq p1 * V1 = p2 * V2
 var p1; initial pressure; atm; pi, initial pressure
 var V1; initial volume; L; vi, initial volume
@@ -412,9 +441,9 @@ var m; molecular mass; u; mass
 eq S = N * kB * (ln(V / (N * (h / sqrt(2 * pi * m * kB * T))^3)) + 5 / 2)
 var S; entropy; J/K
 var N; number of particles; ; particles; 6.02214076e23
-var V; volume; m^3; 0.0224
+var V; volume; m^3; ; 0.0224
 var m; particle mass; u; mass
-var T; temperature; K; 273.15
+var T; temperature; K; ; 273.15
 note Entropy of a monatomic ideal gas.
 
 == Clausius-Clapeyron equation | clausius clapeyron | vapor pressure
@@ -478,7 +507,7 @@ var fc; cutoff frequency; Hz
 eq f0 = 1 / (2 * pi * sqrt(L * C))
 eq Qf = sqrt(L / C) / R
 eq alpha = R / (2 * L)
-var R; resistance; ohm; 1
+var R; resistance; ohm; ; 1
 var L; inductance; henry
 var C; capacitance; farad
 var f0; resonant frequency; Hz
@@ -527,7 +556,7 @@ var r; distance from the wire; m; distance
 == Lorentz force | force on a moving charge
 eq F = q * v * B * sin(theta)
 var F; force; N
-var q; charge; C; 1.602176634e-19
+var q; charge; C; ; 1.602176634e-19
 var v; speed; m/s; velocity
 var B; magnetic field; tesla; field
 var theta; angle; deg; angle; 90
@@ -535,7 +564,7 @@ var theta; angle; deg; angle; 90
 == cyclotron frequency | larmor frequency | gyrofrequency
 eq f = q * B / (2 * pi * m)
 var f; frequency; Hz
-var q; charge; C; 1.602176634e-19
+var q; charge; C; ; 1.602176634e-19
 var B; magnetic field; tesla; field; 1
 var m; mass; kg
 
@@ -701,6 +730,26 @@ var dlam; wavelength shift; pm
 var theta; scattering angle; deg; angle
 var m; particle mass; kg; ; 9.1093837015e-31
 
+== Heisenberg uncertainty principle | uncertainty principle | heisenberg uncertainty | heisenberg principle
+eq dp = hbar / (2 * dx)
+eq dv = dp / m
+var dx; position uncertainty; nm; Δx, delta x, position
+var dp; minimum momentum uncertainty; kg m/s; Δp, delta p, momentum
+var m; mass; kg; mass; 9.1093837015e-31
+var dv; minimum velocity uncertainty; m/s; Δv, delta v
+note Δx Δp ≥ ħ/2; the velocity uncertainty assumes an electron unless a mass is given.
+
+== Rutherford scattering | coulomb scattering | rutherford cross section
+eq ds = (z * Z * qe^2 / (16 * pi * eps0 * K))^2 / sin(theta / 2)^4
+eq dmin = z * Z * qe^2 / (4 * pi * eps0 * K)
+var theta; scattering angle; deg; angle
+var K; kinetic energy; MeV; energy
+var z; projectile charge number; ; projectile charge; 2
+var Z; target atomic number; ; target, atomic number; 79
+var ds; differential cross section; m^2
+var dmin; distance of closest approach (head-on); fm
+note Defaults: an alpha particle (z = 2) on gold (Z = 79); the cross section is per steradian.
+
 == particle in a box | infinite square well | particle in a 1d box
 eq E = n^2 * h^2 / (8 * m * L^2)
 var E; energy level; eV; energy
@@ -730,18 +779,18 @@ var T; half-life of carbon-14; yr; ; 5730
 == mean free path
 eq l = kB * T / (sqrt(2) * pi * d^2 * p)
 var l; mean free path; m
-var T; temperature; K; 293.15
+var T; temperature; K; ; 293.15
 var d; molecular diameter; m; diameter; 3.7e-10
 var p; pressure; Pa; ; 101325
 
 # ------------------------------------------------------------- astronomy
 
-== mass luminosity relation | luminosity from mass | main sequence luminosity
+== mass luminosity relation | luminosity from mass | main sequence luminosity | luminosity
 eq L = Lsun * (M / Msun)^3.5
 var L; luminosity; W
 var M; stellar mass; solar masses; mass
 
-== distance modulus | absolute magnitude | luminosity from apparent magnitude
+== distance modulus | absolute magnitude | luminosity from apparent magnitude | apparent magnitude | app magnitude
 eq Mabs = mapp - 5 * log10(d / (10 * pc))
 eq L = Lsun * 10^(0.4 * (4.83 - Mabs))
 var mapp; apparent magnitude; ; app magnitude, apparent magnitude, magnitude

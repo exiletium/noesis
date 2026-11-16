@@ -143,7 +143,7 @@ static UNITS: &[UnitDef] = &[
     u!(&["v", "volt", "volts"], 1.0, VOLT, "volts", p),
     u!(&["ω", "ohm", "ohms"], 1.0, OHM, "ohms", p),
     u!(&["f", "farad", "farads"], 1.0, d(-2, -1, 4, 2, 0, 0, 0, 0), "farads", p),
-    u!(&["t", "tesla", "teslas"], 1.0, d(0, 1, -2, -1, 0, 0, 0, 0), "teslas", p),
+    u!(&["T", "tesla", "teslas"], 1.0, d(0, 1, -2, -1, 0, 0, 0, 0), "teslas", p),
     u!(&["henry", "henries", "henrys"], 1.0, d(2, 1, -2, -2, 0, 0, 0, 0), "henries", p),
     u!(&["wb", "weber", "webers"], 1.0, d(2, 1, -2, -1, 0, 0, 0, 0), "webers", p),
     u!(&["gauss"], 1e-4, d(0, 1, -2, -1, 0, 0, 0, 0), "gauss", p),
@@ -183,6 +183,7 @@ const PREFIXES: &[(&str, &str, f64)] = &[
     ("c", "centi", 1e-2),
     ("m", "milli", 1e-3),
     ("µ", "micro", 1e-6),
+    ("μ", "micro", 1e-6),
     ("u", "micro", 1e-6),
     ("n", "nano", 1e-9),
     ("p", "pico", 1e-12),
@@ -216,7 +217,8 @@ fn lookup_word(w: &str) -> Option<Unit> {
     // exact (case-insensitive for multi-letter names, sensitive for B/b)
     for u in UNITS {
         for n in u.names {
-            let hit = if n.len() <= 2 { *n == w || (*n == lw && !matches!(w, "B" | "b" | "M" | "G" | "T" | "P")) } else { *n == lw };
+            // capital C is the coulomb, never the speed of light
+            let hit = if n.len() <= 2 { *n == w || (*n == lw && !matches!(w, "B" | "b" | "M" | "G" | "T" | "P") && !(w == "C" && u.long == "speed of light")) } else { *n == lw };
             if hit {
                 return Some(Unit { factor: u.factor, dim: u.dim, offset: u.offset, name: u.long.to_string() });
             }
@@ -460,8 +462,8 @@ pub static CONSTANTS: &[Constant] = &[
     Constant { names: &["electron mass", "mass of an electron", "mass of electron"], symbol: "m_e", value: 9.1093837015e-31, unit: "kg", exact: false },
     Constant { names: &["proton mass", "mass of a proton", "mass of proton"], symbol: "m_p", value: 1.67262192369e-27, unit: "kg", exact: false },
     Constant { names: &["neutron mass", "mass of a neutron", "mass of neutron"], symbol: "m_n", value: 1.67492749804e-27, unit: "kg", exact: false },
-    Constant { names: &["vacuum permittivity", "permittivity of free space", "electric constant", "epsilon 0"], symbol: "ε₀", value: 8.8541878128e-12, unit: "F/m", exact: false },
-    Constant { names: &["vacuum permeability", "permeability of free space", "magnetic constant", "mu 0"], symbol: "μ₀", value: 1.25663706212e-6, unit: "N/A^2", exact: false },
+    Constant { names: &["vacuum permittivity", "permittivity of free space", "permittivity of vacuum", "permittivity of a vacuum", "electric constant", "epsilon 0"], symbol: "ε₀", value: 8.8541878128e-12, unit: "F/m", exact: false },
+    Constant { names: &["vacuum permeability", "permeability of free space", "permeability of vacuum", "magnetic permeability of vacuum", "permeability of a vacuum", "magnetic constant", "mu 0"], symbol: "μ₀", value: 1.25663706212e-6, unit: "N/A^2", exact: false },
     Constant { names: &["gas constant", "molar gas constant", "ideal gas constant", "universal gas constant"], symbol: "R", value: 8.314462618, unit: "J/(mol K)", exact: true },
     Constant { names: &["standard gravity", "standard acceleration of gravity", "acceleration due to gravity", "gravity on earth"], symbol: "g", value: 9.80665, unit: "m/s^2", exact: true },
     Constant { names: &["stefan-boltzmann constant", "stefan boltzmann constant"], symbol: "σ", value: 5.670374419e-8, unit: "W/(m^2 K^4)", exact: false },
@@ -481,6 +483,39 @@ pub static CONSTANTS: &[Constant] = &[
     Constant { names: &["speed of sound in water", "speed of sound in fresh water"], symbol: "", value: 1482.0, unit: "m/s", exact: false },
     Constant { names: &["speed of sound in seawater", "speed of sound in sea water"], symbol: "", value: 1531.0, unit: "m/s", exact: false },
     Constant { names: &["speed of sound in steel"], symbol: "", value: 5960.0, unit: "m/s", exact: false },
+    Constant { names: &["planck mass"], symbol: "m_P", value: 2.176434e-8, unit: "kg", exact: false },
+    Constant { names: &["planck length"], symbol: "ℓ_P", value: 1.616255e-35, unit: "m", exact: false },
+    Constant { names: &["planck time"], symbol: "t_P", value: 5.391247e-44, unit: "s", exact: false },
+    Constant { names: &["planck temperature"], symbol: "T_P", value: 1.416784e32, unit: "K", exact: false },
+    Constant { names: &["planck energy"], symbol: "E_P", value: 1.9561e9, unit: "J", exact: false },
+    Constant { names: &["planck charge"], symbol: "q_P", value: 1.875545956e-18, unit: "C", exact: false },
+    Constant { names: &["classical electron radius", "electron radius", "thomson scattering length"], symbol: "r_e", value: 2.8179403262e-15, unit: "m", exact: false },
+    Constant { names: &["bohr magneton"], symbol: "μ_B", value: 9.2740100783e-24, unit: "J/T", exact: false },
+    Constant { names: &["nuclear magneton"], symbol: "μ_N", value: 5.0507837461e-27, unit: "J/T", exact: false },
+    Constant { names: &["thomson cross section", "thomson cross-section"], symbol: "σ_e", value: 6.6524587321e-29, unit: "m^2", exact: false },
+    Constant { names: &["conductance quantum", "landauer conductance", "quantum of conductance"], symbol: "G₀", value: 7.748091729e-5, unit: "S", exact: true },
+    Constant { names: &["magnetic flux quantum", "flux quantum", "superconducting magnetic flux quantum"], symbol: "Φ₀", value: 2.067833848e-15, unit: "Wb", exact: true },
+    Constant { names: &["von klitzing constant", "klitzing constant", "resistance quantum"], symbol: "R_K", value: 25812.80745, unit: "ohm", exact: true },
+    Constant { names: &["josephson constant"], symbol: "K_J", value: 483597.8484e9, unit: "Hz/V", exact: true },
+    Constant { names: &["compton wavelength", "electron compton wavelength", "compton wavelength of the electron"], symbol: "λ_C", value: 2.42631023867e-12, unit: "m", exact: false },
+    Constant { names: &["hartree energy", "hartree"], symbol: "E_h", value: 4.3597447222071e-18, unit: "J", exact: false },
+    Constant { names: &["wien displacement constant", "wien's displacement constant", "wien constant"], symbol: "b", value: 2.897771955e-3, unit: "m K", exact: true },
+    Constant { names: &["coulomb constant", "coulomb's constant", "electrostatic constant"], symbol: "k_e", value: 8.9875517923e9, unit: "N m^2/C^2", exact: false },
+    Constant { names: &["impedance of free space", "characteristic impedance of vacuum", "vacuum impedance"], symbol: "Z₀", value: 376.730313668, unit: "ohm", exact: false },
+    Constant { names: &["muon mass", "mass of a muon", "mass of muon"], symbol: "m_μ", value: 1.883531627e-28, unit: "kg", exact: false },
+    Constant { names: &["electron g-factor", "electron g factor", "g-factor of the electron"], symbol: "g_e", value: -2.00231930436256, unit: "", exact: false },
+    Constant { names: &["electron magnetic moment"], symbol: "μ_e", value: -9.2847647043e-24, unit: "J/T", exact: false },
+    Constant { names: &["proton magnetic moment"], symbol: "μ_p", value: 1.41060679736e-26, unit: "J/T", exact: false },
+    Constant { names: &["proton gyromagnetic ratio", "gyromagnetic ratio proton", "gyromagnetic ratio of the proton", "gyromagnetic ratio formula proton"], symbol: "γ_p", value: 2.6752218744e8, unit: "1/(s T)", exact: false },
+    Constant { names: &["electron gyromagnetic ratio", "gyromagnetic ratio electron", "gyromagnetic ratio of the electron"], symbol: "γ_e", value: 1.76085963023e11, unit: "1/(s T)", exact: false },
+    Constant { names: &["schwinger field strength", "schwinger electric field strength", "schwinger limit", "schwinger field", "critical electric field"], symbol: "E_S", value: 1.32329e18, unit: "V/m", exact: false },
+    Constant { names: &["schwinger magnetic field", "critical magnetic field"], symbol: "B_S", value: 4.41401e9, unit: "T", exact: false },
+    Constant { names: &["loschmidt constant", "loschmidt number"], symbol: "n₀", value: 2.686780111e25, unit: "1/m^3", exact: true },
+    Constant { names: &["molar volume of an ideal gas", "molar volume of ideal gas", "molar volume at stp"], symbol: "V_m", value: 22.41396954e-3, unit: "m^3/mol", exact: true },
+    Constant { names: &["proton charge radius", "proton radius", "radius of a proton"], symbol: "r_p", value: 8.414e-16, unit: "m", exact: false },
+    Constant { names: &["solar luminosity", "luminosity of the sun", "sun luminosity"], symbol: "L_☉", value: 3.828e26, unit: "W", exact: true },
+    Constant { names: &["hubble constant"], symbol: "H₀", value: 67.4, unit: "km/s/Mpc", exact: false },
+    Constant { names: &["geocentric gravitational constant", "standard gravitational parameter of the earth", "gm of earth"], symbol: "GM_⊕", value: 3.986004418e14, unit: "m^3/s^2", exact: false },
     Constant { names: &["absolute zero"], symbol: "", value: 0.0, unit: "K", exact: true },
 ];
 
