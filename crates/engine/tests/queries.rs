@@ -559,3 +559,14 @@ fn units_and_standards() {
     assert!(short("NPS 1 inch steel 25ft").starts_with("19.059 kg"));
     assert!(short("gas mark 1/4").starts_with("225 °F"));
 }
+
+#[test]
+fn number_names_types_and_wigner_symbols() {
+    assert_eq!(short("spell 40"), "forty");
+    assert_eq!(short("1 vigintillion"), "10^63");
+    assert_eq!(short("five sixteenths"), "5/16");
+    assert_eq!(short("integer / integer"), "rational number");
+    assert_eq!(short("negative integer - nonnegative rational"), "negative rational number");
+    assert_eq!(short("wigner 3j (1, 1, 0, 0, 0, 0)"), "-sqrt(3)/3");
+    assert_eq!(short("clebsch gordan 1/2 1/2 1/2 -1/2 1 0"), "sqrt(2)/2");
+}
