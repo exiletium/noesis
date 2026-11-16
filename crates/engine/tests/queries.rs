@@ -580,3 +580,12 @@ fn periodic_and_substitution_tilings() {
     assert!(pod_text(&q("domino tiling 3 steps"), "Properties").contains("64"));
     assert!(pod_text(&q("penrose tiling"), "Properties").contains("thick"));
 }
+
+#[test]
+fn kinetic_theory_and_cosmology() {
+    assert!(pod_text(&q("msd for neon at 800 K"), "Result").contains("811.9"));
+    assert!(pod_text(&q("rms speed of nitrogen at 25 °C"), "Result").contains("515.2"));
+    assert!(pod_text(&q("Bose-Einstein condensation temperature Rb"), "Result").contains("398.3"));
+    assert!(pod_text(&q("1 billion years after the big bang"), "Result").contains("5.66"));
+    assert!(pod_text(&q("age of the universe at z=1100"), "Result").contains("thousand years"));
+}
