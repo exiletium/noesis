@@ -1,0 +1,831 @@
+# Named formulas for domains/formula_db.rs.
+#
+#   == Title | other name | other name ...
+#   eq  lhs = rhs                      (ASCII names; constants: see CONSTANTS)
+#   var symbol; meaning; display unit; aliases, comma separated; default value
+#   note free text
+#
+# Values are in SI internally; the display unit is what answers are shown in
+# unless the question used another unit of the same dimension.  A variable
+# with a default is used only when the question does not give it.
+
+# ------------------------------------------------------------- mechanics
+
+== Newton's second law | f=ma | force mass acceleration
+eq F = m * a
+var F; force; N; f
+var m; mass; kg
+var a; acceleration; m/s^2
+
+== torque | moment of force
+eq tau = r * F * sin(theta)
+var tau; torque; N m; moment
+var r; lever arm length; m; lever arm, radius, distance, length
+var F; force; N
+var theta; angle between force and lever arm; deg; angle; 90
+
+== work done by a force | mechanical work | work done
+eq W = F * d * cos(theta)
+var W; work; J
+var F; force; N
+var d; displacement; m; distance
+var theta; angle between force and displacement; deg; angle; 0
+
+== projectile motion | projectile | trajectory of a projectile | projectile range
+eq R = v^2 * sin(2 * theta) / g
+eq H = v^2 * sin(theta)^2 / (2 * g)
+eq T = 2 * v * sin(theta) / g
+var v; launch speed; m/s; initial speed, initial velocity, speed, velocity
+var theta; launch angle; deg; angle, elevation
+var R; range; m; horizontal distance
+var H; maximum height; m; max height, peak height
+var T; time of flight; s; flight time
+var g; gravitational acceleration; m/s^2; gravity; 9.80665
+
+== time to fall | falling time | fall time | dropped object
+eq t = sqrt(2 * h / g)
+eq v = g * t
+var h; height; m; drop height, distance
+var t; time to fall; s; time
+var v; impact speed; m/s; final speed
+var g; gravitational acceleration; m/s^2; gravity; 9.80665
+
+== block on an inclined plane | inclined plane | incline | ball on incline | ramp
+eq a = g * (sin(theta) - mu * cos(theta))
+eq d = a * t^2 / 2
+eq v = a * t
+eq N = m * g * cos(theta)
+var a; acceleration along the incline; m/s^2
+var theta; incline angle; deg; angle, slope, inclination; 30
+var mu; coefficient of friction; ; friction coefficient, friction; 0
+var t; time; s; for
+var d; distance travelled; m; distance
+var v; final speed; m/s
+var m; mass; kg
+var N; normal force; N
+var g; gravitational acceleration; m/s^2; gravity; 9.80665
+
+== Hooke's law | spring force
+eq F = k * x
+var F; spring force; N; force
+var k; spring constant; N/m; stiffness
+var x; extension; m; displacement, compression
+
+== elastic potential energy | spring potential energy | energy stored in a spring
+eq U = k * x^2 / 2
+var U; elastic potential energy; J; energy
+var k; spring constant; N/m; stiffness
+var x; extension; m; displacement, compression
+
+== mass on a spring | spring mass system | spring oscillator | harmonic oscillator period
+eq T = 2 * pi * sqrt(m / k)
+eq f = 1 / T
+var T; period; s
+var f; frequency; Hz
+var m; mass; kg
+var k; spring constant; N/m; stiffness
+
+== elastic collision | 1d elastic collision | elastic collisions
+eq v1f = ((m1 - m2) * v1i + 2 * m2 * v2i) / (m1 + m2)
+eq v2f = ((m2 - m1) * v2i + 2 * m1 * v1i) / (m1 + m2)
+var m1; mass of the first object; kg; first mass
+var v1i; initial velocity of the first object; m/s; v1
+var m2; mass of the second object; kg; second mass
+var v2i; initial velocity of the second object; m/s; v2
+var v1f; final velocity of the first object; m/s
+var v2f; final velocity of the second object; m/s
+
+== perfectly inelastic collision | inelastic collision
+eq vf = (m1 * v1i + m2 * v2i) / (m1 + m2)
+var m1; mass of the first object; kg; first mass
+var v1i; initial velocity of the first object; m/s; v1
+var m2; mass of the second object; kg; second mass
+var v2i; initial velocity of the second object; m/s; v2
+var vf; final velocity; m/s
+
+== lever | mechanical advantage of a lever | law of the lever
+eq MA = Le / Lr
+eq Fr = MA * Fe
+var MA; mechanical advantage; ; advantage
+var Le; effort arm length; m; effort arm
+var Lr; load arm length; m; load arm, resistance arm
+var Fe; effort force; N; effort
+var Fr; load force; N; load
+
+== pulley system | block and tackle | pulleys
+eq MA = n
+eq F = W / n
+var n; number of supporting rope segments; ; n, ropes, pulleys
+var MA; ideal mechanical advantage;
+var W; load weight; N; load, weight
+var F; required effort; N; effort
+
+== mechanical stress | stress | normal stress
+eq sigma = F / A
+eq A = pi * d^2 / 4
+var sigma; stress; Pa
+var F; force; N; load
+var A; cross-sectional area; m^2; area
+var d; diameter; m; rod diameter
+
+== strain | nominal strain | cauchy strain | engineering strain
+eq e = (L - L0) / L0
+var e; strain; ; e
+var L; final length; m; final, length
+var L0; original length; m; initial length, original, initial; 1
+
+== Young's modulus | modulus of elasticity | elastic modulus
+eq E = (F / A) / (dL / L0)
+var E; Young's modulus; Pa; modulus
+var F; force; N
+var A; cross-sectional area; m^2; area
+var dL; change in length; m; extension, elongation
+var L0; original length; m; length
+
+== Euler column buckling | column buckling | buckling load | critical buckling load
+eq Fcr = pi^2 * E * I / (K * L)^2
+var Fcr; critical load; N; load
+var E; Young's modulus; Pa; modulus
+var I; area moment of inertia; m^4; moment of inertia
+var L; unsupported length; m; length
+var K; effective length factor; ; factor; 1
+
+== centripetal force formula | circular motion
+eq F = m * v^2 / r
+eq a = v^2 / r
+eq T = 2 * pi * r / v
+var F; centripetal force; N; force
+var m; mass; kg
+var v; speed; m/s; velocity
+var r; radius; m
+var a; centripetal acceleration; m/s^2
+var T; period; s
+
+== Kepler's third law | orbital period | kepler's law
+eq T = 2 * pi * sqrt(a^3 / (G * (M1 + M2)))
+var T; orbital period; yr; period
+var M1; mass of the central body; kg; central mass, primary mass, star mass
+var M2; mass of the orbiting body; kg; secondary mass, planet mass; 0
+var a; semi-major axis; AU; semimajor axis, orbital radius, distance
+
+== orbital velocity | orbital speed | circular orbit speed
+eq v = sqrt(G * M / r)
+var v; orbital speed; km/s; speed, velocity
+var M; central mass; kg; mass
+var r; orbital radius; km; radius, distance
+
+== surface gravity | gravitational acceleration formula
+eq g = G * M / r^2
+var g; surface gravity; m/s^2; gravity
+var M; mass; kg
+var r; radius; m
+
+== gravitational time dilation | time dilation near a mass
+eq factor = sqrt(1 - 2 * G * M / (r * c^2))
+var factor; clock rate relative to far away; ; rate
+var M; mass; kg
+var r; distance from the center; km; distance, radius, altitude
+
+== two body problem | reduced mass
+eq mu = m1 * m2 / (m1 + m2)
+var mu; reduced mass; kg
+var m1; first mass; kg
+var m2; second mass; kg
+
+# ------------------------------------------------------------- relativity
+
+== Lorentz factor | gamma factor | lorentz gamma
+eq gamma = 1 / sqrt(1 - v^2 / c^2)
+var gamma; Lorentz factor; ; gamma
+var v; speed; m/s; velocity
+
+== time dilation | special relativistic time dilation
+eq t = t0 / sqrt(1 - v^2 / c^2)
+var t; dilated time; s
+var t0; proper time; s; proper
+var v; speed; m/s; velocity
+
+== length contraction | lorentz contraction
+eq L = L0 * sqrt(1 - v^2 / c^2)
+var L; contracted length; m
+var L0; proper length; m; proper, length
+var v; speed; m/s; velocity
+
+== relativistic momentum
+eq p = m * v / sqrt(1 - v^2 / c^2)
+eq E = m * c^2 / sqrt(1 - v^2 / c^2)
+eq K = E - m * c^2
+var p; relativistic momentum; kg m/s; momentum
+var m; rest mass; kg; mass
+var v; speed; m/s; velocity
+var E; total energy; MeV
+var K; kinetic energy; MeV
+
+== relativistic velocity addition | add velocities | velocity addition | relativistic addition of velocities
+eq u = (v1 + v2) / (1 + v1 * v2 / c^2)
+var u; combined speed; m/s
+var v1; first velocity; m/s
+var v2; second velocity; m/s
+
+== mass energy equivalence formula | e=mc^2
+eq E = m * c^2
+var E; energy; J
+var m; mass; kg
+
+# ------------------------------------------------------------- black holes
+
+== black hole | schwarzschild radius | schwarzschild black hole | event horizon | hawking radiation | black hole temperature | black hole entropy | black hole lifetime | hawking temperature
+eq rs = 2 * G * M / c^2
+eq T = hbar * c^3 / (8 * pi * G * M * kB)
+eq S = 4 * pi * G * M^2 * kB / (hbar * c)
+eq tev = 5120 * pi * G^2 * M^3 / (hbar * c^4)
+eq P = hbar * c^6 / (15360 * pi * G^2 * M^2)
+var M; mass; solar masses; mass
+var rs; event horizon radius; km; radius, schwarzschild radius, horizon radius, event horizon radius
+var T; Hawking temperature; K; temperature
+var S; entropy; J/K; entropy
+var tev; evaporation lifetime; yr; lifetime, evaporation time
+var P; Hawking radiation power; W; luminosity, power
+note Non-rotating, uncharged (Schwarzschild) black hole; lifetime ignores particle species other than photons.
+
+# ------------------------------------------------------------- fluids
+
+== hydrostatic pressure | pressure at depth | fluid pressure
+eq p = p0 + rho * g * h
+var p; absolute pressure; Pa; pressure, p
+var p0; surface pressure; Pa; atmospheric pressure, surface pressure, p0; 101325
+var rho; fluid density; kg/m^3; density, rho; 1000
+var h; depth; m; height, depth, h
+var g; gravitational acceleration; m/s^2; gravity; 9.80665
+
+== barometric formula | pressure at altitude | atmospheric pressure at altitude
+eq p = p0 * exp(-Mair * g * h / (R * T))
+var p; pressure; Pa
+var p0; pressure at sea level; Pa; p0, sea level pressure; 101325
+var h; altitude; m; height, elevation
+var T; temperature; K; 288.15
+var Mair; molar mass of air; kg/mol; ; 0.0289644
+var g; gravitational acceleration; m/s^2; gravity; 9.80665
+
+== Archimedes' principle | buoyant force | buoyancy
+eq Fb = rho * V * g
+var Fb; buoyant force; N; force
+var rho; fluid density; kg/m^3; density; 1000
+var V; displaced volume; m^3; volume
+var g; gravitational acceleration; m/s^2; gravity; 9.80665
+
+== Reynolds number
+eq Re = rho * v * L / mu
+var Re; Reynolds number;
+var rho; fluid density; kg/m^3; density; 1000
+var v; flow speed; m/s; speed, velocity
+var L; characteristic length; m; length, diameter
+var mu; dynamic viscosity; Pa s; viscosity; 0.001
+
+== Poiseuille's law | hagen poiseuille | pipe flow | water flow through a pipe | flow through a pipe
+eq Q = pi * r^4 * dp / (8 * mu * L)
+eq r = D / 2
+var Q; volumetric flow rate; L/s; flow rate
+var D; pipe diameter; m; diameter
+var r; pipe radius; m; radius
+var dp; pressure difference; Pa; pressure drop, pressure difference; 1000
+var mu; dynamic viscosity; Pa s; viscosity; 0.001
+var L; pipe length; m; length; 1
+
+== drag equation | drag force | air resistance
+eq Fd = rho * v^2 * Cd * A / 2
+var Fd; drag force; N; drag, force
+var rho; fluid density; kg/m^3; density; 1.225
+var v; speed; m/s; velocity
+var Cd; drag coefficient; ; coefficient; 1
+var A; reference area; m^2; area
+
+== Torricelli's law | efflux speed
+eq v = sqrt(2 * g * h)
+var v; efflux speed; m/s
+var h; height of fluid above the opening; m; height, depth
+var g; gravitational acceleration; m/s^2; gravity; 9.80665
+
+== water hammer | joukowsky equation | hydraulic shock
+eq dp = rho * a * dv
+var dp; pressure rise; Pa; pressure difference, pressure
+var rho; fluid density; kg/m^3; density; 1000
+var a; speed of sound in the fluid; m/s; wave speed; 1483
+var dv; change in flow velocity; m/s; velocity
+
+# ------------------------------------------------------------- thermodynamics
+
+== ideal gas law | ideal gas | pv=nrt | perfect gas law | general gas equation
+eq P * V = n * R * T
+var P; pressure; atm; p
+var V; volume; L
+var n; amount of substance; mol; moles, amount
+var T; temperature; K
+
+== adiabatic process | adiabatic compression | adiabatic expansion | isentropic process
+eq pf = p_i * (Vi / Vf)^gamma
+eq Tf = Ti * (Vi / Vf)^(gamma - 1)
+var p_i; initial pressure; atm; pi, p1, initial pressure
+var Vi; initial volume; L; v1, initial volume
+var Vf; final volume; L; v2, final volume
+var pf; final pressure; atm; p2, final pressure
+var Ti; initial temperature; K; t1, initial temperature; 293.15
+var Tf; final temperature; K; t2, final temperature
+var gamma; heat capacity ratio; ; gamma, adiabatic index; 1.4
+
+== isothermal process | boyle's law
+eq p1 * V1 = p2 * V2
+var p1; initial pressure; atm; pi, initial pressure
+var V1; initial volume; L; vi, initial volume
+var p2; final pressure; atm; pf, final pressure
+var V2; final volume; L; vf, final volume
+
+== Charles's law | charles law
+eq V1 / T1 = V2 / T2
+var V1; initial volume; L; vi, initial volume
+var T1; initial temperature; K; ti, initial temperature
+var V2; final volume; L; vf, final volume
+var T2; final temperature; K; tf, final temperature
+
+== Carnot efficiency | carnot cycle | carnot engine
+eq eta = 1 - Tc / Th
+var eta; efficiency;
+var Tc; cold reservoir temperature; K; tc, cold
+var Th; hot reservoir temperature; K; th, hot
+
+== Otto cycle | otto cycle efficiency | otto engine
+eq eta = 1 - 1 / r^(gamma - 1)
+var eta; efficiency;
+var r; compression ratio; ; compression ratio
+var gamma; heat capacity ratio; ; gamma; 1.4
+
+== Atkinson cycle | atkinson engine
+eq eta = 1 - gamma * (rexp - rc) / (rexp^gamma - rc^gamma)
+eq eta_c = 1 - Tc / Th
+var eta; ideal efficiency;
+var rc; compression ratio; ; compression ratio
+var rexp; expansion ratio; ; expansion ratio; 12
+var gamma; heat capacity ratio; ; gamma; 1.4
+var Tc; cold temperature; K; tc
+var Th; hot temperature; K; th
+var eta_c; Carnot limit;
+
+== heat capacity | specific heat | heat required | heat energy
+eq Q = m * cp * dT
+var Q; heat; J; energy
+var m; mass; kg
+var cp; specific heat capacity; J/(kg K); specific heat; 4184
+var dT; temperature change; K; temperature difference, change in temperature
+
+== thermal expansion | linear thermal expansion | linear expansion
+eq dL = alpha * L0 * dT
+var dL; change in length; m
+var alpha; linear expansion coefficient; 1/K; coefficient
+var L0; original length; m; length
+var dT; temperature change; K; temperature difference
+
+== Stefan-Boltzmann law | stefan boltzmann | blackbody radiation power | radiated power
+eq P = eps * sigma_SB * A * T^4
+var P; radiated power; W; power
+var eps; emissivity; ; emissivity; 1
+var A; surface area; m^2; area
+var T; temperature; K
+
+== Wien's displacement law | wien's law | peak wavelength
+eq lam = b_Wien / T
+var lam; peak wavelength; nm; wavelength
+var T; temperature; K
+
+== Planck's law | planck radiation law | blackbody spectrum | spectral radiance
+eq B = 2 * h * c^2 / lam^5 / (exp(h * c / (lam * kB * T)) - 1)
+var B; spectral radiance; W/(m^2 m); radiance
+var lam; wavelength; nm
+var T; temperature; K
+
+== root mean square speed | rms speed | thermal speed | mean speed of gas molecules
+eq v = sqrt(3 * kB * T / m)
+var v; rms speed; m/s; speed
+var T; temperature; K
+var m; molecular mass; u; mass
+
+== Sackur-Tetrode equation | sackur tetrode
+eq S = N * kB * (ln(V / (N * (h / sqrt(2 * pi * m * kB * T))^3)) + 5 / 2)
+var S; entropy; J/K
+var N; number of particles; ; particles; 6.02214076e23
+var V; volume; m^3; 0.0224
+var m; particle mass; u; mass
+var T; temperature; K; 273.15
+note Entropy of a monatomic ideal gas.
+
+== Clausius-Clapeyron equation | clausius clapeyron | vapor pressure
+eq ln(p2 / p1) = -Lv / R * (1 / T2 - 1 / T1)
+var p2; vapor pressure at T2; Pa; p2
+var p1; vapor pressure at T1; Pa; p1; 101325
+var T1; reference temperature; K; t1; 373.15
+var T2; temperature; K; t2
+var Lv; molar enthalpy of vaporization; J/mol; enthalpy, heat of vaporization; 40660
+
+== Clapeyron equation | clapeyron relation
+eq dPdT = Hm / (T * Vm)
+var dPdT; slope of the coexistence curve; Pa/K; slope
+var Hm; molar latent heat; J/mol; hm, enthalpy, latent heat
+var T; temperature; K; t
+var Vm; molar volume change; m^3/mol; vm, volume
+
+# ------------------------------------------------------------- electricity and magnetism
+
+== electric power | electrical power | power from voltage and current
+eq P = V * I
+var P; power; W
+var V; voltage; V; u, potential difference
+var I; current; A
+
+== Joule's law | joule heating | joule's first law | resistive heating
+eq Q = V^2 / R * t
+eq P = V^2 / R
+eq I = V / R
+var Q; heat produced; J; heat, energy
+var V; voltage; V; u, potential difference
+var R; resistance; ohm; r
+var t; time; s; for
+var P; power; W
+var I; current; A
+
+== capacitor | capacitance formula | charge on a capacitor | energy stored in a capacitor
+eq Q = C * V
+eq E = C * V^2 / 2
+var Q; charge; C
+var C; capacitance; farad
+var V; voltage; V
+var E; stored energy; J; energy
+
+== parallel plate capacitor
+eq C = eps0 * er * A / d
+var C; capacitance; farad
+var er; relative permittivity; ; dielectric constant; 1
+var A; plate area; m^2; area
+var d; plate separation; m; separation, distance
+
+== RC circuit | rc time constant
+eq tau = R * C
+eq fc = 1 / (2 * pi * R * C)
+var tau; time constant; s
+var R; resistance; ohm
+var C; capacitance; farad
+var fc; cutoff frequency; Hz
+
+== RLC circuit | series rlc circuit | lc circuit | resonant frequency
+eq f0 = 1 / (2 * pi * sqrt(L * C))
+eq Qf = sqrt(L / C) / R
+eq alpha = R / (2 * L)
+var R; resistance; ohm; 1
+var L; inductance; henry
+var C; capacitance; farad
+var f0; resonant frequency; Hz
+var Qf; quality factor;
+var alpha; damping rate; 1/s
+
+== voltage divider
+eq Vout = Vin * R2 / (R1 + R2)
+var Vout; output voltage; V
+var Vin; input voltage; V; vin
+var R1; first resistor; ohm; r1
+var R2; second resistor; ohm; r2
+
+== capacitive reactance
+eq X = 1 / (2 * pi * f * C)
+var X; reactance; ohm
+var f; frequency; Hz
+var C; capacitance; farad
+
+== inductive reactance
+eq X = 2 * pi * f * L
+var X; reactance; ohm
+var f; frequency; Hz
+var L; inductance; henry
+
+== solenoid | magnetic field of a solenoid | axial field of an ideal solenoid
+eq B = mu0 * n * I
+var B; magnetic field; tesla; field
+var n; turns per unit length; 1/m; turns per meter; 1000
+var I; current; A
+
+== force between two wires | force on two long current-carrying wires | parallel wires force | ampere's force law
+eq F = mu0 * I1 * I2 * L / (2 * pi * d)
+var F; force; N
+var I1; first current; A
+var I2; second current; A
+var d; separation; m; distance; 1
+var L; wire length; m; length; 1
+
+== magnetic field of a long wire | biot savart wire | field around a wire
+eq B = mu0 * I / (2 * pi * r)
+var B; magnetic field; tesla; field
+var I; current; A
+var r; distance from the wire; m; distance
+
+== Lorentz force | force on a moving charge
+eq F = q * v * B * sin(theta)
+var F; force; N
+var q; charge; C; 1.602176634e-19
+var v; speed; m/s; velocity
+var B; magnetic field; tesla; field
+var theta; angle; deg; angle; 90
+
+== cyclotron frequency | larmor frequency | gyrofrequency
+eq f = q * B / (2 * pi * m)
+var f; frequency; Hz
+var q; charge; C; 1.602176634e-19
+var B; magnetic field; tesla; field; 1
+var m; mass; kg
+
+== transformer | ideal transformer
+eq Vs = Vp * Ns / Np
+var Vs; secondary voltage; V; secondary
+var Vp; primary voltage; V; primary, input voltage
+var Ns; secondary turns; ; secondary turns; 1
+var Np; primary turns; ; primary turns; 10
+
+== synchronous motor | synchronous speed
+eq n = 2 * f / poles
+var n; synchronous speed; rpm; speed
+var f; supply frequency; Hz; frequency; 60
+var poles; number of poles; ; poles
+
+== Coulomb's law formula | electrostatic force formula
+eq F = ke * q1 * q2 / r^2
+var F; force; N
+var q1; first charge; C
+var q2; second charge; C
+var r; separation; m; distance
+
+== magnetic Reynolds number
+eq Rm = mu0 * sigma_e * v * L
+var Rm; magnetic Reynolds number;
+var sigma_e; electrical conductivity; siemens/m; conductivity; 5.96e7
+var v; flow speed; m/s; speed, velocity
+var L; length scale; m; length
+
+# ------------------------------------------------------------- waves and optics
+
+== wave speed | wave equation speed | frequency wavelength
+eq v = f * lam
+var v; wave speed; m/s; speed
+var f; frequency; Hz
+var lam; wavelength; m
+
+== Doppler effect | doppler shift | doppler | doppler formula
+eq fa = f * vs / (vs - v)
+eq fr = f * vs / (vs + v)
+var f; emitted frequency; Hz; frequency
+var v; source speed; m/s; speed, velocity
+var fa; observed frequency, approaching; Hz
+var fr; observed frequency, receding; Hz
+var vs; speed of sound; m/s; speed of sound; 343
+
+== Snell's law | law of refraction | refraction
+eq n1 * sin(theta1) = n2 * sin(theta2)
+var n1; refractive index of the first medium; ; index of refraction, refractive index, n1; 1
+var theta1; angle of incidence; deg; angle, incidence
+var n2; refractive index of the second medium; ; index of refraction, refractive index, n2; 1.33
+var theta2; angle of refraction; deg
+
+== Fresnel equations | fresnel's law | fresnel reflection
+eq theta_t = asin(n1 * sin(theta) / n2)
+eq Rs = ((n1 * cos(theta) - n2 * cos(theta_t)) / (n1 * cos(theta) + n2 * cos(theta_t)))^2
+eq Rp = ((n1 * cos(theta_t) - n2 * cos(theta)) / (n1 * cos(theta_t) + n2 * cos(theta)))^2
+var n1; refractive index of the first medium; ; index of refraction, refractive index, n1; 1
+var n2; refractive index of the second medium; ; index of refraction, refractive index, n2; 1.5
+var theta; angle of incidence; deg; angle
+var theta_t; angle of transmission; deg
+var Rs; s-polarized reflectance;
+var Rp; p-polarized reflectance;
+
+== thin lens equation | thin lens | lens | lens equation | lensmaker
+eq 1 / f = 1 / o + 1 / i
+eq M = -i / o
+var f; focal length; m; focal length, f
+var o; object distance; m; object, object distance, o
+var i; image distance; m; image, image distance, i
+var M; magnification;
+
+== mirror equation | spherical mirror | converging mirror | concave mirror | mirror
+eq 1 / f = 1 / o + 1 / i
+eq M = -i / o
+var f; focal length; m; focal length, f
+var o; object distance; m; object, object distance, o
+var i; image distance; m; image, image distance, i
+var M; magnification;
+
+== diverging mirror | convex mirror
+eq -1 / f = 1 / o + 1 / i
+eq M = -i / o
+var f; focal length magnitude; m; focal length, f
+var o; object distance; m; object, object distance, o
+var i; image distance; m; image, image distance, i
+var M; magnification;
+
+== single slit diffraction | single-slit diffraction | slit diffraction
+eq sin(theta) = lam / d
+var theta; angle of the first minimum; deg
+var lam; wavelength; nm; lambda
+var d; slit width; mm; slit, width
+
+== circular aperture | airy disk | diffraction limit | rayleigh criterion
+eq sin(theta) = 1.21967 * lam / D
+var theta; angle of the first dark ring; deg
+var lam; wavelength; nm; lambda
+var D; aperture diameter; mm; diameter, aperture, a
+
+== double slit interference | double slit | young's double slit
+eq y = m * lam * L / d
+var y; fringe position; mm
+var m; fringe order; ; order; 1
+var lam; wavelength; nm; lambda
+var L; screen distance; m; screen distance, distance; 1
+var d; slit separation; mm; separation
+
+== Bragg's law | bragg diffraction
+eq n * lam = 2 * d * sin(theta)
+var n; diffraction order; ; order; 1
+var lam; wavelength; nm; lambda
+var d; lattice spacing; nm; spacing
+var theta; Bragg angle; deg; angle
+
+== Malus's law | malus law | polarizer
+eq I = I0 * cos(theta)^2
+var I; transmitted intensity; W/m^2
+var I0; incident intensity; W/m^2; intensity; 1
+var theta; angle between polarizer axes; deg; angle
+
+== Beer-Lambert law | beer lambert | beer's law | absorbance
+eq A = epsilon * l * conc
+eq Tr = 10^(-A)
+var A; absorbance;
+var epsilon; molar attenuation coefficient; L/(mol cm); molar absorptivity, extinction coefficient
+var l; path length; cm; path length, length
+var conc; concentration; mol/L; concentration
+var Tr; transmittance;
+
+== sound intensity level | decibels from intensity | sound level
+eq L = 10 * log10(I / 1e-12)
+var L; sound level; ; decibels, level
+var I; intensity; W/m^2
+
+== inverse square law for sound | sound level at distance | how far can you hear
+eq L2 = L1 - 20 * log10(r2 / r1)
+var L1; sound level at the reference distance; ; level, db; 100
+var r1; reference distance; m; ; 1
+var r2; distance; m; distance
+var L2; sound level at the distance;
+
+# ------------------------------------------------------------- quantum and atomic
+
+== Rydberg formula | rydberg equation | hydrogen spectral line | hydrogen transition
+eq 1 / lam = RH * Z^2 * abs(1 / n1^2 - 1 / n2^2)
+eq E = h * c / lam
+var lam; wavelength; nm
+var n1; initial level; ; ni, n1, initial
+var n2; final level; ; nf, n2, final
+var Z; atomic number; ; z; 1
+var E; photon energy; eV
+
+== Compton wavelength
+eq lam = h / (m * c)
+var lam; Compton wavelength; m
+var m; particle mass; kg; mass
+
+== Compton scattering | compton shift
+eq dlam = h / (m * c) * (1 - cos(theta))
+var dlam; wavelength shift; pm
+var theta; scattering angle; deg; angle
+var m; particle mass; kg; ; 9.1093837015e-31
+
+== particle in a box | infinite square well | particle in a 1d box
+eq E = n^2 * h^2 / (8 * m * L^2)
+var E; energy level; eV; energy
+var n; quantum number; ; n; 1
+var m; particle mass; kg; mass; 9.1093837015e-31
+var L; box length; nm; length, width
+
+== hydrogen energy levels | bohr model | bohr energy
+eq E = -Ry_eV * Z^2 / n^2
+var E; energy; eV
+var n; principal quantum number; ; n
+var Z; atomic number; ; z; 1
+
+== radioactive decay | exponential decay | half-life decay | decay law
+eq N = N0 * 2^(-t / T)
+var N; remaining amount; ; remaining
+var N0; initial amount; ; initial; 1
+var t; elapsed time; yr; time
+var T; half-life; yr; half life
+
+== carbon-14 dating | carbon dating | radiocarbon dating
+eq ratio = 2^(-t / T)
+var ratio; remaining fraction of carbon-14; ; ratio, fraction
+var t; age; yr
+var T; half-life of carbon-14; yr; ; 5730
+
+== mean free path
+eq l = kB * T / (sqrt(2) * pi * d^2 * p)
+var l; mean free path; m
+var T; temperature; K; 293.15
+var d; molecular diameter; m; diameter; 3.7e-10
+var p; pressure; Pa; ; 101325
+
+# ------------------------------------------------------------- astronomy
+
+== mass luminosity relation | luminosity from mass | main sequence luminosity
+eq L = Lsun * (M / Msun)^3.5
+var L; luminosity; W
+var M; stellar mass; solar masses; mass
+
+== distance modulus | absolute magnitude | luminosity from apparent magnitude
+eq Mabs = mapp - 5 * log10(d / (10 * pc))
+eq L = Lsun * 10^(0.4 * (4.83 - Mabs))
+var mapp; apparent magnitude; ; app magnitude, apparent magnitude, magnitude
+var d; distance; ly; distance, d
+var Mabs; absolute magnitude;
+var L; luminosity; W
+
+== redshift | cosmological redshift | doppler redshift
+eq v = c * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
+eq lam_obs = lam_emit * (1 + z)
+var z; redshift; ; z
+var v; recession speed (relativistic Doppler); km/s
+var lam_emit; emitted wavelength; nm; ; 656.28
+var lam_obs; observed wavelength; nm
+
+== Hubble's law | hubble law | recession velocity
+eq v = H0 * d
+var v; recession speed; km/s
+var d; distance; Mpc; distance
+var H0; Hubble constant; km/s/Mpc; ; 70
+
+== Gutenberg-Richter law | gutenberg richter
+eq log10(N) = a - b * Mw
+var N; number of earthquakes of at least that magnitude;
+var a; productivity; ; a; 8
+var b; b-value; ; b; 1
+var Mw; magnitude; ; magnitude
+
+== earthquake energy | moment magnitude energy
+eq log10(E) = 1.5 * Mw + 4.8
+var E; energy released; J
+var Mw; magnitude; ; magnitude
+
+# ------------------------------------------------------------- chemistry
+
+== Henderson-Hasselbalch equation | henderson hasselbalch | buffer ph
+eq pH = pKa + log10(base / acid)
+var pH; pH; ; ph
+var pKa; acid dissociation constant (pKa); ; pka
+var base; conjugate base concentration; ; base, a-
+var acid; acid concentration; ; acid, ha
+
+== Nernst equation | nernst
+eq E = E0 - R * T / (n * Faraday) * ln(Q)
+var E; cell potential; V
+var E0; standard potential; V; e0, standard potential
+var T; temperature; K; ; 298.15
+var n; electrons transferred; ; n; 1
+var Q; reaction quotient; ; q
+
+== Arrhenius equation | arrhenius
+eq k = A * exp(-Ea / (R * T))
+var k; rate constant; 1/s
+var A; pre-exponential factor; 1/s; prefactor
+var Ea; activation energy; J/mol; ea
+var T; temperature; K
+
+== dilution | dilution formula | c1v1=c2v2
+eq c1 * V1 = c2 * V2
+var c1; initial concentration; mol/L; c1
+var V1; initial volume; mL; v1
+var c2; final concentration; mol/L; c2
+var V2; final volume; mL; v2
+
+== Graham's law | graham's law of effusion | rate of effusion
+eq r1 / r2 = sqrt(M2 / M1)
+var r1; rate of the first gas; ; r1; 1
+var r2; rate of the second gas; ; r2
+var M1; molar mass of the first gas; g/mol; m1
+var M2; molar mass of the second gas; g/mol; m2
+
+== van der Waals equation | van der waals gas | real gas law
+eq (P + a * n^2 / V^2) * (V - n * b) = n * R * T
+var P; pressure; atm; p
+var V; volume; L
+var n; amount of substance; mol; moles; 1
+var T; temperature; K
+var a; attraction parameter a; Pa m^6/mol^2; a; 0.1382
+var b; volume parameter b; m^3/mol; b; 3.19e-5
+
+# ------------------------------------------------------------- everyday
+
+== fuel usage | fuel consumption | gas mileage | fuel needed
+eq V = d / econ
+var V; fuel used; gal; fuel
+var d; distance; mi
+var econ; fuel economy; mpg; mileage, mpg

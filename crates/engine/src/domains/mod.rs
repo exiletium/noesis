@@ -2,15 +2,19 @@
 //! chemistry, geography, dates and times, finance, probability.
 
 pub mod astro;
+pub mod calendars;
 pub mod chem;
 pub mod chemcalc;
 pub mod ephem;
 pub mod everyday;
 pub mod facts;
+pub mod formula_db;
 pub mod formulas;
 pub mod geo;
 pub mod knowledge;
 pub mod lexicon;
+pub mod music;
+pub mod practical;
 pub mod live;
 pub mod misc;
 pub mod units;
@@ -20,5 +24,5 @@ use crate::engine::Handler;
 /// Domain handlers in priority order (they run before the general math
 /// analyzer, and only claim inputs that use their vocabulary).
 pub fn handlers() -> Vec<(&'static str, Handler)> {
-    vec![("live", live::handle), ("everyday", everyday::handle), ("knowledge", knowledge::handle), ("misc", misc::handle), ("chem", chem::handle), ("chemcalc", chemcalc::handle), ("formulas", formulas::handle), ("astro", astro::handle), ("geo", geo::handle), ("units", units::handle)]
+    vec![("live", live::handle), ("everyday", everyday::handle), ("practical", practical::handle), ("music", music::handle), ("knowledge", knowledge::handle), ("misc", misc::handle), ("chem", chem::handle), ("chemcalc", chemcalc::handle), ("formulas", formulas::handle), ("formula_db", formula_db::handle), ("astro", astro::handle), ("geo", geo::handle), ("units", units::handle)]
 }

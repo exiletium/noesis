@@ -149,7 +149,27 @@ fn find_substance(name: &str) -> Option<&'static Substance> {
     let l = name.trim().to_lowercase();
     let l = l.strip_prefix("the ").unwrap_or(&l);
     let l = l.strip_prefix("pure ").unwrap_or(l);
-    SUBSTANCES.iter().find(|x| x.names.contains(&l))
+    SUBSTANCES.iter().find(|x| x.names.contains(&l)).or_else(|| {
+        // the bundled Wikidata compounds, converted once to the same shape
+        static DB: OnceLock<std::collections::HashMap<&'static str, Substance>> = OnceLock::new();
+        let db = DB.get_or_init(|| {
+            super::chem::compound_db()
+                .0
+                .iter()
+                .filter(|c| c.mp_k.is_some() || c.bp_k.is_some() || c.density.is_some())
+                .map(|c| {
+                    let names: &'static [&'static str] = Box::leak(vec![c.name].into_boxed_slice());
+                    (c.name, Substance { names, formula: c.formula, mp: c.mp_k.map(|k| k - 273.15), bp: c.bp_k.map(|k| k - 273.15), density: c.density.map(|d| d / 1000.0), cp: None, note: "Wikidata" })
+                })
+                .collect()
+        });
+        let c = super::chem::find_db_compound(l)?;
+        // a pure element ("Au", "O2") keeps the element table's values
+        if regex::Regex::new(r"^[A-Z][a-z]?\d*$").unwrap().is_match(c.formula) {
+            return None;
+        }
+        db.get(c.name)
+    })
 }
 
 fn temp(c: f64) -> String {

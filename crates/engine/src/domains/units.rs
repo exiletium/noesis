@@ -107,6 +107,7 @@ static UNITS: &[UnitDef] = &[
     u!(&["tsp", "teaspoon", "teaspoons"], 4.92892159375e-6, VOL, "teaspoons"),
     // speed
     u!(&["mph"], 0.44704, SPEED, "miles per hour"),
+    u!(&["mpg", "miles per gallon"], 425_143.707_430_272_7, d(-2, 0, 0, 0, 0, 0, 0, 0), "miles per gallon"),
     u!(&["kph", "kmh"], 1.0 / 3.6, SPEED, "kilometers per hour"),
     u!(&["kn", "knot", "knots", "kt"], 1852.0 / 3600.0, SPEED, "knots"),
     u!(&["mach"], 340.29, SPEED, "Mach (sea level)"),
@@ -143,6 +144,13 @@ static UNITS: &[UnitDef] = &[
     u!(&["ω", "ohm", "ohms"], 1.0, OHM, "ohms", p),
     u!(&["f", "farad", "farads"], 1.0, d(-2, -1, 4, 2, 0, 0, 0, 0), "farads", p),
     u!(&["t", "tesla", "teslas"], 1.0, d(0, 1, -2, -1, 0, 0, 0, 0), "teslas", p),
+    u!(&["henry", "henries", "henrys"], 1.0, d(2, 1, -2, -2, 0, 0, 0, 0), "henries", p),
+    u!(&["wb", "weber", "webers"], 1.0, d(2, 1, -2, -1, 0, 0, 0, 0), "webers", p),
+    u!(&["gauss"], 1e-4, d(0, 1, -2, -1, 0, 0, 0, 0), "gauss", p),
+    u!(&["siemens"], 1.0, d(-2, -1, 3, 2, 0, 0, 0, 0), "siemens", p),
+    u!(&["solar mass", "solar masses", "msun", "m_sun", "sun masses"], 1.98847e30, M, "solar masses"),
+    u!(&["earth mass", "earth masses", "mearth"], 5.9722e24, M, "Earth masses"),
+    u!(&["jupiter mass", "jupiter masses"], 1.89813e27, M, "Jupiter masses"),
     u!(&["mol", "mole", "moles"], 1.0, d(0, 0, 0, 0, 0, 1, 0, 0), "moles", p),
     u!(&["cd", "candela"], 1.0, d(0, 0, 0, 0, 0, 0, 1, 0), "candelas", p),
     // temperature (absolute scales)
@@ -598,7 +606,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
             if let Some(t) = conversion_table(si, &to.dim, &to.name) {
                 pods.push(t);
             }
-            if from.offset == 0.0 && to.offset == 0.0 {
+            if from.offset == 0.0 && to.offset == 0.0 && from.name != to.name {
                 pods.push(pod("Factor", "Conversion factor", text(format!("1 {} = {} {}", singular(&from.name), fmt_val(from.factor / to.factor), to.name))));
             }
             return Some(Answer::new(format!("convert {shown} to {}", to.name), pods));
@@ -617,7 +625,15 @@ pub fn handle(q: &Query) -> Option<Answer> {
         let si = to_si(v, &u);
         let mut pods = vec![pod("Input", "Input interpretation", text(format!("{shown} ({})", u.name)))];
         let si_unit = si_name(&u.dim);
-        pods.push(primary(pod("Result", "Value in SI units", text(format!("{} {}", fmt_val(si), si_unit)))));
+        // a readable primary: the first related unit giving a value from 1 to 1000
+        let readable = related(&u.dim).iter().filter_map(|n| lookup_word(n).map(|x| (*n, x))).filter(|(_, x)| x.name != u.name).map(|(n, x)| (n, from_si(si, &x))).find(|(_, val)| val.abs() >= 1.0 && val.abs() < 1000.0);
+        match readable {
+            Some((n, val)) if u.offset == 0.0 => {
+                pods.push(primary(pod("Result", "Result", text(format!("{} {n}", fmt_val(val))))));
+                pods.push(pod("SI", "Value in SI units", text(format!("{} {}", fmt_val(si), si_unit))));
+            }
+            _ => pods.push(primary(pod("Result", "Value in SI units", text(format!("{} {}", fmt_val(si), si_unit))))),
+        }
         if let Some(t) = conversion_table(si, &u.dim, &u.name) {
             pods.push(t);
         }

@@ -117,7 +117,84 @@ fn date_info_pods(d: NaiveDate) -> Vec<Pod> {
                 ],
             ),
         ),
+        pod("Calendars", "Other calendars", table(None, super::calendars::rows(d).into_iter().map(|(k, v)| vec![text(k), text(v)]).collect())),
     ]
+}
+
+fn add_span(base: NaiveDate, n: i64, unit: &str) -> Option<NaiveDate> {
+    Some(if unit.starts_with("day") {
+        base + Duration::days(n)
+    } else if unit.starts_with("week") {
+        base + Duration::weeks(n)
+    } else {
+        let months = if unit.starts_with("month") { n } else if unit.starts_with("decade") { 120 * n } else if unit.starts_with("centur") { 1200 * n } else { 12 * n };
+        let total = base.year() as i64 * 12 + base.month0() as i64 + months;
+        let (y, mo) = (total.div_euclid(12) as i32, total.rem_euclid(12) as u32 + 1);
+        NaiveDate::from_ymd_opt(y, mo, base.day()).or_else(|| (28..=30).rev().find_map(|d| NaiveDate::from_ymd_opt(y, mo, d)))?
+    })
+}
+
+/// Calendar conversions: "convert October 31 to the Islamic calendar",
+/// "Jewish calendar date for February 20, 2020", "25 Shevat 5780".
+fn calendar_conversion(l: &str) -> Option<Answer> {
+    use super::calendars as cal;
+    let l = l.trim_end_matches('?').trim();
+    let from_greg = |cname: &str, date: &str| -> Option<Answer> {
+        let name = cal::calendar_name(cname)?;
+        let d = parse_date(date)?;
+        let out = cal::to_calendar(name, d)?;
+        let pods = vec![
+            pod("Input", "Input interpretation", text(format!("convert {} to the {} calendar", date_long(d), cname.trim().trim_start_matches("the ").trim_end_matches(" calendar").trim_end_matches(" date"))))
+            ,
+            primary(pod("Result", "Result", text(out))),
+            pod("Calendars", "Other calendars", table(None, cal::rows(d).into_iter().map(|(k, v)| vec![text(k), text(v)]).collect())),
+        ];
+        Some(Answer::new("calendar conversion", pods))
+    };
+    if let Some(m) = re!(r"^(?:convert\s+)?(.+?)\s+(?:to|in|into|on)\s+(?:the\s+)?([a-z ]+?)(?:\s+calendar|\s+date)?$").captures(l) {
+        if cal::calendar_name(&m[2]).is_some() {
+            if let Some(a) = from_greg(&m[2], &m[1]) {
+                return Some(a);
+            }
+        }
+    }
+    if let Some(m) = re!(r"^(?:what is (?:the )?|what's (?:the )?)?([a-z ]+?)\s+(?:calendar\s+)?(?:date|calendar)\s*(?:for|of|on|today)?\s*(.*)$").captures(l) {
+        if cal::calendar_name(&m[1]).is_some() {
+            let date = if m[2].trim().is_empty() || l.contains(" today") { "today" } else { m[2].trim() };
+            if let Some(a) = from_greg(&m[1], date) {
+                return Some(a);
+            }
+        }
+    }
+    // another calendar to Gregorian
+    let body = re!(r"\s+(?:to|in|into)\s+(?:the\s+)?gregorian(?:\s+calendar)?$").replace(l, "").to_string();
+    let body = body.trim_start_matches("convert ").trim();
+    let (name, d) = cal::parse_other(body)?;
+    let mut pods = vec![pod("Input", "Input interpretation", text(format!("{body} ({name} calendar)")))];
+    let mut info = date_info_pods(d);
+    info[0] = primary(pod("Result", "Gregorian date", text(date_long(d))));
+    pods.extend(info);
+    Some(Answer::new("calendar conversion", pods))
+}
+
+/// "10,000 hours from now", "90 minutes ago".
+fn clock_arithmetic(l: &str) -> Option<Answer> {
+    let m = re!(r"^([\d,.]+)\s+(hours?|hrs?|minutes?|mins?|seconds?|secs?)\s+(from now|ago|later|from today)$").captures(l)?;
+    let n: f64 = m[1].replace(',', "").parse().ok()?;
+    let secs = n * if m[2].starts_with('h') { 3600.0 } else if m[2].starts_with('m') { 60.0 } else { 1.0 };
+    let sign = if &m[3] == "ago" { -1.0 } else { 1.0 };
+    let now = chrono::Local::now();
+    let t = now + Duration::milliseconds((sign * secs * 1000.0).round() as i64);
+    let mut pods = vec![
+        pod("Input", "Input interpretation", text(format!("{} {} {}", &m[1], &m[2], &m[3]))),
+        primary(pod("Result", "Result", text(t.format("%-I:%M:%S %p (UTC%:z), %A, %B %-d, %Y").to_string()))),
+    ];
+    let days = (t.date_naive() - now.date_naive()).num_days();
+    if days != 0 {
+        pods.push(pod("Relative", "Time difference from today", text(span_text(days))));
+    }
+    pods.push(pod("Calendars", "Other calendars", table(None, super::calendars::rows(t.date_naive()).into_iter().map(|(k, v)| vec![text(k), text(v)]).collect())));
+    Some(Answer::new("time arithmetic", pods))
 }
 
 fn dates(q: &Query) -> Option<Answer> {
@@ -156,6 +233,19 @@ fn dates(q: &Query) -> Option<Answer> {
         let mut pods = vec![pod("Input", "Input interpretation", text(format!("{n} {unit} {} {}", &m[3], date_long(base))))];
         pods.extend(date_info_pods(d));
         return Some(Answer::new("date arithmetic", pods));
+    }
+    if let Some(a) = clock_arithmetic(l).or_else(|| calendar_conversion(l)) {
+        return Some(a);
+    }
+    if let Some(m) = re!(r"^(?:what (?:date|day) is (?:it )?)?(.+?)\s*([+-]|plus|minus)\s*([\d,]+)\s+(days?|weeks?|months?|years?|decades?|centur(?:y|ies))\s*\??$").captures(l) {
+        if let Some(base) = parse_date(&m[1]) {
+            let n: i64 = m[3].replace(',', "").parse().ok()?;
+            let sign = if matches!(&m[2], "-" | "minus") { -1 } else { 1 };
+            let d = add_span(base, sign * n, &m[4])?;
+            let mut pods = vec![pod("Input", "Input interpretation", text(format!("{} {} {n} {}", date_long(base), if sign > 0 { "+" } else { "-" }, &m[4])))];
+            pods.extend(date_info_pods(d));
+            return Some(Answer::new("date arithmetic", pods));
+        }
     }
     let date_q = l.trim_start_matches("what day is ").trim_start_matches("what day was ").trim_start_matches("day of the week for ").trim_start_matches("day of week ");
     if l == "today" || l == "date" || l == "today's date" || l == "date today" || l == "what day is it" {

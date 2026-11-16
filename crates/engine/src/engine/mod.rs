@@ -12,6 +12,8 @@ pub mod pde;
 pub mod advanced;
 pub mod course;
 pub mod llm;
+pub mod rewrite;
+pub mod sequences;
 
 use crate::budget;
 use crate::expr::Expr;
@@ -210,6 +212,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("facts", crate::domains::facts::handle));
     v.push(("language", nl::handle));
     v.push(("ode", ode::handle));
+    v.push(("sequences", sequences::handle));
     v.extend(crate::domains::handlers());
     v.push(("commands", commands::handle));
     v.push(("math", math::handle));
@@ -340,21 +343,45 @@ fn run_handlers(input: &str, opts: &Options) -> QueryResult {
         res.error = Some("Enter a question, a calculation or a formula.".into());
         return res;
     }
-    for (_name, h) in handlers() {
-        let ans = budget::attempt_opt(budget::remaining(), || h(&q));
-        if let Some(ans) = ans {
-            if ans.pods.is_empty() {
-                continue;
+    let all = handlers();
+    // the fallbacks (language model, encyclopedia) run only after rewordings
+    let (main, fallback): (Vec<_>, Vec<_>) = all.into_iter().partition(|(n, _)| !matches!(*n, "rephrase" | "encyclopedia"));
+    let try_all = |q: &Query, hs: &[(&'static str, Handler)]| -> Option<Answer> {
+        for (_name, h) in hs {
+            if let Some(ans) = budget::attempt_opt(budget::remaining(), || h(q)) {
+                if !ans.pods.is_empty() {
+                    return Some(ans);
+                }
             }
-            res.success = true;
-            res.interpretation = Some(ans.interpretation);
-            res.pods = ans.pods;
-            res.assumptions = ans.assumptions;
-            return res;
+            if budget::remaining() <= 0.05 {
+                break;
+            }
         }
-        if budget::remaining() <= 0.05 {
-            break;
+        None
+    };
+    let mut found = try_all(&q, &main);
+    if found.is_none() {
+        for cand in rewrite::candidates(&q.clean).into_iter().take(12) {
+            if budget::remaining() <= 0.2 {
+                break;
+            }
+            let q2 = Query { raw: input, lower: cand.to_lowercase(), clean: cand.clone(), opts };
+            if let Some(mut ans) = try_all(&q2, &main) {
+                ans.assumptions.insert(0, format!("Interpreted as: {cand}"));
+                found = Some(ans);
+                break;
+            }
         }
+    }
+    if found.is_none() {
+        found = try_all(&q, &fallback);
+    }
+    if let Some(ans) = found {
+        res.success = true;
+        res.interpretation = Some(ans.interpretation);
+        res.pods = ans.pods;
+        res.assumptions = ans.assumptions;
+        return res;
     }
     res.error = Some("Noesis did not understand this input.".into());
     res.suggestions = suggestions(&q.lower);

@@ -3,6 +3,7 @@
 
 use crate::engine::*;
 use crate::print::fmt_float;
+use regex::Regex;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -23,6 +24,10 @@ pub struct Element {
     pub boiling_k: Option<f64>,
     pub density_g_cm3: Option<f64>,
     pub atomic_radius_pm: Option<f64>,
+    #[serde(default)]
+    pub covalent_radius_pm: Option<f64>,
+    #[serde(default)]
+    pub vdw_radius_pm: Option<f64>,
     pub first_ionization_ev: Option<f64>,
     pub electron_affinity_ev: Option<f64>,
     pub discovery_year: Option<serde_json::Value>,
@@ -124,7 +129,51 @@ const COMPOUNDS: &[(&str, &str)] = &[
 
 pub fn compound_formula(name: &str) -> Option<&'static str> {
     let l = name.trim().to_lowercase();
-    COMPOUNDS.iter().find(|(n, _)| *n == l).map(|(_, f)| *f)
+    COMPOUNDS.iter().find(|(n, _)| *n == l).map(|(_, f)| *f).or_else(|| find_db_compound(&l).map(|c| c.formula))
+}
+
+/// A compound from the bundled Wikidata extract (data/compounds.z, CC0).
+pub struct DbCompound {
+    pub name: &'static str,
+    pub formula: &'static str,
+    /// Kelvin
+    pub mp_k: Option<f64>,
+    pub bp_k: Option<f64>,
+    /// kg/m³
+    pub density: Option<f64>,
+}
+
+static COMPOUNDS_Z: &[u8] = include_bytes!("../../data/compounds.z");
+
+pub fn compound_db() -> &'static (Vec<DbCompound>, std::collections::HashMap<String, usize>) {
+    static DB: OnceLock<(Vec<DbCompound>, std::collections::HashMap<String, usize>)> = OnceLock::new();
+    DB.get_or_init(|| {
+        let bytes = miniz_oxide::inflate::decompress_to_vec(COMPOUNDS_Z).unwrap_or_default();
+        let text: &'static str = Box::leak(String::from_utf8(bytes).unwrap_or_default().into_boxed_str());
+        let mut list = Vec::new();
+        let mut index = std::collections::HashMap::new();
+        for line in text.lines() {
+            let f: Vec<&'static str> = line.split('\t').collect();
+            if f.len() < 5 || f[1].is_empty() {
+                continue;
+            }
+            let num = |s: &str| s.parse::<f64>().ok();
+            let i = list.len();
+            list.push(DbCompound { name: f[0], formula: f[1], mp_k: num(f[2]), bp_k: num(f[3]), density: num(f[4]) });
+            index.insert(f[0].to_lowercase(), i);
+            for a in f.get(5).map(|a| a.split('|')).into_iter().flatten() {
+                index.entry(a.to_lowercase()).or_insert(i);
+            }
+        }
+        (list, index)
+    })
+}
+
+pub fn find_db_compound(name: &str) -> Option<&'static DbCompound> {
+    let (list, index) = compound_db();
+    let l = name.trim().to_lowercase();
+    let l = l.trim_start_matches("the ").trim();
+    index.get(l).map(|&i| &list[i])
 }
 
 /// Parse a chemical formula into element counts.  Supports parentheses,
@@ -360,30 +409,10 @@ pub fn handle(q: &Query) -> Option<Answer> {
             return Some(Answer::new(format!("{} (element)", e.name), element_pods(e)));
         }
     }
-    // "atomic mass of carbon", "boiling point of mercury"
-    if let Some((prop, el)) = l.split_once(" of ") {
-        if let Some(e) = find_element(el) {
-            let v = match prop {
-                "atomic mass" | "atomic weight" | "mass" => Some(format!("{} u", fmt_float(e.mass, 8))),
-                "ionization energy" | "first ionization energy" | "ionisation energy" | "first ionisation energy" => e.first_ionization_ev.map(|v| format!("{} kJ/mol  ({} eV, first ionization energy)", fmt_float(v * 96.485_332_12, 5), fmt_float(v, 6))),
-                "atomic number" => Some(e.z.to_string()),
-                "melting point" => e.melting_k.map(|k| format!("{} K ({} °C)", fmt_float(k, 6), fmt_float(k - 273.15, 6))),
-                "boiling point" => e.boiling_k.map(|k| format!("{} K ({} °C)", fmt_float(k, 6), fmt_float(k - 273.15, 6))),
-                "density" => e.density_g_cm3.map(|d| format!("{} g/cm³", fmt_float(d, 6))),
-                "electronegativity" => e.electronegativity.map(|v| fmt_float(v, 4)),
-                "electron configuration" => e.config.clone(),
-                "symbol" => Some(e.symbol.clone()),
-                _ => None,
-            };
-            if let Some(v) = v {
-                let mut pods = vec![pod("Input", "Input interpretation", text(format!("{} | {prop}", e.name))), primary(pod("Result", "Result", text(v)))];
-                pods.extend(element_pods(e).into_iter().skip(1).take(2).map(|mut p| {
-                    p.primary = false;
-                    p
-                }));
-                return Some(Answer::new(format!("{prop} of {}", e.name), pods));
-            }
-        }
+    // "atomic mass of carbon", "Kr density", "valence electrons in Bi",
+    // "compare the atomic radii of F, Cl, Br and I"
+    if let Some(a) = element_question(q) {
+        return Some(a);
     }
     // a bare formula like "H2SO4" or a compound name like "caffeine"
     if let Some(f) = compound_formula(l) {
@@ -394,7 +423,9 @@ pub fn handle(q: &Query) -> Option<Answer> {
         return Some(Answer::new(label.clone(), pods));
     }
     let raw = q.clean.trim();
-    if raw.len() >= 3 && raw.chars().any(|c| c.is_ascii_digit()) && raw.chars().next()?.is_ascii_uppercase() && !raw.contains(' ') {
+    // digits, or at least two capitals and a small letter as in "NaCl", "KBr", "NaOH"
+    let formula_like = raw.chars().any(|c| c.is_ascii_digit()) || (raw.chars().filter(|c| c.is_ascii_uppercase()).count() >= 2 && raw.chars().any(|c| c.is_ascii_lowercase()) && raw != "NaN");
+    if raw.len() >= 3 && formula_like && raw.chars().next()?.is_ascii_uppercase() && !raw.contains(' ') {
         if let Some(counts) = parse_formula(raw) {
             if counts.len() >= 2 || counts.values().any(|v| *v > 1) {
                 return Some(Answer::new(raw.to_string(), compound_pods(raw, raw, &counts)));
@@ -402,4 +433,255 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
     }
     None
+}
+
+// ---------------------------------------------------------------------------
+// element properties by name
+// ---------------------------------------------------------------------------
+
+/// Property names and their synonyms (canonical name first).
+const PROPS: &[&[&str]] = &[
+    &["atomic mass", "atomic weight", "mass", "relative atomic mass", "standard atomic weight"],
+    &["atomic number", "number of protons", "protons", "proton number", "proton count"],
+    &["neutrons", "number of neutrons", "neutron number", "neutron count"],
+    &["electrons", "number of electrons", "electron count"],
+    &["valence electrons", "number of valence electrons", "valence electron count", "valence"],
+    &["melting point", "melting temperature", "mp"],
+    &["boiling point", "boiling temperature", "bp"],
+    &["density"],
+    &["electronegativity", "pauling electronegativity"],
+    &["electron configuration", "electronic configuration", "full electron configuration", "full electronic configuration", "configuration"],
+    &["abbreviated electron configuration", "short electron configuration", "short electronic configuration", "abbreviated electronic configuration", "shorthand electron configuration", "noble gas configuration", "condensed electron configuration"],
+    &["orbital diagram", "orbital box diagram", "electron orbital diagram"],
+    &["atomic radius", "atomic radii", "radius", "size"],
+    &["covalent radius", "covalent radii"],
+    &["van der waals radius", "van der waals radii", "vdw radius"],
+    &["ionization energy", "first ionization energy", "ionisation energy", "first ionisation energy", "ionization potential"],
+    &["electron affinity"],
+    &["oxidation states", "oxidation numbers", "oxidation state", "oxidation number", "charges", "charge", "ion charge", "ions"],
+    &["group", "group number"],
+    &["period", "period number"],
+    &["block"],
+    &["classification", "series", "category", "type", "element type"],
+    &["discovery", "discovered", "discovery year", "year discovered", "discoverer", "discoverers", "who discovered"],
+    &["name origin", "etymology", "origin of name", "name meaning"],
+    &["uses", "applications", "used for"],
+    &["abundance", "crustal abundance", "abundance in earth's crust", "abundance in the earth's crust"],
+    &["symbol", "chemical symbol", "element symbol"],
+    &["radioactive", "radioactivity", "is it radioactive"],
+];
+
+fn canonical_prop(p: &str) -> Option<&'static str> {
+    let p = p.trim().trim_start_matches("the ").trim();
+    PROPS.iter().find(|syns| syns.iter().any(|s| *s == p)).map(|syns| syns[0])
+}
+
+fn noble_core(e: &Element) -> Option<(&'static Element, String)> {
+    let cfg = e.config.as_ref()?;
+    let toks: Vec<&str> = cfg.split_whitespace().collect();
+    for z in [86u32, 54, 36, 18, 10, 2] {
+        if z >= e.z {
+            continue;
+        }
+        let ng = elements().iter().find(|x| x.z == z)?;
+        let core: Vec<&str> = ng.config.as_ref()?.split_whitespace().collect();
+        if core.iter().all(|t| toks.contains(t)) {
+            let rest: Vec<&str> = toks.iter().filter(|t| !core.contains(t)).copied().collect();
+            return Some((ng, format!("[{}] {}", ng.symbol, rest.join(" "))));
+        }
+    }
+    None
+}
+
+fn subshells(cfg: &str) -> Vec<(u32, char, u32)> {
+    cfg.split_whitespace()
+        .filter_map(|t| {
+            let mut c = t.chars();
+            let n = c.next()?.to_digit(10)?;
+            let l = c.next()?;
+            let k: u32 = c.as_str().parse().ok()?;
+            Some((n, l, k))
+        })
+        .collect()
+}
+
+pub fn valence_electrons(e: &Element) -> Option<u32> {
+    let sh = subshells(e.config.as_ref()?);
+    let nmax = sh.iter().map(|x| x.0).max()?;
+    let mut v: u32 = sh.iter().filter(|x| x.0 == nmax && (x.1 == 's' || x.1 == 'p')).map(|x| x.2).sum();
+    match e.block.as_deref() {
+        Some("d") => v += sh.iter().filter(|x| x.1 == 'd' && x.0 + 1 == nmax).map(|x| x.2).sum::<u32>(),
+        Some("f") => v += sh.iter().filter(|x| (x.1 == 'f' && x.0 + 2 == nmax) || (x.1 == 'd' && x.0 + 1 == nmax)).map(|x| x.2).sum::<u32>(),
+        _ => {}
+    }
+    // a full shell of eight (or two for helium) counts as the noble-gas valence
+    Some(v)
+}
+
+fn orbital_diagram(cfg: &str) -> String {
+    subshells(cfg)
+        .iter()
+        .map(|(n, l, k)| {
+            let boxes = match l {
+                's' => 1,
+                'p' => 3,
+                'd' => 5,
+                'f' => 7,
+                _ => 1,
+            };
+            let mut slots = vec![0u32; boxes];
+            for i in 0..*k as usize {
+                slots[i % boxes] += 1;
+            }
+            let cells: Vec<&str> = slots.iter().map(|c| match c {
+                0 => "[  ]",
+                1 => "[↑ ]",
+                _ => "[↑↓]",
+            }).collect();
+            format!("{n}{l}: {}", cells.join(""))
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn kelvin_text(k: f64) -> String {
+    format!("{} K  ({} °C, {} °F)", fmt_float(k, 6), fmt_float(k - 273.15, 6), fmt_float((k - 273.15) * 1.8 + 32.0, 6))
+}
+
+/// A property of an element as text.
+pub fn element_property(e: &Element, prop: &str) -> Option<String> {
+    Some(match prop {
+        "atomic mass" => format!("{} u", fmt_float(e.mass, 8)),
+        "atomic number" => e.z.to_string(),
+        "electrons" => format!("{} (neutral atom)", e.z),
+        "neutrons" => format!("{} (most common isotope, mass number {})", (e.mass.round() as u32).saturating_sub(e.z), e.mass.round() as u32),
+        "valence electrons" => valence_electrons(e)?.to_string(),
+        "melting point" => kelvin_text(e.melting_k?),
+        "boiling point" => kelvin_text(e.boiling_k?),
+        "density" => format!("{} g/cm³", fmt_float(e.density_g_cm3?, 6)),
+        "electronegativity" => format!("{} (Pauling scale)", fmt_float(e.electronegativity?, 4)),
+        "electron configuration" => e.config.clone()?,
+        "abbreviated electron configuration" => noble_core(e).map(|x| x.1).or_else(|| e.config.clone())?,
+        "orbital diagram" => orbital_diagram(e.config.as_ref()?),
+        "atomic radius" => format!("{} pm (calculated)", fmt_float(e.atomic_radius_pm?, 5)),
+        "covalent radius" => format!("{} pm", fmt_float(e.covalent_radius_pm?, 5)),
+        "van der waals radius" => format!("{} pm", fmt_float(e.vdw_radius_pm?, 5)),
+        "ionization energy" => {
+            let v = e.first_ionization_ev?;
+            format!("{} kJ/mol  ({} eV)", fmt_float(v * 96.485_332_12, 5), fmt_float(v, 6))
+        }
+        "electron affinity" => {
+            let v = e.electron_affinity_ev?;
+            format!("{} kJ/mol  ({} eV)", fmt_float(v * 96.485_332_12, 5), fmt_float(v, 6))
+        }
+        "oxidation states" => {
+            let all = e.oxidation_states_all.clone().or_else(|| e.oxidation_states.clone())?;
+            let sign = |v: &i32| if *v > 0 { format!("+{v}") } else { v.to_string() };
+            let common = e.oxidation_states.clone().unwrap_or_default();
+            let mut t = all.iter().map(sign).collect::<Vec<_>>().join(", ");
+            if !common.is_empty() {
+                t.push_str(&format!("  (common: {})", common.iter().map(sign).collect::<Vec<_>>().join(", ")));
+            }
+            t
+        }
+        "group" => e.group?.to_string(),
+        "period" => e.period?.to_string(),
+        "block" => e.block.clone()?,
+        "classification" => e.series.clone()?,
+        "discovery" => {
+            let year = e.discovery_year.as_ref().map(|v| v.to_string().trim_matches('"').to_string()).filter(|y| y != "null");
+            match (year, e.discoverers.clone()) {
+                (Some(y), Some(d)) => format!("{y}, {d}"),
+                (Some(y), None) => y,
+                (None, Some(d)) => d,
+                _ => return None,
+            }
+        }
+        "name origin" => e.name_origin.clone()?,
+        "uses" => e.uses.clone()?,
+        "abundance" => format!("{} mg/kg in Earth's crust ({}%)", fmt_float(e.abundance_crust_mg_kg?, 5), fmt_float(e.abundance_crust_mg_kg? / 1e4, 4)),
+        "symbol" => e.symbol.clone(),
+        "radioactive" => if e.is_radioactive.unwrap_or(false) { "yes".into() } else { "no (has stable isotopes)".into() },
+        _ => return None,
+    })
+}
+
+/// An element named by name, symbol (any case when unambiguous in context)
+/// or "element 12".
+fn element_ref(s: &str) -> Option<&'static Element> {
+    let t = s.trim().trim_end_matches('?').trim().trim_start_matches("the ").trim_start_matches("an ").trim_start_matches("a ").trim();
+    let t = t.trim_end_matches(" atom").trim_end_matches(" atoms").trim();
+    find_element(t).or_else(|| if t.len() <= 2 && !t.is_empty() { elements().iter().find(|e| e.symbol.eq_ignore_ascii_case(t)) } else { None })
+}
+
+fn element_list(s: &str) -> Option<Vec<&'static Element>> {
+    let parts: Vec<&str> = s.split(|c| c == ',' || c == '/').flat_map(|p| p.split(" and ")).flat_map(|p| p.split(" vs ")).flat_map(|p| p.split(" vs. ")).flat_map(|p| p.split(" versus ")).map(|p| p.trim()).filter(|p| !p.is_empty()).collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    parts.iter().map(|p| element_ref(p)).collect()
+}
+
+fn element_question(q: &Query) -> Option<Answer> {
+    let l = q.lower.trim().trim_end_matches('?').trim();
+    let l = l.trim_start_matches("compare ").trim_start_matches("the ").trim();
+    // split into (property, element text) in several word orders
+    let mut tries: Vec<(String, String)> = Vec::new();
+    if let Some(m) = Regex::new(r"^(?:how many\s+)?(.+?)\s+(?:of|in|for|does|do|on)\s+(.+?)(?:\s+(?:have|has|contain))?$").ok()?.captures(l) {
+        tries.push((m[1].to_string(), m[2].to_string()));
+    }
+    let words: Vec<&str> = l.split_whitespace().collect();
+    for k in 1..=5.min(words.len().saturating_sub(1)) {
+        // "Kr density", "element 12 boiling point"
+        tries.push((words[words.len() - k..].join(" "), words[..words.len() - k].join(" ")));
+        // "density Kr", "abundance Na"
+        tries.push((words[..k].join(" "), words[k..].join(" ")));
+    }
+    for (p, el) in tries {
+        let Some(prop) = canonical_prop(&p) else { continue };
+        let el_text = el.trim().trim_start_matches("element ").to_string();
+        let el_text = if el.trim().starts_with("element ") && el_text.chars().all(|c| c.is_ascii_digit()) { el.trim().to_string() } else { el_text };
+        if let Some(e) = element_ref(&el_text) {
+            let v = element_property(e, prop)?;
+            let mut pods = vec![pod("Input", "Input interpretation", text(format!("{} | {prop}", e.name))), primary(pod("Result", "Result", text(v)))];
+            if prop.contains("configuration") || prop == "orbital diagram" || prop == "valence electrons" {
+                for extra in ["electron configuration", "abbreviated electron configuration", "valence electrons"] {
+                    if extra != prop {
+                        if let Some(x) = element_property(e, extra) {
+                            pods.push(pod("Related", extra, text(x)));
+                        }
+                    }
+                }
+            }
+            pods.extend(element_pods(e).into_iter().skip(1).take(2).map(|mut p| {
+                p.primary = false;
+                p
+            }));
+            return Some(Answer::new(format!("{prop} of {}", e.name), pods));
+        }
+        if let Some(list) = element_list(&el_text) {
+            return Some(element_table(&list, &[prop]));
+        }
+    }
+    // a bare list of elements: "silver, gold", "N, O, F"
+    if let Some(list) = element_list(l) {
+        return Some(element_table(&list, &["atomic number", "atomic mass", "electron configuration", "density", "melting point", "boiling point", "electronegativity", "atomic radius", "ionization energy"]));
+    }
+    None
+}
+
+fn element_table(list: &[&'static Element], props: &[&str]) -> Answer {
+    let mut header = vec!["property"];
+    header.extend(list.iter().map(|e| e.name.as_str()));
+    let rows = props
+        .iter()
+        .map(|p| {
+            let mut r = vec![text(p.to_string())];
+            r.extend(list.iter().map(|e| text(element_property(e, p).unwrap_or_else(|| "—".into()))));
+            r
+        })
+        .collect();
+    let names = list.iter().map(|e| e.name.clone()).collect::<Vec<_>>().join(" | ");
+    let pods = vec![pod("Input", "Input interpretation", text(format!("{names} | {}", props.join(", ")))), primary(pod("Result", "Comparison", table(Some(header), rows)))];
+    Answer::new(format!("{names} comparison"), pods)
 }

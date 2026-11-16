@@ -32,7 +32,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Statistics and probability | `mean of 3, 7, 7, 19, 24`, data lists (summary, histogram), `linear fit {{1,2},{2,4.1},…}`, `normal distribution mean 100 sd 15 P(X > 130)`, `probability of 3 heads in 5 coin flips`, combinatorics |
 | Plots | `plot sin(x) and cos(x)`, `plot x^2 + y^2 = 4`, `polar plot r = 1 + cos(theta)`, `parametric plot (cos 3t, sin 2t)`, `mandelbrot set`, `julia set c = -0.8+0.156i` |
 | Units and constants | `10 miles in km`, `100 km/h to mph`, `32 F to C`, `5 ft 3 in to cm`, `1 GiB in bytes`, `how many feet in a mile`, `speed of light`, `planck constant` |
-| Chemistry | `iron`, `boiling point of mercury`, `molar mass of caffeine`, `molar mass of CuSO4·5H2O`, `H2SO4` (composition and mass fractions) |
+| Chemistry | `iron`, `boiling point of mercury`, `molar mass of caffeine`, `melting point of aspirin`, `convert 135 g sodium acetate to moles`, `atomic radius of sulfur`, `electron configuration of iridium`, `molar mass of CuSO4·5H2O`, `H2SO4` (composition and mass fractions) |
 | Geography and time | `france`, `population of japan`, `tokyo`, `distance from Paris to London`, `time in Sydney` |
 | Dates and money | `what day was July 4, 1776`, `days until christmas`, `100 days from today`, `compound interest $1000 at 5% for 10 years compounded monthly`, `mortgage $300000 at 6.5% for 30 years`, `15% tip on $80` |
 | Live data (optional, online) | `weather in Paris` (current conditions and 7-day forecast), `100 usd to eur` (ECB rates and 30-day chart), `who was Ada Lovelace`, `what is photosynthesis` (encyclopedia summaries). Use `--offline` or the Settings toggle to disable network access. |
@@ -45,6 +45,11 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Geometry and physics formulas | `area of a triangle with sides 3, 4, 5`, `law of cosines a=3 b=4 C=60 degrees`, `30-60-90 triangle with hypotenuse 10`, `kinetic energy of 2 kg at 3 m/s`, `escape velocity of earth`, `ohm's law 12 V 4 ohm`, `resistance of 10 ohm and 20 ohm in parallel`, `de broglie wavelength of electron at 1e6 m/s`, named formulas (`quadratic formula`, `snell's law`, …) |
 | Chemistry calculations | `balance KMnO4 + HCl -> KCl + MnCl2 + H2O + Cl2`, `pH of 0.1 M acetic acid`, `how many moles in 18 g of water`, `molarity of 5 g of NaCl in 250 mL of water`, `boiling point of ethanol`, `isotopes of hydrogen`, `half-life of carbon-14`, `empirical formula of C6H12O6`, `noble gases` |
 | Astronomy and world facts | `mass of the sun`, `how long is a day on mars`, `how much would 150 lb weigh on the moon`, `largest countries in europe`, `gdp of germany`, `height of mount everest`, `longest river`, `sunrise in paris`, `languages of switzerland` |
+| Named formulas | about 100 formulas solved for any unknown, with values matched by name, symbol or unit: `ideal gas law 2.2 mol, 2.0 atm, 500 K`, `lens f=20ft, o=400ft`, `Rydberg formula ni=2, nf=5`, `Schwarzschild radius of 10 solar masses`, `carbon dating 25% remaining`, `Kepler's third law`, `adiabatic process Vi=10L, Vf=2L, pi=1atm` |
+| Calendars and clocks | `25 Shevat 5780`, `convert March 11 2024 to the Islamic calendar`, `Feb 14 + 20 weeks`, `10,000 hours from now`; dates also show Julian, Hebrew, Islamic, Persian and Mayan forms |
+| Sequences | `1, 4, 9, 16, 25, ...` (next terms, closed form, partial sums), `1, 1, 2, 3, 5, 8`, `1/2 + 1/4 + 1/8 + ...` = 1 |
+| Music | `C major 7th chord`, `D dorian scale`, `flats in the key of Bb`, `interval C to G`, `note c5` (frequency) |
+| Practical | `tire size 195/55R16`, `$84.22, 15% tip, 3 people`, `poker full house`, `father's mother's sister's son` (first cousin once removed) |
 | Everyday | `how many calories in a banana`, `what is 1/7 as a decimal`, `weight of 1 liter of water`, `how old is someone born on 1990-05-17`, `is 2024 a leap year`, `when is easter 2025`, `unix time 1700000000`, `30% off 80`, `what percent of 80 is 20`, `present value of 1000 in 5 years at 7%`, `future value of 100 per month at 6% for 20 years`, `BMI 70 kg 175 cm`, `1 hour 15 minutes + 50 minutes`, `scrabble score of quiz`, `sos in morse code`, `color #ff8800`, `md5 of hello`, `base64 encode hello` |
 
 ## How it compares with WolframAlpha
@@ -219,6 +224,8 @@ The script needs a WolframAlpha AppID, either in `WOLFRAM_APPID` or supplied by 
 * Physical constants: CODATA 2018 recommended values.
 * Words: the word list is the [`word-list`](https://github.com/sindresorhus/word-list) package (MIT); definitions and synonyms are from [WordNet 3.1](https://wordnet.princeton.edu) (WordNet licence, Princeton University).
 * General knowledge (works and their creators, events, office holders, Nobel prizes, people): [Wikidata](https://www.wikidata.org), CC0, extracted by `tools/datagen/wikidata.py`.
+* Chemical compounds (about 27,000 names, formulas, melting and boiling points and densities): Wikidata, CC0, extracted by `tools/datagen/compounds.py`.
+* Calendars: the algorithms of Reingold and Dershowitz, *Calendrical Calculations*; the Persian calendar by Borkowski's arithmetic.
 * Positions of the planets: JPL's approximate Keplerian elements; the Moon's distance: the leading terms of the lunar theory as tabulated by Meeus.
 * Live data, when enabled: [Open-Meteo](https://open-meteo.com) (CC BY 4.0), European Central Bank reference rates via [Frankfurter](https://frankfurter.dev), and [Wikipedia](https://en.wikipedia.org) summaries (CC BY-SA 4.0).
 * Fonts: DejaVu (Bitstream Vera licence, public-domain changes) and Liberation Serif (SIL Open Font License 1.1). Licence texts are in `crates/app/assets/fonts/`.
