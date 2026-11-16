@@ -484,3 +484,17 @@ fn questions_from_the_desktop_app() {
     assert!(short("integrate sin(x)^e^e").contains("₂F₁(1/2, (1 - e^e)/2, 3/2, cos^2(x))"));
 }
 
+
+#[test]
+fn graphs_sequences_and_poles() {
+    assert_eq!(short("matching polynomial of the Petersen graph"), "x^10 − 15x^8 + 75x^6 − 145x^4 + 90x^2 − 6");
+    assert_eq!(short("1->2, 2->3, 3->1 eulerian cycle"), "1 → 2 → 3 → 1");
+    assert!(short("(10,8) cage graph").starts_with("1640 vertices"));
+    assert_eq!(short("1,000,000th prime"), "15485863");
+    assert_eq!(short("1000th twin prime"), "(79559, 79561)");
+    assert_eq!(short("sum of first five square triangular numbers"), "1456599");
+    assert_eq!(short("is 4 a member of the superperfect numbers?"), "True");
+    assert_eq!(short("csc^7(z) residue at z=0"), "5/16");
+    assert_eq!(short("poles of 1/sin(z)^2"), "pole | order | residue\nπ n | 2 | 0");
+    assert!(short("residues of 1/(e^(2z)+1) with |z| < 3pi").contains("(5 π i)/2 | 1 | -1/2"));
+}

@@ -22,6 +22,10 @@ pub mod computing;
 pub mod inference;
 pub mod numbers;
 pub mod daily;
+pub mod ccss;
+pub mod chance;
+pub mod intseq;
+pub mod graphs;
 
 use crate::budget;
 use crate::expr::Expr;
@@ -217,9 +221,12 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     let mut v: Vec<(&'static str, Handler)> = Vec::new();
     v.push(("pde", pde::handle));
     v.push(("systems", systems::handle));
+    v.push(("graphs", graphs::handle));
+    v.push(("ccss", ccss::handle));
     v.push(("computing", computing::handle));
     v.push(("numbers", numbers::handle));
     v.push(("daily", daily::handle));
+    v.push(("chance", chance::handle));
     v.push(("words", crate::domains::lexicon::handle));
     v.push(("facts", crate::domains::facts::handle));
     v.push(("language", nl::handle));
@@ -231,6 +238,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("toolbox", toolbox::handle));
     v.push(("inference", inference::handle));
     v.push(("commands", commands::handle));
+    v.push(("intseq", intseq::handle));
     v.push(("math", math::handle));
     v.push(("rephrase", llm::handle));
     v.push(("encyclopedia", crate::domains::live::fallback));

@@ -942,29 +942,163 @@ pub fn transforms(q: &Query, l: &str, c: &str) -> Option<Answer> {
 // complex analysis
 // ---------------------------------------------------------------------------
 
+type Cx = num_complex::Complex64;
+
+/// Rewrite reciprocal trigonometric functions so that their poles show up in a denominator.
+fn trig_to_sin_cos(e: &Expr) -> Expr {
+    match e {
+        Func(n, a) if a.len() == 1 => {
+            let x = trig_to_sin_cos(&a[0]);
+            match &**n {
+                "csc" => pow(func("sin", vec![x]), int(-1)),
+                "sec" => pow(func("cos", vec![x]), int(-1)),
+                "cot" => div(func("cos", vec![x.clone()]), func("sin", vec![x])),
+                "tan" => div(func("sin", vec![x.clone()]), func("cos", vec![x])),
+                "csch" => pow(func("sinh", vec![x]), int(-1)),
+                "sech" => pow(func("cosh", vec![x]), int(-1)),
+                "coth" => div(func("cosh", vec![x.clone()]), func("sinh", vec![x])),
+                "tanh" => div(func("sinh", vec![x.clone()]), func("cosh", vec![x])),
+                _ => func(n, vec![x]),
+            }
+        }
+        Func(n, a) => func(n, a.iter().map(trig_to_sin_cos).collect()),
+        Add(v) => add(v.iter().map(trig_to_sin_cos).collect()),
+        Mul(v) => mul(v.iter().map(trig_to_sin_cos).collect()),
+        Pow(a, b) => pow(trig_to_sin_cos(a), trig_to_sin_cos(b)),
+        _ => e.clone(),
+    }
+}
+
+/// Values for the free parameters of a root (n, C1, …): `k` for every one.
+fn bind_params(r: &Expr, zv: &Expr, k: i64) -> Expr {
+    let mut out = r.clone();
+    for name in r.free_symbols() {
+        let sy = sym(&name);
+        if &sy != zv {
+            out = out.subs(&sy, &int(k));
+        }
+    }
+    out
+}
+
+fn eval_at(e: &Expr, zv: &Expr, z: Cx) -> Option<Cx> {
+    let Sym(name) = zv else { return None };
+    crate::eval::eval_c64(e, &[(&**name, z)]).filter(|v| v.re.is_finite() && v.im.is_finite())
+}
+
+/// Order of the zero of `h` at z0 (0 when h(z0) ≠ 0), by successive derivatives.
+fn zero_order(h: &Expr, zv: &Expr, z0: Cx) -> Option<usize> {
+    let mut d = h.clone();
+    for k in 0..10 {
+        let v = eval_at(&d, zv, z0)?;
+        if v.norm() > 1e-8 {
+            return Some(k);
+        }
+        d = s::simplify(&diff(&d, zv));
+    }
+    None
+}
+
+/// Zeros of a denominator: periodic families (with integer n) for sin, cos,
+/// sinh, cosh and exp(u) + c of a linear argument; the solver for the rest.
+fn zero_families(den: &Expr, zv: &Expr) -> Vec<Expr> {
+    let n = sym("n");
+    let pi = Const(K::Pi);
+    let i = Const(K::I);
+    let mut out = Vec::new();
+    let linear = |u: &Expr| -> Option<(Expr, Expr)> {
+        let cs = poly::coeffs(u, zv)?;
+        (cs.len() == 2 && !cs[1].is_zero()).then(|| (cs[1].clone(), cs[0].clone()))
+    };
+    for fct in den.factors() {
+        let base = match &fct {
+            Pow(b, e) if e.as_i64().map_or(false, |k| k > 0) => (**b).clone(),
+            _ => fct.clone(),
+        };
+        if !base.has_sym(zv) {
+            continue;
+        }
+        let fam = match &base {
+            Func(name, a) if a.len() == 1 => linear(&a[0]).and_then(|(al, be)| {
+                let u0 = match &**name {
+                    "sin" => mul(vec![pi.clone(), n.clone()]),
+                    "cos" => add(vec![div(pi.clone(), int(2)), mul(vec![pi.clone(), n.clone()])]),
+                    "sinh" => mul(vec![i.clone(), pi.clone(), n.clone()]),
+                    "cosh" => mul(vec![i.clone(), add(vec![div(pi.clone(), int(2)), mul(vec![pi.clone(), n.clone()])])]),
+                    _ => return None,
+                };
+                Some(s::simplify(&div(sub(u0, be), al)))
+            }),
+            Add(v) if v.len() == 2 => {
+                let (e, c) = if v[0].has_sym(zv) { (&v[0], &v[1]) } else { (&v[1], &v[0]) };
+                let as_exp = |x: &Expr| -> Option<Expr> {
+                    match x {
+                        Func(nm, a) if &**nm == "exp" => Some(a[0].clone()),
+                        Pow(bb, ee) if matches!(**bb, Const(K::E)) => Some((**ee).clone()),
+                        _ => None,
+                    }
+                };
+                let (k, u) = match e {
+                    Mul(w) if w.len() == 2 => match (as_exp(&w[0]), as_exp(&w[1])) {
+                        (None, Some(u)) if !w[0].has_sym(zv) => (w[0].clone(), u),
+                        (Some(u), None) if !w[1].has_sym(zv) => (w[1].clone(), u),
+                        _ => (zero(), zero()),
+                    },
+                    x => match as_exp(x) {
+                        Some(u) => (one(), u),
+                        None => (zero(), zero()),
+                    },
+                };
+                if k.is_zero() || c.has_sym(zv) {
+                    None
+                } else {
+                    linear(&u).map(|(al, be)| {
+                        let u0 = add(vec![ln(neg(div(c.clone(), k))), mul(vec![int(2), pi.clone(), i.clone(), n.clone()])]);
+                        s::simplify(&div(sub(u0, be), al))
+                    })
+                }
+            }
+            _ => None,
+        };
+        match fam {
+            Some(r) => out.push(r),
+            None => {
+                let roots = solve::solve(&eq(base.clone(), zero()), zv);
+                out.extend(roots.real().into_iter().chain(roots.complex()));
+            }
+        }
+    }
+    out
+}
+
+/// The member of a pole family equal to `a`, if any.
+fn family_matches(p: &Expr, zv: &Expr, a: &Expr) -> bool {
+    if s::equal(p, a) {
+        return true;
+    }
+    let Some(av) = crate::eval::const_c64(a) else { return false };
+    let periodic = p.free_symbols().iter().any(|n| sym(n) != *zv);
+    let range: Vec<i64> = if periodic { (-300..=300).collect() } else { vec![0] };
+    range.into_iter().any(|n| crate::eval::const_c64(&bind_params(p, zv, n)).map_or(false, |v| (v - av).norm() < 1e-9))
+}
+
 /// Poles with their orders.
 fn poles(f: &Expr, zv: &Expr) -> Option<Vec<(Expr, usize)>> {
-    let (_, den) = s::together(f).numer_denom();
+    let f = trig_to_sin_cos(f);
+    let (num_, den) = s::together(&f).numer_denom();
     if !den.has_sym(zv) {
         return Some(vec![]);
     }
-    let roots = solve::solve(&eq(den.clone(), zero()), zv);
     let mut out: Vec<(Expr, usize)> = Vec::new();
-    for r in roots.real().into_iter().chain(roots.complex()) {
+    for r in zero_families(&den, zv) {
         if out.iter().any(|(p, _)| s::equal(p, &r)) {
             continue;
         }
-        // order: smallest k with (z − r)^k f finite at r
-        let mut order = 0;
-        for k in 1..=8 {
-            let gk = s::cancel(&mul(vec![pow(sub(zv.clone(), r.clone()), int(k)), f.clone()]));
-            if let Some(v) = limit(&gk, zv, &r, Dir::Both) {
-                if v.to_f64_const().is_some() || crate::eval::const_c64(&v).is_some() {
-                    order = k as usize;
-                    break;
-                }
-            }
-        }
+        let z0 = crate::eval::const_c64(&bind_params(&r, zv, 1))?;
+        let order = match (zero_order(&den, zv, z0), zero_order(&num_, zv, z0)) {
+            (Some(d), Some(n)) => d.saturating_sub(n),
+            _ => continue,
+        };
         if order > 0 {
             out.push((r, order));
         }
@@ -972,35 +1106,161 @@ fn poles(f: &Expr, zv: &Expr) -> Option<Vec<(Expr, usize)>> {
     Some(out)
 }
 
-fn residue(f: &Expr, zv: &Expr, a: &Expr, order: usize) -> Option<Expr> {
-    let mut g_ = s::cancel(&mul(vec![pow(sub(zv.clone(), a.clone()), int(order as i64)), f.clone()]));
-    for _ in 1..order {
-        g_ = diff(&g_, zv);
+/// Residue by the trapezoidal rule on a small circle (spectrally accurate).
+fn residue_numeric(f: &Expr, zv: &Expr, a: Cx, radius: f64) -> Option<Cx> {
+    let n = 512;
+    let mut sum = Cx::new(0.0, 0.0);
+    for k in 0..n {
+        let w = Cx::from_polar(radius, 2.0 * std::f64::consts::PI * k as f64 / n as f64);
+        sum += eval_at(f, zv, a + w)? * w;
     }
-    let fact: i64 = (1..order as i64).product::<i64>().max(1);
-    let v = limit(&g_, zv, a, Dir::Both)?;
-    Some(s::simplify(&div(v, int(fact))))
+    Some(sum / n as f64)
+}
+
+fn recognise(v: Cx) -> Expr {
+    let part = |x: f64| -> Expr {
+        if x.abs() < 1e-9 {
+            return zero();
+        }
+        for q in 1..=4096i64 {
+            let p = (x * q as f64).round();
+            if (x * q as f64 - p).abs() < 1e-9 * q as f64 {
+                return s::simplify(&div(int(p as i64), int(q)));
+            }
+        }
+        float(x)
+    };
+    s::simplify(&add(vec![part(v.re), mul(vec![part(v.im), Const(K::I)])]))
+}
+
+fn residue(f: &Expr, zv: &Expr, a: &Expr, order: usize) -> Option<Expr> {
+    let ft = trig_to_sin_cos(f);
+    let symbolic = || -> Option<Expr> {
+        if order == 1 {
+            let (nn, dd) = s::together(&ft).numer_denom();
+            let r = s::simplify(&div(nn.subs(zv, a), diff(&dd, zv).subs(zv, a)));
+            if crate::eval::const_c64(&bind_params(&r, zv, 1)).is_some() {
+                return Some(r);
+            }
+        }
+        if order > 4 {
+            return None;
+        }
+        let mut g_ = s::cancel(&mul(vec![pow(sub(zv.clone(), a.clone()), int(order as i64)), ft.clone()]));
+        for _ in 1..order {
+            g_ = diff(&g_, zv);
+        }
+        let fact: i64 = (1..order as i64).product::<i64>().max(1);
+        let v = limit(&g_, zv, a, Dir::Both)?;
+        Some(s::simplify(&div(v, int(fact))))
+    };
+    let a1 = crate::eval::const_c64(&bind_params(a, zv, 1))?;
+    // shrink the circle until two radii agree (no other pole inside)
+    let mut numeric = None;
+    let mut prev: Option<Cx> = None;
+    for r in [0.4, 0.2, 0.1, 0.05, 0.02] {
+        let v = residue_numeric(&ft, zv, a1, r);
+        if let (Some(v), Some(p)) = (v, prev) {
+            if (v - p).norm() < 1e-8 * (1.0 + v.norm()) {
+                numeric = Some(v);
+                break;
+            }
+        }
+        prev = v;
+    }
+    let numeric = numeric.or(prev);
+    match (symbolic(), numeric) {
+        (Some(r), Some(nv)) => {
+            let rv = crate::eval::const_c64(&bind_params(&r, zv, 1));
+            if rv.map_or(false, |rv| (rv - nv).norm() < 1e-6 * (1.0 + nv.norm())) {
+                // a residue that is the same for every member of a family is a constant
+                let periodic = r.free_symbols().iter().any(|n| sym(n) != *zv);
+                let vals: Vec<Option<Cx>> = (-2..=3).map(|k| crate::eval::const_c64(&bind_params(&r, zv, k))).collect();
+                if periodic && vals.iter().all(|v| v.map_or(false, |v| (v - nv).norm() < 1e-9 * (1.0 + nv.norm()))) {
+                    return Some(recognise(nv));
+                }
+                Some(r)
+            } else {
+                Some(recognise(nv))
+            }
+        }
+        (Some(r), None) => Some(r),
+        (None, Some(nv)) if a.free_symbols().iter().all(|n| sym(n) == *zv) => Some(recognise(nv)),
+        _ => None,
+    }
+}
+
+/// Region conditions such as "|z| < 3pi" or "0 < Im z < 12".
+fn in_region(cond: &str, z: Cx) -> Option<bool> {
+    let mut ok = true;
+    for part in cond.split(" and ") {
+        let part = part.trim();
+        let m = re!(r"^(?:(.+?)\s*(<=|<)\s*)?(\|\s*[a-z]\s*\||im\s*\(?\s*[a-z]\s*\)?|re\s*\(?\s*[a-z]\s*\)?)\s*(<=|<)\s*(.+)$").captures(part)?;
+        let what = &m[3];
+        let val = if what.starts_with('|') { z.norm() } else if what.starts_with("im") { z.im } else { z.re };
+        let hi = crate::eval::const_c64(&ex(&m[5])?)?.re;
+        if val > hi + 1e-12 || (&m[4] == "<" && (val - hi).abs() < 1e-12) {
+            ok = false;
+        }
+        if let Some(lo) = m.get(1) {
+            let lo = crate::eval::const_c64(&ex(lo.as_str())?)?.re;
+            if val < lo - 1e-12 || (&m[2] == "<" && (val - lo).abs() < 1e-12) {
+                ok = false;
+            }
+        }
+    }
+    Some(ok)
+}
+
+/// Explicit poles inside a region, enumerating the integer parameter of periodic families.
+fn poles_in(ps: &[(Expr, usize)], zv: &Expr, cond: &str) -> Option<Vec<(Expr, usize)>> {
+    let mut out: Vec<(Expr, usize, Cx)> = Vec::new();
+    for (p, k) in ps {
+        let periodic = p.free_symbols().iter().any(|n| sym(n) != *zv);
+        let range: Vec<i64> = if periodic { (-200..=200).collect() } else { vec![0] };
+        for n in range {
+            let e = s::simplify(&bind_params(p, zv, n));
+            let v = crate::eval::const_c64(&e)?;
+            if in_region(cond, v)? && !out.iter().any(|(_, _, w)| (w - v).norm() < 1e-9) {
+                out.push((e, *k, v));
+            }
+        }
+    }
+    out.sort_by(|a, b| a.2.norm().partial_cmp(&b.2.norm()).unwrap_or(std::cmp::Ordering::Equal).then(a.2.im.partial_cmp(&b.2.im).unwrap_or(std::cmp::Ordering::Equal)));
+    Some(out.into_iter().map(|(e, k, _)| (e, k)).collect())
 }
 
 pub fn complex(q: &Query, l: &str, c: &str) -> Option<Answer> {
     let cap = |r: &Regex| caps(r, l, c);
     let _ = q;
-    if let Some(m) = cap(re!(r"^(?:the\s+)?(poles|singularities)\s+of\s+(.+)$")) {
+    if let Some(m) = cap(re!(r"^(?:show\s+|find\s+)?(?:the\s+)?(poles|pole points|singularities|singular points)\s+of\s+(.+?)(?:\s+(?:with|for|in|where)\s+(.*[<>].*))?$")) {
         let f = ex(&g(&m, 2))?;
         let zv = super::nl::main_var(&f);
-        let ps = poles(&f, &zv)?;
+        let mut ps = poles(&f, &zv)?;
+        if !g(&m, 3).is_empty() {
+            ps = poles_in(&ps, &zv, &g(&m, 3).to_lowercase())?;
+        }
         let rows: Vec<Vec<Content>> = ps.iter().map(|(p, k)| vec![math(p), text(k.to_string()), residue(&f, &zv, p, *k).map(|r| math(&r)).unwrap_or_else(|| text("?"))]).collect();
         let label = format!("poles of {}", ptext(&f));
         return answer(label.clone(), label, vec![primary(pod("Result", "Poles", if ps.is_empty() { text("none — the function is entire") } else { table(Some(vec!["pole", "order", "residue"]), rows) }))]);
     }
-    if let Some(m) = cap(re!(r"^(?:the\s+)?residues?\s+of\s+(.+?)(?:\s+at\s+([a-z])\s*=\s*(.+))?$")) {
+    let residue_re = re!(r"^(?:show\s+|find\s+)?(?:the\s+)?residues?\s+(?:of\s+)?(.+?)(?:\s+at\s+([a-z])\s*=\s*(.+?)|\s+(?:with|for|in|where)\s+(.*[<>].*))?$");
+    let alt = re!(r"^(.+?)\s+residues?\s+at\s+([a-z])\s*=\s*(.+)$");
+    let m = match cap(alt) {
+        Some(m) => Some(m),
+        None => cap(residue_re),
+    };
+    if let Some(m) = m {
         let f = ex(&g(&m, 1))?;
         let zv = if g(&m, 2).is_empty() { super::nl::main_var(&f) } else { sym(&g(&m, 2)) };
-        let ps = poles(&f, &zv)?;
+        let mut ps = poles(&f, &zv)?;
+        if !g(&m, 4).is_empty() {
+            ps = poles_in(&ps, &zv, &g(&m, 4).to_lowercase())?;
+        }
         let label = format!("residue of {}", ptext(&f));
         if !g(&m, 3).is_empty() {
             let a = ex(&g(&m, 3))?;
-            let order = ps.iter().find(|(p, _)| s::equal(p, &a)).map(|(_, k)| *k);
+            let order = ps.iter().find(|(p, _)| family_matches(p, &zv, &a)).map(|(_, k)| *k);
             let Some(order) = order else {
                 return answer(label.clone(), label, vec![primary(pod("Result", "Residue", text(format!("0 — the function is analytic at {}", ptext(&a)))))]);
             };
