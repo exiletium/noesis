@@ -763,12 +763,14 @@ var E; energy; eV
 var n; principal quantum number; ; n
 var Z; atomic number; ; z; 1
 
-== radioactive decay | exponential decay | half-life decay | decay law
+== radioactive decay | exponential decay | half-life decay | decay law | decay lifetime | mean lifetime
 eq N = N0 * 2^(-t / T)
-var N; remaining amount; ; remaining
+eq T = tau * ln(2)
+var N; remaining amount; ; remaining, fraction remaining
 var N0; initial amount; ; initial; 1
-var t; elapsed time; yr; time
-var T; half-life; yr; half life
+var t; elapsed time; yr; time, elapsed
+var T; half-life; yr; half life, halflife
+var tau; mean lifetime; s; lifetime, mean life, life time
 
 == carbon-14 dating | carbon dating | radiocarbon dating
 eq ratio = 2^(-t / T)
@@ -919,3 +921,63 @@ eq P = x * P0
 var P; partial vapor pressure; Pa; vapor pressure, partial pressure
 var x; mole fraction of the solvent; 1; mole fraction
 var P0; vapor pressure of the pure solvent; Pa; pure vapor pressure, p0
+
+# ------------------------------------------------------------- fluids, waves, solids
+
+== Venturi flowmeter | venturi meter | venturi tube | venturi effect | venturi flow
+eq Q = A2 * sqrt(2 * dp / (rho * (1 - (A2 / A1)^2)))
+eq A1 = pi * D1^2 / 4
+eq A2 = pi * D2^2 / 4
+eq v2 = Q / A2
+var Q; volume flow rate; m^3/s; flow rate, flow, discharge
+var dp; pressure difference between inlet and throat; Pa; pressure difference, pressure drop, differential pressure
+var rho; fluid density; kg/m^3; density; 1000
+var A1; inlet area; m^2; inlet area
+var A2; throat area; m^2; throat area
+var D1; inlet diameter; m; inlet diameter, pipe diameter
+var D2; throat diameter; m; throat diameter
+var v2; throat speed; m/s; throat velocity
+note ideal (frictionless) Venturi meter; real meters include a discharge coefficient of about 0.98
+
+== Rossiter formula | rossiter equation | rossiter modes | cavity tones
+eq St = (m - alpha) / (M + 1 / kappa)
+eq f = St * U / L
+var St; Strouhal number of the cavity tone; ; strouhal
+var m; mode number; ; mode; 1
+var M; free-stream Mach number; ; mach, mach number
+var alpha; phase lag constant; ; ; 0.25
+var kappa; vortex convection speed ratio; ; ; 0.57
+var f; tone frequency; Hz; frequency
+var U; free-stream speed; m/s; speed, velocity, flow speed
+var L; cavity length; m; length
+note Rossiter (1964) semi-empirical formula for flow-induced tones in open cavities
+
+== Poisson effect | poisson's ratio | poisson ratio | lateral strain
+eq dW = -nu * W * dL / L
+var dW; change in width; m; width change, lateral change
+var nu; Poisson's ratio; ; poisson; 0.3
+var W; original width; m; width
+var dL; change in length; m; elongation, extension, length change
+var L; original length; m; length
+note small-strain relation: lateral strain = −ν × axial strain; ν ≈ 0.3 for steel, 0.5 for rubber
+
+== rectangular waveguide | rectangular wave guide | waveguide cutoff frequency | waveguide cutoff | waveguide
+eq fc = c / 2 * sqrt((m / a)^2 + (n / b)^2)
+eq lc = c / fc
+var fc; cutoff frequency; GHz; cutoff, cut-off frequency
+var lc; cutoff wavelength; mm; cutoff wavelength
+var m; mode index along the broad side; ; m; 1
+var n; mode index along the narrow side; ; n; 0
+var a; broad-side width; mm; width, a
+var b; narrow-side height; mm; height, b
+note TE_mn and TM_mn modes share this cutoff (TM needs m, n ≥ 1); the dominant mode is TE10 with cutoff c/(2a)
+
+== circular waveguide | circular wave guide | cylindrical waveguide
+eq fcTE = c * besselzerod(m, n) / (2 * pi * a)
+eq fcTM = c * besselzero(m, n) / (2 * pi * a)
+var fcTE; TE_mn cutoff frequency; GHz; te cutoff, transverse electric
+var fcTM; TM_mn cutoff frequency; GHz; tm cutoff, transverse magnetic
+var m; azimuthal mode index; ; m; 1
+var n; radial mode index; ; n; 1
+var a; waveguide radius; mm; radius, a
+note cutoffs use the zeros j′_mn (TE) and j_mn (TM) of the Bessel function J_m; the dominant mode is TE11 with j′_11 ≈ 1.8412

@@ -228,12 +228,109 @@ fn mechanics(l: &str) -> Option<Answer> {
 }
 
 // ---------------------------------------------------------------------------
+// central-force systems in curvilinear coordinates
+// ---------------------------------------------------------------------------
+
+fn coordinate_systems(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:the\s+)?(?:lagrangian (?:of|for) (?:an? |the )?)?(?:classical\s+|isotropic\s+)*(harmonic oscillator|inverse[- ]distance potential|inverse[- ]square (?:force|law)|kepler problem|coulomb potential|free particle|particle)\s+in\s+(\d)\s*d(?:imensions)?\s+in\s+(polar|cylindrical|spherical|hyperspherical|cartesian)\s+coordinates$").captures(l)?;
+    let kind = &m[1];
+    let dim: usize = m[2].parse().ok()?;
+    let sys = &m[3];
+    // coordinates and the diagonal metric factor of each (T = m/2 Σ g q'²)
+    let r = sym("r");
+    let names: Vec<String> = match (sys, dim) {
+        ("polar", 2) => vec!["r".into(), "θ".into()],
+        ("cylindrical", 3) => vec!["r".into(), "φ".into(), "z".into()],
+        ("spherical", 3) => vec!["r".into(), "θ".into(), "φ".into()],
+        ("hyperspherical", d) if (2..=6).contains(&d) => {
+            let angles = ["ψ", "χ", "θ", "φ", "ω"];
+            let mut v = vec!["r".to_string()];
+            v.extend(angles[angles.len() + 1 - d..].iter().map(|a| a.to_string()));
+            v
+        }
+        ("cartesian", d) if (1..=4).contains(&d) => ["x", "y", "z", "w"][..d].iter().map(|s| s.to_string()).collect(),
+        _ => return None,
+    };
+    let q: Vec<Expr> = names.iter().map(|n| sym(n)).collect();
+    let qd: Vec<Expr> = names.iter().map(|n| sym(&format!("{n}'"))).collect();
+    let qdd: Vec<Expr> = names.iter().map(|n| sym(&format!("{n}''"))).collect();
+    let mut g: Vec<Expr> = Vec::new();
+    match sys {
+        "cartesian" => g = vec![int(1); dim],
+        "cylindrical" => g = vec![int(1), pow(r.clone(), int(2)), int(1)],
+        _ => {
+            // r, then angles: r², r² sin²(a₁), r² sin²(a₁) sin²(a₂), …
+            g.push(int(1));
+            let mut f = pow(r.clone(), int(2));
+            for k in 1..q.len() {
+                g.push(f.clone());
+                f = mul(vec![f, pow(func("sin", vec![q[k].clone()]), int(2))]);
+            }
+        }
+    }
+    let radius2 = if sys == "cartesian" { add(q.iter().map(|x| pow(x.clone(), int(2))).collect()) } else { pow(r.clone(), int(2)) };
+    let radius = if sys == "cartesian" { pow(radius2.clone(), rat(1, 2)) } else { r.clone() };
+    let (mass, k) = (sym("m"), sym("k"));
+    let (v, vname) = if kind.contains("harmonic") {
+        (mul(vec![rat(1, 2), k.clone(), radius2.clone()]), "V = ½ k r²")
+    } else if kind.contains("inverse") || kind.contains("kepler") || kind.contains("coulomb") {
+        (neg(mul(vec![k.clone(), pow(radius.clone(), int(-1))])), "V = −k/r")
+    } else {
+        (int(0), "V = 0")
+    };
+    let t = mul(vec![rat(1, 2), mass.clone(), add(g.iter().zip(&qd).map(|(gi, v)| mul(vec![gi.clone(), pow(v.clone(), int(2))])).collect())]);
+    let lag = s::simplify(&sub(t, v.clone()));
+    let mut eoms = Vec::new();
+    let mut conserved = Vec::new();
+    for i in 0..q.len() {
+        let p = s::simplify(&diff(&lag, &qd[i]));
+        let mut terms = Vec::new();
+        for j in 0..q.len() {
+            terms.push(mul(vec![diff(&p, &q[j]), qd[j].clone()]));
+            terms.push(mul(vec![diff(&p, &qd[j]), qdd[j].clone()]));
+        }
+        let dl = s::simplify(&diff(&lag, &q[i]));
+        if dl.is_zero() {
+            conserved.push(format!("p_{} = {}", names[i], ptext(&p)));
+        }
+        let el = s::simplify(&sub(add(terms), dl));
+        let sol = crate::solve::solve(&eq(el.clone(), zero()), &qdd[i]).roots;
+        eoms.push(match sol.first() {
+            Some(rt) => format!("{}'' = {}", names[i], ptext(&s::simplify(rt))),
+            None => format!("{} = 0", ptext(&el)),
+        });
+    }
+    // Hamiltonian H = Σ p²/(2 m g) + V
+    let ham = s::simplify(&add(vec![
+        add(names.iter().zip(&g).map(|(n, gi)| mul(vec![pow(sym(&format!("p_{n}")), int(2)), pow(mul(vec![int(2), mass.clone(), gi.clone()]), int(-1))])).collect()),
+        v.clone(),
+    ]));
+    let title = format!("{} in {dim}D in {sys} coordinates", if kind.contains("harmonic") { "isotropic harmonic oscillator" } else if kind.contains("free") || kind == "particle" { "free particle" } else { "inverse-distance potential" });
+    let mut pods = vec![
+        input(title.clone()),
+        primary(pod("Lagrangian", "Lagrangian", text(format!("L = {}", ptext(&lag))))),
+        pod("EOM", "Euler–Lagrange equations", text(eoms.join("\n"))),
+        pod("Hamiltonian", "Hamiltonian", text(format!("H = {}", ptext(&ham)))),
+        pod("Coordinates", "Coordinates and potential", text(format!("generalized coordinates {}; {vname}; m mass, k constant", names.join(", ")))),
+    ];
+    if !conserved.is_empty() {
+        pods.push(pod("Conserved", "Conserved momenta (cyclic coordinates)", text(conserved.join("\n"))));
+    }
+    Some(Answer::new("Lagrangian system", pods))
+}
+
+// ---------------------------------------------------------------------------
 // named physical systems
 // ---------------------------------------------------------------------------
 
 fn systems(l: &str) -> Option<Answer> {
     let l = l.trim_end_matches(" (physical system)").trim_start_matches("the ").trim_start_matches("a ");
+    let l = re!(r"^(?:lagrangian|equations of motion|hamiltonian) (?:of|for) (?:an? |the )?").replace(l, "").to_string();
+    let l = l.trim_end_matches(" system").trim_end_matches(" lagrangian");
     let (name, main, rows): (&str, &str, Vec<(&str, &str)>) = match l {
+        "coupled pendulum" | "coupled pendulums" | "coupled pendula" | "two coupled pendulums" => ("two pendulums coupled by a spring", "L = ½ m L² (θ₁'² + θ₂'²) + m g L (cos θ₁ + cos θ₂) − ½ k L² (sin θ₁ − sin θ₂)²", vec![("small-angle equations", "θ₁'' = −(g/L) θ₁ − (k/m)(θ₁ − θ₂);  θ₂'' = −(g/L) θ₂ + (k/m)(θ₁ − θ₂)"), ("in-phase normal mode", "ω₁ = √(g/L)"), ("out-of-phase normal mode", "ω₂ = √(g/L + 2k/m)"), ("beats", "energy passes between the pendulums at the beat frequency ω₂ − ω₁")]),
+        "double pendulum" => ("double pendulum", "L = ½ (m₁ + m₂) l₁² θ₁'² + ½ m₂ l₂² θ₂'² + m₂ l₁ l₂ θ₁' θ₂' cos(θ₁ − θ₂) + (m₁ + m₂) g l₁ cos θ₁ + m₂ g l₂ cos θ₂", vec![("equation for θ₁", "(m₁ + m₂) l₁ θ₁'' + m₂ l₂ θ₂'' cos(θ₁ − θ₂) + m₂ l₂ θ₂'² sin(θ₁ − θ₂) + (m₁ + m₂) g sin θ₁ = 0"), ("equation for θ₂", "l₂ θ₂'' + l₁ θ₁'' cos(θ₁ − θ₂) − l₁ θ₁'² sin(θ₁ − θ₂) + g sin θ₂ = 0"), ("small-angle modes (m₁ = m₂, l₁ = l₂ = l)", "ω² = (2 ∓ √2) g/l"), ("behaviour", "chaotic for large amplitudes")]),
+        "spherical pendulum" => ("spherical pendulum", "L = ½ m L² (θ'² + sin²θ φ'²) + m g L cos θ", vec![("θ equation", "θ'' = sin θ cos θ φ'² − (g/L) sin θ"), ("conserved", "p_φ = m L² sin²θ φ' (angular momentum about the vertical) and the energy"), ("conical pendulum", "steady motion at θ₀ with φ'² = g/(L cos θ₀)")]),
         "pendulum" | "simple pendulum" => ("simple pendulum", "θ'' + (g/L) sin θ = 0", vec![("small-angle period", "T = 2π √(L/g)"), ("exact period", "T = 4 √(L/g) K(sin²(θ₀/2)), K the complete elliptic integral"), ("energy", "E = ½ m L² θ'² − m g L cos θ")]),
         "damped harmonic oscillator with forcing" | "damped driven harmonic oscillator" | "driven damped harmonic oscillator" | "damped sinusoidal driven harmonic oscillator" | "forced damped oscillator" => ("driven damped harmonic oscillator", "m x'' + c x' + k x = F₀ cos(ω t)", vec![("natural frequency", "ω₀ = √(k/m)"), ("damping ratio", "ζ = c/(2√(m k))"), ("steady-state amplitude", "A = (F₀/m)/√((ω₀² − ω²)² + (c ω/m)²)"), ("phase lag", "φ = atan2(c ω/m, ω₀² − ω²)"), ("resonance (amplitude)", "ω_r = ω₀ √(1 − 2ζ²) for ζ < 1/√2")]),
         "damped harmonic oscillator" => ("damped harmonic oscillator", "m x'' + c x' + k x = 0", vec![("underdamped (ζ < 1)", "x = A e^(−ζω₀t) cos(ω₀√(1 − ζ²) t + φ)"), ("critically damped (ζ = 1)", "x = (A + B t) e^(−ω₀ t)"), ("overdamped (ζ > 1)", "x = A e^(r₁t) + B e^(r₂t), r = −ω₀(ζ ± √(ζ² − 1))")]),
@@ -386,7 +483,7 @@ fn calcs(l: &str) -> Option<Answer> {
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.clean.trim().trim_end_matches(['?', '.']).to_lowercase();
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
-    let one = |l: &str| laws(l).or_else(|| mechanics(l)).or_else(|| systems(l)).or_else(|| black_holes(l)).or_else(|| calcs(l));
+    let one = |l: &str| laws(l).or_else(|| mechanics(l)).or_else(|| coordinate_systems(l)).or_else(|| systems(l)).or_else(|| black_holes(l)).or_else(|| calcs(l));
     if let Some(a) = one(&l) {
         return Some(a);
     }

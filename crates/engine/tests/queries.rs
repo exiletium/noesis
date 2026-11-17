@@ -707,3 +707,18 @@ fn inflation_sizes_threads_and_moist_air() {
     assert_eq!(short("dew point of 25C and 50% humidity"), "dew point 13.9 °C (57 °F)");
     assert!(short("sound speed of air -40 F").starts_with("306.1 m/s"));
 }
+
+#[test]
+fn lagrangians_waveguides_and_flow_formulas() {
+    let a = q("classical harmonic oscillator in 2D in polar coordinates");
+    assert!(pod_text(&a, "EOM").contains("θ'' = -(2 r' θ')/r"));
+    assert!(pod_text(&a, "Conserved").contains("p_θ = m r^2 θ'"));
+    let a = q("classical inverse-distance potential in 3D in spherical coordinates");
+    assert!(pod_text(&a, "Lagrangian").contains("+ k/r"));
+    assert!(short("Lagrangian of a coupled pendulum system").starts_with("L = ½ m L²"));
+    assert!(short("rectangular waveguide a=2.286 cm b=1.016 cm").starts_with("6.557"));
+    assert!(short("circular waveguide radius 1 cm").starts_with("8.78"));
+    assert!(short("venturi meter inlet diameter 10 cm throat diameter 5 cm pressure difference 20 kPa").starts_with("0.01282"));
+    assert!(short("Rossiter formula for mach 2").starts_with("0.1997"));
+    assert!(short("radioactive decay, half-life 5 days, time 2 days").starts_with("0.7578"));
+}
