@@ -134,11 +134,17 @@ pub fn algebra(q: &Query, l: &str, c: &str) -> Option<Answer> {
         return answer(format!("{what} of {}", ptext(&e)), format!("{what} of {}", ptext(&e)), pods);
     }
     // parity
-    if let Some(m) = cap(re!(r"^is\s+(.+?)\s+(?:an?\s+)?(?:odd or even|even or odd|even|odd|symmetric)(?:\s+function)?$")) {
-        let e = fx(&g(&m, 1))?;
-        if e.free_symbols().len() == 1 {
+    if let Some(m) = cap(re!(r"^is\s+(.+?)\s+(?:an?\s+)?(?:odd or even|even or odd|even|odd|symmetric)(?:\s+function)?$")).or_else(|| cap(re!(r"^(?:what is\s+)?(?:the\s+)?parity of\s+(?:the\s+function\s+)?(.+)$"))) {
+        let src = g(&m, 1);
+        let src = re!(r"^[a-z]\s*\([a-z ,]+\)\s*=\s*").replace(src.trim(), "").to_string();
+        let e = fx(&src)?;
+        let vars: Vec<_> = e.free_symbols().into_iter().collect();
+        if (1..=4).contains(&vars.len()) {
             let x = main_var(&e);
-            let fm = e.subs(&x, &neg(x.clone()));
+            let mut fm = e.clone();
+            for v in &vars {
+                fm = fm.subs(&sym(v.as_ref()), &neg(sym(v.as_ref())));
+            }
             let even = s::simplify(&sub(fm.clone(), e.clone())).is_zero();
             let odd = s::simplify(&add(vec![fm.clone(), e.clone()])).is_zero();
             let verdict = match (even, odd) {
@@ -147,7 +153,7 @@ pub fn algebra(q: &Query, l: &str, c: &str) -> Option<Answer> {
                 (false, true) => "an odd function: f(-x) = -f(x), so its graph is symmetric about the origin",
                 _ => "neither even nor odd",
             };
-            let fx_name = raw_fn("f", vec![neg(x.clone())]);
+            let fx_name = if vars.len() == 1 { raw_fn("f", vec![neg(x.clone())]) } else { raw_fn("f", vars.iter().map(|v| neg(sym(v.as_ref()))).collect()) };
             let mut pods = vec![primary(pod("Result", "Result", text(format!("{} is {verdict}.", ptext(&e)))))];
             pods.push(pod("Check", "Check", math(&eq(fx_name, s::simplify(&fm)))));
             if let Some(p) = plot_pod(&[e.clone()], &x, None) {
@@ -359,6 +365,14 @@ pub fn calculus_q(q: &Query, l: &str, c: &str) -> Option<Answer> {
     let cap = |r: &Regex| caps(r, l, c);
     let _ = q;
 
+    // concavity over the whole line: intervals, with the inflection points
+    if let Some(m) = cap(re!(r"^(?:the\s+)?concavity\s+(?:of|for)\s+(.+)$")) {
+        if !re!(r"\s(?:on|between|over|for|where)\s").is_match(&g(&m, 1)) {
+            if let Some(a) = super::analysis::whole_line("concavity", &g(&m, 1)) {
+                return Some(a);
+            }
+        }
+    }
     // inflection points
     if let Some(m) = cap(re!(r"^(?:the\s+)?(?:inflection points?|inflexion points?|points? of inflection|concavity)\s+(?:of|for)\s+(.+)$")) {
         let e = fx(&g(&m, 1))?;

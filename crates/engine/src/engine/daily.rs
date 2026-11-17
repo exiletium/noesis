@@ -389,6 +389,36 @@ fn calendar(l: &str) -> Option<Answer> {
         "last week" => Some((today - chrono::Duration::days(7), "one week ago")),
         _ => None,
     };
+    let rel = rel.map(|(d, l)| (d, l.to_string())).or_else(|| {
+        let m = re!(r"^(next|last|this|previous|coming) (monday|tuesday|wednesday|thursday|friday|saturday|sunday|month|year)$").captures(l)?;
+        let fwd = matches!(&m[1], "next" | "coming" | "this");
+        let unit = &m[2];
+        let d = match unit {
+            "month" | "year" => {
+                let months: i32 = if &m[1] == "this" { 0 } else { (if unit == "month" { 1 } else { 12 }) * if fwd { 1 } else { -1 } };
+                let total = today.year() * 12 + today.month0() as i32 + months;
+                let (y, mo) = (total.div_euclid(12), total.rem_euclid(12) as u32 + 1);
+                NaiveDate::from_ymd_opt(y, mo, 1)?
+            }
+            w => {
+                let target: chrono::Weekday = w.parse().ok()?;
+                let cur = today.weekday().num_days_from_monday() as i64;
+                let tgt = target.num_days_from_monday() as i64;
+                let mut delta = if fwd { (tgt - cur).rem_euclid(7) } else { -((cur - tgt).rem_euclid(7)) };
+                if delta == 0 && &m[1] != "this" {
+                    delta = if fwd { 7 } else { -7 };
+                }
+                today + chrono::Duration::days(delta)
+            }
+        };
+        Some((d, m[0].to_string()))
+    });
+    if let Some(m) = re!(r"^(next|last|this) (month|year)$").captures(l) {
+        let (d, _) = rel?;
+        let (title, main) = if &m[2] == "month" { (format!("{} month", &m[1]), d.format("%B %Y").to_string()) } else { (format!("{} year", &m[1]), d.format("%Y").to_string()) };
+        let last = if &m[2] == "month" { NaiveDate::from_ymd_opt(if d.month() == 12 { d.year() + 1 } else { d.year() }, d.month() % 12 + 1, 1)? - chrono::Duration::days(1) } else { NaiveDate::from_ymd_opt(d.year(), 12, 31)? };
+        return Some(ans("date", title, "Result", text(main), vec![pod("Span", "Span", text(format!("{} – {}", d.format("%A, %B %-d, %Y"), last.format("%A, %B %-d, %Y")))), pod("Days", "Length", text(format!("{} days", (last - d).num_days() + 1)))]));
+    }
     if let Some((d, label)) = rel {
         let mut extra = vec![pod("Week", "Week", text(format!("ISO week {} of {}", d.iso_week().week(), d.iso_week().year())))];
         if label.contains("week") {
@@ -458,7 +488,7 @@ fn capital(s: &str) -> String {
 // time zones
 // ---------------------------------------------------------------------------
 
-fn zone(name: &str) -> Option<(&'static str, &'static str)> {
+pub(crate) fn zone(name: &str) -> Option<(&'static str, &'static str)> {
     let n = name.trim().trim_end_matches(" time zone").trim_end_matches(" time").trim_end_matches(" standard").trim();
     Some(match n {
         "est" | "edt" | "et" | "eastern" | "us eastern" => ("America/New_York", "US Eastern Time"),
@@ -469,7 +499,7 @@ fn zone(name: &str) -> Option<(&'static str, &'static str)> {
         "hst" | "hawaii" => ("Pacific/Honolulu", "Hawaii Time"),
         "ast" | "atlantic" => ("America/Halifax", "Atlantic Time"),
         "nst" | "newfoundland" => ("America/St_Johns", "Newfoundland Time"),
-        "gmt" | "utc" | "zulu" | "z" => ("Etc/UTC", "Coordinated Universal Time"),
+        "gmt" | "utc" | "zulu" | "z" | "greenwich mean" | "greenwich" | "coordinated universal" | "universal" => ("Etc/UTC", "Coordinated Universal Time"),
         "bst" | "uk" | "british" | "london" => ("Europe/London", "UK time (GMT/BST)"),
         "cet" | "cest" | "central european" | "central europe" => ("Europe/Paris", "Central European Time"),
         "eet" | "eest" | "eastern european" => ("Europe/Athens", "Eastern European Time"),
@@ -484,9 +514,9 @@ fn zone(name: &str) -> Option<(&'static str, &'static str)> {
         "sgt" | "singapore" => ("Asia/Singapore", "Singapore Time"),
         "wib" | "jakarta" => ("Asia/Jakarta", "Western Indonesia Time"),
         "pht" | "philippine" => ("Asia/Manila", "Philippine Time"),
-        "aest" | "aedt" | "australian eastern" | "sydney" => ("Australia/Sydney", "Australian Eastern Time"),
-        "acst" | "australian central" => ("Australia/Adelaide", "Australian Central Time"),
-        "awst" | "australian western" | "perth" => ("Australia/Perth", "Australian Western Time"),
+        "aest" | "aedt" | "australian eastern" | "australia eastern" | "eastern australia" | "sydney" => ("Australia/Sydney", "Australian Eastern Time"),
+        "acst" | "australian central" | "australia central" | "central australia" => ("Australia/Adelaide", "Australian Central Time"),
+        "awst" | "australian western" | "australia western" | "western australia" | "perth" => ("Australia/Perth", "Australian Western Time"),
         "nzst" | "nzdt" | "new zealand" | "nz" => ("Pacific/Auckland", "New Zealand Time"),
         "art" | "argentina" => ("America/Argentina/Buenos_Aires", "Argentina Time"),
         "brt" | "brasilia" | "brazil" => ("America/Sao_Paulo", "Brasília Time"),

@@ -226,6 +226,31 @@ pub fn handle(q: &Query) -> Option<Answer> {
     if let Some(a) = ice(&l) {
         return Some(a);
     }
+    // a moment in deep time: which eon, era, period and epoch
+    if let Some(m) = re!(r"^(?:geologic(?:al)? (?:time|period|era|epoch) )?(\d+(?:\.\d+)?) (thousand|million|billion) years ago$").captures(&l) {
+        let v: f64 = m[1].parse().ok()?;
+        let ma = v * match &m[2] { "thousand" => 1e-3, "million" => 1.0, _ => 1e3 };
+        let mut rows = Vec::new();
+        let mut names = Vec::new();
+        for rank in [Eon, Era, Period, Epoch] {
+            if let Some(d) = DIVS.iter().find(|d| d.rank == rank && d.start >= ma && d.end <= ma) {
+                rows.push(vec![text(rank.word()), text(d.name), text(format!("{} – {}", fmt_ma(d.start), fmt_ma(d.end)))]);
+                names.push(format!("{} {}", d.name, rank.word()));
+            }
+        }
+        if rows.is_empty() {
+            return None;
+        }
+        let main = names.iter().rev().cloned().collect::<Vec<_>>().join(", ");
+        return Some(Answer::new(
+            "geologic time",
+            vec![
+                pod("Input", "Input interpretation", text(format!("{} years ago", m[0].trim_end_matches(" years ago").trim_start_matches("geological ").trim_start_matches("geologic ")))),
+                primary(pod("Result", "Geologic time", text(main))),
+                pod("Divisions", "Divisions containing that time", table(Some(vec!["rank", "name", "interval"]), rows)),
+            ],
+        ));
+    }
     // the eras and what started them
     if re!(r"^(?:events that (?:started|began|ended) the )?geologic(?:al)? (eras|eons|periods|epochs|time scale|timescale)$").is_match(&l) {
         let rank = if l.contains("eon") { Eon } else if l.contains("period") { Period } else if l.contains("epoch") { Epoch } else { Era };

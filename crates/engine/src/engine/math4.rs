@@ -61,6 +61,22 @@ fn names(l: &str) -> Option<Answer> {
         }
         return Some(Answer::new("number name", pods));
     }
+    if let Some(m) = re!(r"^(\d+(?:\.\d+)?)\s+(quadrillion|quintillion|sextillion|septillion|octillion|nonillion|decillion|undecillion|duodecillion|tredecillion|quattuordecillion|quindecillion|sexdecillion|septendecillion|octodecillion|novemdecillion|vigintillion|centillion|googol)$").captures(l) {
+        let c: f64 = m[1].parse().ok()?;
+        if c != 1.0 {
+            let (name, e) = SCALES.iter().find(|(n, _)| *n == &m[2])?;
+            let digits = m[1].replace('.', "");
+            let int_len = m[1].split('.').next().unwrap_or("").trim_start_matches('0').len().max(1);
+            let exp = *e as usize + int_len - 1;
+            let mant = format!("{}{}", &digits[..1], if digits.len() > 1 { format!(".{}", digits[1..].trim_end_matches('0')) } else { String::new() });
+            let mant = mant.trim_end_matches('.').to_string();
+            return Some(Answer::new(*name, vec![
+                input(format!("{} {name}", &m[1])),
+                primary(pod("Result", "Value (short scale)", text(format!("{mant}×10^{exp}")))),
+                pod("Details", "Details", table(None, vec![vec![text("digits"), text(format!("{}", exp + 1))], vec![text("meaning"), text(format!("{} × 10^{e}", &m[1]))]])),
+            ]));
+        }
+    }
     if let Some(m) = re!(r"^(?:(?:one|1|a)\s+)?(thousand|million|billion|trillion|quadrillion|quintillion|sextillion|septillion|octillion|nonillion|decillion|undecillion|duodecillion|tredecillion|quattuordecillion|quindecillion|sexdecillion|septendecillion|octodecillion|novemdecillion|vigintillion|centillion|googol)$").captures(l) {
         let (name, e) = SCALES.iter().find(|(n, _)| *n == &m[1])?;
         let long = match *name {

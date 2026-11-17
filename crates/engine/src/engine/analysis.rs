@@ -482,12 +482,150 @@ fn behaviour_at(q: &Query) -> Option<Answer> {
     ))
 }
 
+/// Concavity or monotonicity over the whole real line: sign of f″ (or f′)
+/// between its zeros and discontinuities, with infinite end intervals.
+pub(crate) fn whole_line(what: &str, body: &str) -> Option<Answer> {
+    let body = re!(r"(?i)^(?:the\s+)?(?:curve\s+|function\s+|graph of\s+)?(?:[a-z]\s*\(\s*[a-z]\s*\)\s*=\s*|y\s*=\s*)?").replace(body.trim(), "").to_string();
+    let e = ex(&body)?;
+    if e.free_symbols().len() != 1 {
+        return None;
+    }
+    let x = main_var(&e);
+    let second = what.contains("concav");
+    let d1 = s::simplify(&calculus::diff(&e, &x));
+    let d = if second { s::simplify(&calculus::diff(&d1, &x)) } else { d1 };
+    let f = F::new(&d, &x)?;
+    let fe = F::new(&e, &x)?;
+    // a periodic function is described over one period
+    let per = super::math::period(&e, &x).and_then(|p| p.to_f64_const().map(|v| (p, v))).filter(|(_, v)| *v > 0.0 && *v < 1e3);
+    let (lo, hi) = match &per { Some((_, p)) => (0.0, *p), None => (-60.0, 60.0) };
+    let mut cuts: Vec<f64> = crate::numeric::find_roots(&|t| f.at(t), lo, hi, 24000);
+    cuts.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    cuts.dedup_by(|a, b| (*a - *b).abs() < 1e-7);
+    let snap = |v: f64| {
+        let r = (v * 1e6).round() / 1e6;
+        if (v - r).abs() < 1e-8 { r + 0.0 } else { v }
+    };
+    // poles and domain edges of f″ (or f′): sign changes that are not zeros,
+    // and changes between defined and undefined
+    let n = 24000;
+    let h = (hi - lo) / n as f64;
+    let mut breaks: Vec<f64> = Vec::new();
+    let mut prev = f.at(lo);
+    for k in 1..=n {
+        let (a, b) = (lo + h * (k - 1) as f64, lo + h * k as f64);
+        let cur = f.at(b);
+        let fin = (prev.is_finite(), cur.is_finite());
+        let flip = fin.0 && fin.1 && prev != 0.0 && cur != 0.0 && prev.signum() != cur.signum() && !cuts.iter().any(|r| *r >= a - 1e-9 && *r <= b + 1e-9);
+        if fin.0 != fin.1 || flip {
+            let (mut l, mut r) = (a, b);
+            for _ in 0..80 {
+                let m = (l + r) / 2.0;
+                let v = f.at(m);
+                let left_like = if fin.0 != fin.1 { v.is_finite() == fin.0 } else { v.is_finite() && v.signum() == prev.signum() };
+                if left_like { l = m } else { r = m }
+            }
+            breaks.push(snap((l + r) / 2.0));
+        }
+        prev = cur;
+    }
+    let roots: Vec<f64> = cuts.into_iter().map(snap).collect();
+    let mut cuts: Vec<f64> = roots.iter().chain(breaks.iter()).copied().collect();
+    cuts.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    cuts.dedup_by(|a, b| (*a - *b).abs() < 1e-7);
+    let is_break = |c: f64| breaks.iter().any(|b| (b - c).abs() < 1e-7);
+    // sample point inside each piece, including the infinite ends
+    let mut pieces: Vec<(Option<f64>, Option<f64>, f64)> = Vec::new();
+    let cuts: Vec<f64> = cuts.into_iter().filter(|c| per.is_none() || (*c > lo + 1e-9 && *c < hi - 1e-9)).collect();
+    let mut bounds: Vec<Option<f64>> = vec![if per.is_some() { Some(lo) } else { None }];
+    bounds.extend(cuts.iter().map(|c| Some(*c)));
+    bounds.push(if per.is_some() { Some(hi) } else { None });
+    for w in bounds.windows(2) {
+        let mid = match (w[0], w[1]) {
+            (None, None) => 0.5,
+            (None, Some(b)) => b - 1.0,
+            (Some(a), None) => a + 1.0,
+            (Some(a), Some(b)) => (a + b) / 2.0,
+        };
+        let mut sg = f.at(mid);
+        if !sg.is_finite() {
+            sg = f.at(mid + 1e-3);
+        }
+        if !fe.at(mid).is_finite() {
+            sg = f64::NAN; // outside the domain of f
+        }
+        pieces.push((w[0], w[1], sg));
+    }
+    // pieces outside the domain (f undefined) are dropped
+    let label = |v: f64| -> Option<&'static str> {
+        if !v.is_finite() {
+            return None;
+        }
+        Some(match (second, v.abs() < 1e-12, v > 0.0) {
+            (_, true, _) => if second { "linear (no curvature)" } else { "constant" },
+            (true, _, true) => "concave up",
+            (true, _, false) => "concave down",
+            (false, _, true) => "increasing",
+            (false, _, false) => "decreasing",
+        })
+    };
+    let mut rows: Vec<(Option<f64>, Option<f64>, &str)> = Vec::new();
+    for (a, b, v) in &pieces {
+        let Some(l) = label(*v) else { continue };
+        if let Some(last) = rows.last_mut() {
+            if last.2 == l && last.1 == *a {
+                // same behaviour across a touching zero (e.g. x⁴ at 0)
+                if let Some(c) = a {
+                    if fe.at(*c).is_finite() && !is_break(*c) {
+                        last.1 = *b;
+                        continue;
+                    }
+                }
+            }
+        }
+        rows.push((*a, *b, l));
+    }
+    if rows.is_empty() {
+        return None;
+    }
+    let fmt = |v: f64| {
+        let w = v / std::f64::consts::PI;
+        for d in [1.0, 2.0, 3.0, 4.0, 6.0] {
+            let r = (w * d).round();
+            if r != 0.0 && (w * d - r).abs() < 1e-9 {
+                let num = match r as i64 { 1 => "π".to_string(), -1 => "-π".to_string(), k => format!("{k}π") };
+                return if d == 1.0 { num } else { format!("{num}/{}", d as i64) };
+            }
+        }
+        crate::print::fmt_float(v, 6)
+    };
+    let end = |v: Option<f64>, neg: bool| v.map(fmt).unwrap_or_else(|| if neg { "−∞".into() } else { "∞".into() });
+    let iv = |a: Option<f64>, b: Option<f64>| format!("({}, {})", end(a, true), end(b, false));
+    let mut main = if rows.len() == 1 && per.is_none() && rows[0].0.is_none() && rows[0].1.is_none() {
+        format!("{} on ℝ", rows[0].2)
+    } else {
+        rows.iter().map(|(a, b, l)| format!("{l} on {}", iv(*a, *b))).collect::<Vec<_>>().join("; ")
+    };
+    if let Some((p, _)) = &per {
+        main.push_str(&format!("  (repeating with period {})", show(p)));
+    }
+    let mut extra = vec![pod("Intervals", "Intervals", table(Some(vec!["interval", "behaviour"]), rows.iter().map(|(a, b, l)| vec![text(iv(*a, *b)), text(l.to_string())]).collect()))];
+    let turning: Vec<String> = rows.windows(2).filter(|w| w[0].1 == w[1].0 && w[0].2 != w[1].2).filter_map(|w| w[0].1).filter(|c| fe.at(*c).is_finite() && !is_break(*c)).map(|c| format!("({}, {})", fmt(c), fmt(snap(fe.at(c))))).collect();
+    if !turning.is_empty() {
+        extra.push(pod(if second { "Inflection" } else { "Extrema" }, if second { "Inflection points" } else { "Local extrema" }, text(turning.join(", "))));
+    }
+    extra.push(pod("Derivative", if second { "Second derivative" } else { "Derivative" }, math(&d)));
+    Some(ans(&format!("{what} of {}", show(&e)), format!("{} | {what}", show(&e)), "Result", text(main), extra))
+}
+
 fn on_interval(q: &Query) -> Option<Answer> {
     let c = q.clean.trim().trim_end_matches('?').trim();
     let (what, body, iv) = if let Some(m) = re!(r"(?i)^(?:the\s+)?(concavity|monotonicity|inflection points?|intervals of increase(?: and decrease)?)\s+(?:of\s+)?(?:the\s+)?(?:curve\s+|function\s+)?(.+?)\s+(?:on|between|for|over|with|in|where)\s+(.+)$").captures(c) {
         (m[1].to_lowercase(), m[2].to_string(), m[3].to_string())
     } else if let Some(m) = re!(r"(?i)^(.+?)\s+(concavity|monotonicity)\s+(?:on|between|for|over)\s+(.+)$").captures(c) {
         (m[2].to_lowercase(), m[1].to_string(), m[3].to_string())
+    } else if let Some(m) = re!(r"(?i)^(?:the\s+)?(concavity|monotonicity|intervals of increase(?: and decrease)?|intervals of concavity)\s+(?:of\s+)?(?:the\s+)?(?:curve\s+|function\s+|graph of\s+)?(?:[a-z]\s*\(\s*[a-z]\s*\)\s*=\s*|y\s*=\s*)?(.+)$").captures(c) {
+        return whole_line(&m[1].to_lowercase(), &m[2]);
     } else {
         return None;
     };
@@ -1376,6 +1514,65 @@ fn geometry(q: &Query) -> Option<Answer> {
     None
 }
 
+/// Root mean square of a periodic function over one period (or, when no
+/// period is found, the long-run average).
+fn rms(q: &Query) -> Option<Answer> {
+    let c = q.clean.trim().trim_end_matches('?').trim();
+    let m = re!(r"(?i)^(?:the\s+)?(?:root[- ]mean[- ]square|rms)(?:\s+value)?\s+(?:of\s+)?(?:[a-z]\s*\(\s*[a-z]\s*\)\s*=\s*)?(.+)$").captures(c)?;
+    let e = ex(&m[1])?;
+    if e.free_symbols().len() != 1 {
+        return None;
+    }
+    let x = main_var(&e);
+    let f = F::new(&e, &x)?;
+    let per = super::math::period(&e, &x);
+    let (len, exact_period) = match per.as_ref().and_then(|p| p.to_f64_const()) {
+        Some(p) if p > 0.0 => (p, true),
+        _ => (2000.0, false),
+    };
+    let steps = if exact_period { 20000 } else { 400000 };
+    let h = len / steps as f64;
+    let mut acc = 0.0;
+    let mut mean = 0.0;
+    for k in 0..=steps {
+        let w = if k == 0 || k == steps { 1.0 } else if k % 2 == 1 { 4.0 } else { 2.0 };
+        let v = f.at(k as f64 * h);
+        if !v.is_finite() {
+            return None;
+        }
+        acc += w * v * v;
+        mean += w * v;
+    }
+    let ms = acc * h / 3.0 / len;
+    let avg = mean * h / 3.0 / len;
+    let r = ms.sqrt();
+    // exact form √(p/q) for a mean square with a small denominator
+    let mut exact = None;
+    if exact_period {
+        for d in 1..=24u32 {
+            let p = (ms * d as f64).round();
+            if (ms * d as f64 - p).abs() < 1e-7 {
+                let g = { let (mut a, mut b) = (p as u64, d as u64); while b != 0 { let t = a % b; a = b; b = t; } a.max(1) };
+                let (p, d) = (p as u64 / g, d as u64 / g);
+                exact = Some(if d == 1 { format!("√{p}") } else { format!("√({p}/{d})") });
+                break;
+            }
+        }
+    }
+    let fmt = |v: f64| crate::print::fmt_float(crate::eval::chop(v), 6);
+    let main = match &exact {
+        Some(ex) if (r - r.round()).abs() > 1e-9 => format!("{ex} ≈ {}", fmt(r)),
+        _ => fmt(r),
+    };
+    let mut extra = vec![pod("Details", "Details", table(None, vec![
+        vec![text("mean square"), text(fmt(ms))],
+        vec![text("mean value"), text(fmt(avg))],
+        vec![text("averaged over"), text(match &per { Some(p) if exact_period => format!("one period, {} = {}", show(&x), show(p)), _ => "a long interval (no exact period found; numerical estimate)".into() })],
+    ]))];
+    extra.push(pod("Definition", "Definition", text("RMS = √( (1/T) ∫₀ᵀ f(t)² dt )")));
+    Some(ans(&format!("rms of {}", show(&e)), format!("root mean square | {}", show(&e)), "Result", text(main), extra))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.as_str();
     if l.contains("continu") || l.contains("differentiab") || l.contains("derivative") && l.starts_with("do") || l.contains("discontinu") {
@@ -1384,6 +1581,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
     }
     behaviour_at(q)
+        .or_else(|| rms(q))
         .or_else(|| transforms(q))
         .or_else(|| geometry(q))
         .or_else(|| on_interval(q))

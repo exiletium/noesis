@@ -375,7 +375,7 @@ fn nth_weekday(y: i32, m: u32, wd: Weekday, nth: i32) -> Option<NaiveDate> {
     }
 }
 
-fn holiday_date(name: &str, y: i32) -> Option<(NaiveDate, &'static str)> {
+pub(crate) fn holiday_date(name: &str, y: i32) -> Option<(NaiveDate, &'static str)> {
     let fixed = |m: u32, d: u32| NaiveDate::from_ymd_opt(y, m, d);
     Some(match name {
         "easter" | "easter sunday" => (easter(y)?, "Western (Gregorian) Easter: the first Sunday after the ecclesiastical full moon on or after March 21"),

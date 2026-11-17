@@ -410,6 +410,162 @@ fn board_feet(q: &Query) -> Option<Answer> {
     ]))
 }
 
+/// A temperature in °F from "25 degrees F", "-4 °C", "30F".
+fn temp_f(l: &str) -> Option<f64> {
+    let m = re!(r"(-?\d+(?:\.\d+)?)\s*(?:degrees?\s*|deg\s*|°\s*)?(fahrenheit|celsius|f|c)\b").captures(l)?;
+    let v: f64 = m[1].parse().ok()?;
+    Some(if m[2].starts_with('c') { v * 9.0 / 5.0 + 32.0 } else { v })
+}
+
+/// A speed in mph from "25 mph", "40 km/h", "10 m/s", "15 knots".
+fn speed_mph(l: &str) -> Option<f64> {
+    let m = re!(r"(\d+(?:\.\d+)?)\s*(mph|miles per hour|km/h|kmh|kph|kilometers per hour|m/s|knots?|kt)\b").captures(l)?;
+    let v: f64 = m[1].parse().ok()?;
+    Some(match &m[2] {
+        "mph" | "miles per hour" => v,
+        "m/s" => v * 2.236_936,
+        "knot" | "knots" | "kt" => v * 1.150_779,
+        _ => v / 1.609_344,
+    })
+}
+
+fn wind_chill(q: &Query) -> Option<Answer> {
+    let l = q.lower.trim();
+    if !(l.contains("wind chill") || l.contains("windchill") || l.contains("frostbite") || l.contains("feels like")) {
+        return None;
+    }
+    let (t, v) = (temp_f(l)?, speed_mph(l)?);
+    let vp = v.powf(0.16);
+    let wc = 35.74 + 0.6215 * t - 35.75 * vp + 0.4275 * t * vp;
+    let valid = t <= 50.0 && v >= 3.0;
+    let c = |f: f64| (f - 32.0) * 5.0 / 9.0;
+    // NWS wind chill chart frostbite zones
+    let risk = if wc > -18.0 {
+        "low (frostbite unlikely within 30 minutes)"
+    } else if wc > -33.0 {
+        "frostbite possible in about 30 minutes"
+    } else if wc > -48.0 {
+        "frostbite possible in about 10 minutes"
+    } else {
+        "frostbite possible in 5 minutes or less"
+    };
+    let frost = l.contains("frostbite");
+    let main = if frost { risk.to_string() } else { format!("{} °F  ({} °C)", n(wc.round()), n((c(wc) * 10.0).round() / 10.0)) };
+    let mut r = vec![("air temperature", format!("{} °F ({} °C)", n(t), n((c(t) * 10.0).round() / 10.0))), ("wind speed", format!("{} mph ({} km/h)", n((v * 10.0).round() / 10.0), n((v * 16.09344).round() / 10.0))), ("wind chill", format!("{} °F ({} °C)", n(wc.round()), n((c(wc) * 10.0).round() / 10.0))), ("frostbite risk", risk.to_string())];
+    if !valid {
+        r.push(("note", "the formula applies for temperatures at or below 50 °F and winds of at least 3 mph".into()));
+    }
+    Some(Answer::new(
+        if frost { "frostbite risk" } else { "wind chill" },
+        vec![
+            input(format!("{} | {} °F | {} mph", if frost { "frostbite time" } else { "wind chill" }, n(t), n((v * 10.0).round() / 10.0))),
+            primary(pod("Result", if frost { "Frostbite risk" } else { "Wind chill" }, text(main))),
+            pod("Details", "Details", rows(r)),
+            pod("Formula", "Formula", text("NWS (2001): WC = 35.74 + 0.6215 T − 35.75 V^0.16 + 0.4275 T V^0.16  (T in °F, V in mph at 10 m); frostbite zones from the NWS wind chill chart")),
+        ],
+    ))
+}
+
+fn heat_index(q: &Query) -> Option<Answer> {
+    let l = q.lower.trim();
+    if !(l.contains("heat index") || l.contains("apparent temperature")) {
+        return None;
+    }
+    let t = temp_f(l)?;
+    let rh: f64 = re!(r"(\d+(?:\.\d+)?)\s*%").captures(l).or_else(|| re!(r"(\d+(?:\.\d+)?)\s*(?:percent\s+)?(?:relative\s+)?humidity").captures(l))?[1].parse().ok()?;
+    if !(0.0..=100.0).contains(&rh) {
+        return None;
+    }
+    let simple = 0.5 * (t + 61.0 + (t - 68.0) * 1.2 + rh * 0.094);
+    let hi = if (simple + t) / 2.0 < 80.0 {
+        simple
+    } else {
+        let mut h = -42.379 + 2.04901523 * t + 10.14333127 * rh - 0.22475541 * t * rh - 6.83783e-3 * t * t - 5.481717e-2 * rh * rh + 1.22874e-3 * t * t * rh + 8.5282e-4 * t * rh * rh - 1.99e-6 * t * t * rh * rh;
+        if rh < 13.0 && (80.0..=112.0).contains(&t) {
+            h -= (13.0 - rh) / 4.0 * ((17.0 - (t - 95.0).abs()) / 17.0).sqrt();
+        } else if rh > 85.0 && (80.0..=87.0).contains(&t) {
+            h += (rh - 85.0) / 10.0 * (87.0 - t) / 5.0;
+        }
+        h
+    };
+    let c = |f: f64| (f - 32.0) * 5.0 / 9.0;
+    let level = if hi < 80.0 {
+        "no heat stress category"
+    } else if hi < 91.0 {
+        "caution: fatigue possible with prolonged exposure"
+    } else if hi < 104.0 {
+        "extreme caution: heat cramps and heat exhaustion possible"
+    } else if hi < 125.0 {
+        "danger: heat cramps or exhaustion likely, heat stroke possible"
+    } else {
+        "extreme danger: heat stroke highly likely"
+    };
+    Some(Answer::new(
+        "heat index",
+        vec![
+            input(format!("heat index | {} °F | {}% relative humidity", n(t), n(rh))),
+            primary(pod("Result", "Heat index", text(format!("{} °F  ({} °C)", n(hi.round()), n((c(hi) * 10.0).round() / 10.0))))),
+            pod("Level", "NWS category", text(level)),
+            pod("Formula", "Formula", text("NWS Rothfusz regression with its low- and high-humidity adjustments (Steadman's simple formula below 80 °F)")),
+        ],
+    ))
+}
+
+fn stopping_distance(q: &Query) -> Option<Answer> {
+    let l = q.lower.trim();
+    if !re!(r"(?:stopping|braking) distance").is_match(l) {
+        return None;
+    }
+    let v_mph = speed_mph(l)?;
+    let v = v_mph * 0.447_04;
+    let reaction: f64 = re!(r"reaction(?: time)?\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*s").captures(l).and_then(|m| m[1].parse().ok()).unwrap_or(1.5);
+    let (mu, surface) = if l.contains("wet") || l.contains("rain") { (0.4, "wet asphalt (μ ≈ 0.4)") } else if l.contains("ice") || l.contains("icy") { (0.1, "ice (μ ≈ 0.1)") } else if l.contains("snow") { (0.2, "packed snow (μ ≈ 0.2)") } else { (0.7, "dry asphalt (μ ≈ 0.7)") };
+    let d_react = v * reaction;
+    let d_brake = v * v / (2.0 * mu * 9.80665);
+    let total = d_react + d_brake;
+    let ft = |m: f64| m / 0.3048;
+    let both = |m: f64| format!("{} ft  ({} m)", n(ft(m).round()), n((m * 10.0).round() / 10.0));
+    let braking_only = l.contains("braking distance") && !l.contains("stopping");
+    let main = if braking_only && !l.contains("safe") { both(d_brake) } else { both(total) };
+    Some(Answer::new(
+        "stopping distance",
+        vec![
+            input(format!("{} distance | {} mph", if braking_only && !l.contains("safe") { "braking" } else { "stopping" }, n(v_mph))),
+            primary(pod("Result", if braking_only && !l.contains("safe") { "Braking distance" } else { "Total stopping distance" }, text(main))),
+            pod("Parts", "Breakdown", rows(vec![("reaction distance", format!("{} (reaction time {} s)", both(d_react), n(reaction))), ("braking distance", both(d_brake)), ("total", both(total)), ("time to stop", format!("{} s", n(((reaction + v / (mu * 9.80665)) * 10.0).round() / 10.0)))])),
+            pod("Assumptions", "Assumptions", text(format!("{surface}; braking distance v²/(2μg); a two-second following gap at this speed is {}", both(2.0 * v)))),
+        ],
+    ))
+}
+
+const ANNIVERSARIES: &[(u32, &str, &str)] = &[
+    (1, "paper", "clocks"), (2, "cotton", "china"), (3, "leather", "crystal, glass"), (4, "fruit, flowers (linen)", "appliances"), (5, "wood", "silverware"),
+    (6, "iron (sugar)", "wood"), (7, "wool, copper", "desk sets"), (8, "bronze", "linens, lace"), (9, "pottery (willow)", "leather"), (10, "tin, aluminium", "diamond jewelry"),
+    (11, "steel", "fashion jewelry"), (12, "silk, linen", "pearls"), (13, "lace", "textiles, furs"), (14, "ivory", "gold jewelry"), (15, "crystal", "watches"),
+    (20, "china", "platinum"), (25, "silver", "silver"), (30, "pearl", "diamond"), (35, "coral (jade)", "jade"), (40, "ruby", "ruby"),
+    (45, "sapphire", "sapphire"), (50, "gold", "gold"), (55, "emerald", "emerald"), (60, "diamond", "diamond"), (65, "blue sapphire", "blue sapphire"), (70, "platinum", "platinum"), (75, "diamond, gold", "diamond, gold"),
+];
+
+fn anniversary(q: &Query) -> Option<Answer> {
+    let l = q.lower.trim();
+    let m = re!(r"^(?:what is the |gift for (?:a |the )?|traditional gift for (?:a |the )?)?(\d+)(?:st|nd|rd|th)? (?:year )?(?:wedding )?anniversary(?: gifts?)?$").captures(l)?;
+    if !l.contains("wedding") && !l.contains("gift") {
+        return None;
+    }
+    let k: u32 = m[1].parse().ok()?;
+    let &(_, trad, modern) = ANNIVERSARIES.iter().find(|a| a.0 == k)?;
+    let ord = |k: u32| format!("{k}{}", match (k % 10, k % 100) { (1, x) if x != 11 => "st", (2, x) if x != 12 => "nd", (3, x) if x != 13 => "rd", _ => "th" });
+    Some(Answer::new(
+        "wedding anniversary",
+        vec![
+            input(format!("{} wedding anniversary", ord(k))),
+            primary(pod("Result", "Traditional gift", text(trad))),
+            pod("Modern", "Modern gift", text(modern)),
+            pod("Note", "Note", text("traditional (British/American) and modern (American) anniversary-gift lists; the materials vary between sources")),
+        ],
+    ))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     standard_atmosphere(q)
         .or_else(|| atmosphere_layers(q))
@@ -421,6 +577,10 @@ pub fn handle(q: &Query) -> Option<Answer> {
         .or_else(|| cloud_base(q))
         .or_else(|| hardness(q))
         .or_else(|| board_feet(q))
+        .or_else(|| wind_chill(q))
+        .or_else(|| heat_index(q))
+        .or_else(|| stopping_distance(q))
+        .or_else(|| anniversary(q))
 }
 
 #[cfg(test)]

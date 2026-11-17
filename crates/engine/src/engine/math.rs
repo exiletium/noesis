@@ -753,34 +753,120 @@ fn domain_text(prog: &crate::eval::Program, x: &Expr) -> String {
 fn range_text(prog: &crate::eval::Program) -> Option<String> {
     let mut lo = f64::INFINITY;
     let mut hi = f64::NEG_INFINITY;
+    let (mut tlo, mut thi) = (0.0f64, 0.0f64);
     let n = 20000;
     for k in 0..=n {
         let u = -1.0 + 2.0 * k as f64 / n as f64;
         let t = u / (1.0 - u * u).max(1e-9) * 3.0; // dense near 0, reaches far out
         let v = prog.eval1(t);
         if v.is_finite() {
-            lo = lo.min(v);
-            hi = hi.max(v);
+            if v < lo {
+                lo = v;
+                tlo = t;
+            }
+            if v > hi {
+                hi = v;
+                thi = t;
+            }
         }
     }
     if !lo.is_finite() || !hi.is_finite() {
         return None;
+    }
+    // polish interior extremes so exact values can be recognised
+    if tlo.abs() <= 1e3 {
+        let d = 1e-2 * (1.0 + tlo.abs());
+        let (t, v) = crate::numeric::golden_min(&|t| prog.eval1(t), tlo - d, tlo + d, 1e-13);
+        if v.is_finite() && v <= lo {
+            lo = v;
+            tlo = t;
+        }
+    }
+    if thi.abs() <= 1e3 {
+        let d = 1e-2 * (1.0 + thi.abs());
+        let (t, v) = crate::numeric::golden_min(&|t| -prog.eval1(t), thi - d, thi + d, 1e-13);
+        if v.is_finite() && -v >= hi {
+            hi = -v;
+            thi = t;
+        }
+    }
+    // a bound reached only far out is a horizontal asymptote: snap it to
+    // the limit and leave it open
+    let fmt = |v: f64| crate::print::fmt_float(crate::eval::chop(v), 6);
+    // exact-looking value: a small-denominator rational or rational multiple of π
+    let nice = |v: f64| -> Option<String> {
+        for d in [1i64, 2, 3, 4, 6, 8, 12] {
+            let r = (v * d as f64).round();
+            if (v * d as f64 - r).abs() < 1e-9 * (1.0 + v.abs()) {
+                let (p, q) = (r as i64, d);
+                let g = { let (mut a, mut b) = (p.abs(), q); while b != 0 { let t = a % b; a = b; b = t; } a.max(1) };
+                return Some(if q / g == 1 { (p / g).to_string() } else { format!("{}/{}", p / g, q / g) });
+            }
+        }
+        let w = v / std::f64::consts::PI;
+        for d in [1i64, 2, 3, 4, 6] {
+            let r = (w * d as f64).round();
+            if r != 0.0 && (w * d as f64 - r).abs() < 1e-9 {
+                let (p, q) = (r as i64, d);
+                let g = { let (mut a, mut b) = (p.abs(), q); while b != 0 { let t = a % b; a = b; b = t; } a.max(1) };
+                let (p, q) = (p / g, q / g);
+                let num = match p { 1 => "π".to_string(), -1 => "-π".to_string(), _ => format!("{p}π") };
+                return Some(if q == 1 { num } else { format!("{num}/{q}") });
+            }
+        }
+        None
+    };
+    let show = |v: f64| nice(v).unwrap_or_else(|| fmt(v));
+    let limit_at = |t: f64| -> Option<f64> {
+        let s = t.signum();
+        let (a, b) = (prog.eval1(s * 1e7), prog.eval1(s * 1e9));
+        let b = if b.abs() < 1e-6 && a.abs() < 1e-4 { 0.0 } else { b };
+        if a.is_finite() && b.is_finite() && (a - b).abs() < 1e-6 * (1.0 + a.abs()) && nice(b).is_some() {
+            Some(b)
+        } else {
+            None
+        }
+    };
+    let open_lo = if tlo.abs() > 1e3 { limit_at(tlo) } else { None };
+    let open_hi = if thi.abs() > 1e3 { limit_at(thi) } else { None };
+    if open_lo.is_some() || open_hi.is_some() {
+        let interior = |t: f64| t.abs() <= 1e3;
+        // (value, strict)
+        let lo_b = match open_lo {
+            Some(l) => Some((show(l), true)),
+            None if interior(tlo) && lo > -1e7 => Some((show(lo), false)),
+            None => None,
+        };
+        let hi_b = match open_hi {
+            Some(h) => Some((show(h), true)),
+            None if interior(thi) && hi < 1e7 => Some((show(hi), false)),
+            None => None,
+        };
+        let exact = |o: Option<f64>, v: f64, t: f64, bounded: bool| o.is_some() || !bounded || (interior(t) && nice(v).is_some());
+        let approx = if exact(open_lo, lo, tlo, lo_b.is_some()) && exact(open_hi, hi, thi, hi_b.is_some()) { "" } else { " (approximately)" };
+        let lt = |strict: bool| if strict { "<" } else { "≤" };
+        return Some(match (lo_b, hi_b) {
+            (Some((l, sl)), Some((h, sh))) => format!("{{y ∈ ℝ : {l} {} y {} {h}}}{approx}", lt(sl), lt(sh)),
+            (Some((l, sl)), None) => format!("{{y ∈ ℝ : y {} {l}}}{approx}", if sl { ">" } else { "≥" }),
+            (None, Some((h, sh))) => format!("{{y ∈ ℝ : y {} {h}}}{approx}", lt(sh)),
+            (None, None) => "all real numbers".into(),
+        });
     }
     // typical magnitude, to recognise values blowing up near poles
     let mut mags: Vec<f64> = (0..=200).map(|k| prog.eval1(-10.0 + 0.1 * k as f64).abs()).filter(|v| v.is_finite()).collect();
     mags.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let typical = mags.get(mags.len() / 2).cloned().unwrap_or(1.0).max(1e-6);
     let big = (1e3 * typical).max(1e3).min(1e8);
-    let fmt = |v: f64| crate::print::fmt_float(crate::eval::chop(v), 6);
+    let ap = |ok: bool| if ok { "" } else { " (approximately)" };
     Some(match (lo < -big, hi > big) {
         (true, true) => "all real numbers".into(),
-        (true, false) => format!("{{y ∈ ℝ : y ≤ {}}} (approximately)", fmt(hi)),
-        (false, true) => format!("{{y ∈ ℝ : y ≥ {}}} (approximately)", fmt(lo)),
-        (false, false) => format!("{{y ∈ ℝ : {} ≤ y ≤ {}}} (approximately)", fmt(lo), fmt(hi)),
+        (true, false) => format!("{{y ∈ ℝ : y ≤ {}}}{}", show(hi), ap(nice(hi).is_some())),
+        (false, true) => format!("{{y ∈ ℝ : y ≥ {}}}{}", show(lo), ap(nice(lo).is_some())),
+        (false, false) => format!("{{y ∈ ℝ : {} ≤ y ≤ {}}}{}", show(lo), show(hi), ap(nice(lo).is_some() && nice(hi).is_some())),
     })
 }
 
-fn period(f: &Expr, x: &Expr) -> Option<Expr> {
+pub(crate) fn period(f: &Expr, x: &Expr) -> Option<Expr> {
     // trigonometric functions with linear arguments
     let mut periods: Vec<Rat> = Vec::new();
     let mut ok = true;

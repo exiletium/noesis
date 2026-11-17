@@ -503,7 +503,7 @@ fn to_roman(mut n: u32) -> Option<String> {
 
 fn roman_arith(raw: &str) -> Option<Answer> {
     let t = raw.trim().trim_end_matches(['?', '.', '=']).trim();
-    if !re!(r"^[MDCLXVI]+(?:\s*[-+*/×÷]\s*[MDCLXVI]+)+$").is_match(t) {
+    if !re!(r"^(?:[MDCLXVI]+|\d+)(?:\s*[-+*/×÷]\s*(?:[MDCLXVI]+|\d+))+$").is_match(t) || !re!(r"[MDCLXVI]").is_match(t) {
         return None;
     }
     let mut dec = String::new();
@@ -526,6 +526,71 @@ fn roman_arith(raw: &str) -> Option<Answer> {
         None => pods.push(primary(pod("Decimal", "Result", text(show_rat(&v))))),
     }
     Some(Answer::new("Roman numerals", pods))
+}
+
+/// Ionic (alphabetic) Greek numerals, 1–9999, with the keraia and the
+/// lower-left thousands sign.
+fn greek_numeral(n: u32) -> Option<String> {
+    if n == 0 || n > 9999 {
+        return None;
+    }
+    const ONES: [&str; 9] = ["Α", "Β", "Γ", "Δ", "Ε", "Ϛ", "Ζ", "Η", "Θ"];
+    const TENS: [&str; 9] = ["Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο", "Π", "Ϟ"];
+    const HUNDREDS: [&str; 9] = ["Ρ", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω", "Ϡ"];
+    let mut s = String::new();
+    let (th, h, t, o) = (n / 1000, n / 100 % 10, n / 10 % 10, n % 10);
+    if th > 0 {
+        s.push('͵');
+        s.push_str(ONES[th as usize - 1]);
+    }
+    for (d, table) in [(h, &HUNDREDS), (t, &TENS), (o, &ONES)] {
+        if d > 0 {
+            s.push_str(table[d as usize - 1]);
+        }
+    }
+    if h + t + o > 0 {
+        s.push('ʹ');
+    }
+    Some(s)
+}
+
+fn ancient_numerals(l: &str, raw: &str) -> Option<Answer> {
+    let m = re!(r"^(?:convert\s+)?([0-9,]+|[mdclxvi]+)\s+(?:to|in(?:to)?)\s+(greek|babylonian|attic|ionic greek)(?:\s+numerals?)?$").captures(l)?;
+    let src = m[1].replace(',', "");
+    let n: u64 = match src.parse() {
+        Ok(v) => v,
+        Err(_) => {
+            let up = raw.trim().split_whitespace().next()?.to_string();
+            let up = if up.chars().all(|c| "MDCLXVI".contains(c)) { up } else { src.to_uppercase() };
+            roman_value(&up)? as u64
+        }
+    };
+    if m[2].contains("greek") || &m[2] == "attic" {
+        let g = greek_numeral(u32::try_from(n).ok()?)?;
+        return Some(Answer::new("Greek numerals", vec![
+            pod("Input", "Input interpretation", text(format!("{n} in Greek numerals"))),
+            primary(pod("Result", "Ionic (alphabetic) Greek numeral", text(g))),
+            pod("Note", "Notation", text("letters stand for 1–9, 10–90 and 100–900 (with the archaic letters stigma Ϛ, koppa Ϟ and sampi Ϡ); ʹ marks a number and ͵ multiplies by 1000")),
+        ]));
+    }
+    // Babylonian: base 60 with wedges for tens (𒌋) and ones (𒁹), no zero sign in early use
+    let mut digits = Vec::new();
+    let mut v = n;
+    loop {
+        digits.push((v % 60) as u32);
+        v /= 60;
+        if v == 0 {
+            break;
+        }
+    }
+    digits.reverse();
+    let glyph = |d: u32| if d == 0 { "(space)".to_string() } else { format!("{}{}", "𒌋".repeat((d / 10) as usize), "𒁹".repeat((d % 10) as usize)) };
+    let rows: Vec<Vec<Content>> = digits.iter().enumerate().map(|(i, d)| vec![text(format!("60^{}", digits.len() - 1 - i)), text(d.to_string()), text(glyph(*d))]).collect();
+    Some(Answer::new("Babylonian numerals", vec![
+        pod("Input", "Input interpretation", text(format!("{n} in Babylonian (sexagesimal) numerals"))),
+        primary(pod("Result", "Sexagesimal digits, highest place first", text(digits.iter().map(|d| d.to_string()).collect::<Vec<_>>().join(" ")))),
+        pod("Glyphs", "Cuneiform (𒌋 = ten, 𒁹 = one)", table(Some(vec!["place", "digit", "cuneiform"]), rows)),
+    ]))
 }
 
 fn mayan(l: &str) -> Option<Answer> {
@@ -557,6 +622,9 @@ fn mayan(l: &str) -> Option<Answer> {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     if let Some(a) = roman_arith(&q.clean) {
+        return Some(a);
+    }
+    if let Some(a) = ancient_numerals(q.lower.trim().trim_end_matches(['?', '.']), &q.clean) {
         return Some(a);
     }
     let l = q.clean.trim().trim_end_matches(['?', '.']).to_lowercase();

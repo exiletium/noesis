@@ -33,7 +33,7 @@ fn holiday(name: &str, year: i32) -> Option<NaiveDate> {
         "independence day" | "july 4th" | "fourth of july" => (7, 4),
         "st patrick's day" | "st. patrick's day" | "saint patrick's day" => (3, 17),
         "pi day" => (3, 14),
-        _ => return None,
+        _ => return super::knowledge::holiday_date(name, year).map(|h| h.0).or_else(|| super::clock::lunar_holiday(name, year)),
     };
     NaiveDate::from_ymd_opt(year, m, d)
 }
@@ -208,6 +208,24 @@ fn dates(q: &Query) -> Option<Answer> {
             pod("Units", "Unit conversions", table(None, vec![vec![text("hours"), text((days * 24).to_string())], vec![text("minutes"), text((days * 1440).to_string())], vec![text("seconds"), text((days * 86400).to_string())]])),
         ];
         return Some(Answer::new("days between dates", pods));
+    }
+    if let Some(m) = re!(r"^(?:how many )?(days|weeks) since\s+(?:the\s+)?(.+?)(?:\s+(\d{4}))?$").captures(l) {
+        let name = m[2].trim().trim_end_matches('?');
+        let t = today();
+        let d = match m.get(3) {
+            Some(y) => holiday(name, y.as_str().parse().ok()?).or_else(|| parse_date(&format!("{name} {}", y.as_str())))?,
+            None => match holiday(name, t.year()) {
+                Some(h) if h <= t => h,
+                Some(_) => holiday(name, t.year() - 1)?,
+                None => parse_date(name)?,
+            },
+        };
+        let days = (t - d).num_days();
+        if days < 0 {
+            return None;
+        }
+        let pods = vec![pod("Input", "Input interpretation", text(format!("days since {}", date_long(d)))), primary(pod("Result", "Result", text(span_text(days))))];
+        return Some(Answer::new("days since", pods));
     }
     if let Some(m) = re!(r"^(?:how many )?days (?:until|till|to|before)\s+(.+)$").captures(l) {
         let d = parse_date(&m[1])?;

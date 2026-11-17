@@ -629,3 +629,67 @@ fn lighter_queries() {
     assert!(short("20 lb turkey frying time").starts_with("60–100 minutes"));
     assert!(short("How many astronomers does it take to change a light bulb?").contains("dark"));
 }
+
+#[test]
+fn number_theory_numerals_and_triangles() {
+    assert_eq!(short("last digit of 9^9^9"), "9");
+    assert_eq!(short("last 4 digits of 2^3^4"), "2352");
+    assert_eq!(short("solve 2x = 10 (mod 12), 3x = 9 (mod 12)"), "x ≡ 11 (mod 12)");
+    assert_eq!(short("number of primitive polynomials of GF(3125)"), "280");
+    assert_eq!(short("MMVIII - 25"), "MCMLXXXIII");
+    assert_eq!(short("1275 to Greek numerals"), "͵ΑΣΟΕʹ");
+    assert_eq!(short("1000 to Babylonian"), "16 40");
+    assert_eq!(short("49 tredecillion"), "4.9×10^43");
+    assert_eq!(short("silver ratio"), "1 + √2");
+    assert_eq!(short("Is the golden ratio transcendental?"), "no");
+    assert!(short("law of sines a=6cm, b=8cm, alpha=40deg").contains("β = 121.013°"));
+    assert!(short("is f(x,y,z)=sin(xyz) an odd function?").contains("odd function"));
+}
+
+#[test]
+fn everyday_objects_and_estimates() {
+    assert_eq!(short("how many liters in 6 cans of coke?"), "2.13 liters");
+    assert_eq!(short("football field length in inches"), "4320 inches");
+    assert_eq!(short("how many stripes on the American flag?"), "13");
+    assert_eq!(short("how many legs on a spider vs legs on a cow?"), "spider: 8, cow: 4");
+    assert_eq!(short("How many m&m's would fit in 2 liters?"), "about 2000");
+    assert!(short("how heavy is an elephant?").starts_with("6000 kg"));
+    assert!(short("compare lengths of a t-rex and a triceratops").starts_with("3.3 m"));
+}
+
+#[test]
+fn ranges_concavity_and_rms() {
+    assert_eq!(short("range of 1/sqrt(x^2+1)"), "{y ∈ ℝ : 0 < y ≤ 1}");
+    assert_eq!(short("range of arctan(x)"), "{y ∈ ℝ : -π/2 < y < π/2}");
+    assert_eq!(short("range of x^2-x"), "{y ∈ ℝ : y ≥ -1/4}");
+    assert_eq!(short("concavity of the curve xe^(-x)"), "concave down on (−∞, 2); concave up on (2, ∞)");
+    assert_eq!(short("concavity of ln(x)"), "concave down on (0, ∞)");
+    assert_eq!(short("monotonicity of x^3-3x"), "increasing on (−∞, -1); decreasing on (-1, 1); increasing on (1, ∞)");
+    assert!(short("root mean square 3sin(t)-2cos(2t)").starts_with("√(13/2) ≈ 2.5495"));
+}
+
+#[test]
+fn weather_driving_dates_and_packing() {
+    assert_eq!(short("wind chill calculator, 25 degrees F, 30mph"), "8 °F  (-13.3 °C)");
+    assert_eq!(short("frostbite, -10 degrees F, 25 mph"), "frostbite possible in about 10 minutes");
+    assert_eq!(short("stopping distance 70mph"), "388 ft  (118.3 m)");
+    assert_eq!(short("3rd wedding anniversary"), "leather");
+    assert_eq!(short("20 million years ago"), "Miocene epoch, Neogene period, Cenozoic era, Phanerozoic eon");
+    assert!(short("pack 24 2\" circles in a square").starts_with("smallest square side ≈ 9.86"));
+    assert!(short("pack 24 circles in a circle").starts_with("smallest circle diameter ≈ 5.65"));
+    assert!(short("next month").contains(' '));
+    assert!(short("days until Labor Day").contains("days"));
+}
+
+#[test]
+fn clocks_calendars_and_holidays() {
+    assert_eq!(short("third Tuesday in April 2027"), "Tuesday, April 20, 2027");
+    assert_eq!(short("29th Sunday in 2025"), "Sunday, July 20, 2025");
+    assert_eq!(short("If it is 7pm in Moscow, what time is it in Islamabad?"), "9:00 PM PKT");
+    assert_eq!(short("Mar 4, 1991 to Sep 7, 1995"), "4 years, 6 months, 3 days");
+    assert_eq!(short("convert Julian calendar February 9, 2012 to Gregorian calendar"), "Wednesday, February 22, 2012");
+    assert_eq!(short("2:34:06pm May 12, 1979 in Unix Time"), "295367646");
+    assert!(short("Rosh Hashanah 2015").contains("September 14, 2015"));
+    assert!(short("holidays 2009").contains("Thursday, November 26"));
+    assert!(short("year 1951").contains("Metal Rabbit"));
+}
