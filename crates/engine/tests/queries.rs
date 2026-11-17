@@ -1003,3 +1003,23 @@ fn liquids_materials_spectra_and_black_holes() {
     assert!(short("supermassive black holes").starts_with("TON 618"));
     assert!(short("entropy of V0381 Normae black hole, GU Muscae black hole").contains("k_B | GU Muscae"));
 }
+
+#[test]
+fn physical_geography() {
+    assert_eq!(short("length Amazon / Nile"), "Amazon River: 6400 km (3977 mi) | Nile: 6650 km (4132 mi)");
+    assert!(short("Mt Hood").contains("3429 m"));
+    assert!(short("Mount Everest").contains("8848.86 m"));
+    assert_eq!(short("how tall is mount everest"), "8848.86 m (29,032 ft)");
+    assert!(short("surface area Lake Erie + Lake Huron + Lake Ontario").starts_with("104,260 km²"));
+    assert_eq!(short("Pacific ocean lowest point"), "Challenger Deep, Mariana Trench");
+    assert_eq!(short("volcanic arc of mt rainier volcano"), "Cascade Volcanic Arc");
+    assert!(short("most destructive volcanic eruption").starts_with("Mount Tambora"));
+    assert!(short("5 highest mountains").starts_with("Mount Everest | K2 | Kangchenjunga"));
+    assert!(short("caves in Italy").contains("Blue Grotto"));
+    assert!(short("distance from Blue Grotto to Tunis").starts_with("544 km"));
+    assert!(short("Tigris, Euphrates").contains("Euphrates"));
+    assert!(short("width Victoria Falls / Iguacu Falls").contains("Iguazu Falls: 2700 m"));
+    // country and city names are not taken
+    assert!(short("kenya").contains("Nairobi"));
+    assert!(short("jordan").contains("Amman"));
+}
