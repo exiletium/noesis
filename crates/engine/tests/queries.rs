@@ -589,3 +589,32 @@ fn kinetic_theory_and_cosmology() {
     assert!(pod_text(&q("1 billion years after the big bang"), "Result").contains("5.66"));
     assert!(pod_text(&q("age of the universe at z=1100"), "Result").contains("thousand years"));
 }
+
+#[test]
+fn finance_calculators() {
+    assert_eq!(short("continuous interest PV=$3800, rate=6%, periods=5"), "$5,129.46");
+    assert_eq!(short("$1000 at 7% for 3 years"), "$1,225.04");
+    assert_eq!(short("bond pricing formula $1000, coupon rate 7%, annual yield 10%"), "$815.66");
+    assert_eq!(short("fuel cost 50 miles, 20 mpg, $2.09/gal"), "$5.23");
+    assert_eq!(short("$10.25/hr"), "$21,320.00 per year");
+    assert_eq!(short("cpm 50 imp/s 12000 dollars per day"), "$2.78");
+    assert_eq!(short("marginal tax rate of filing single earning $40k"), "12%");
+    assert!(short("credit card balance $9000, apr 12%, $300/month").starts_with("36 months"));
+}
+
+#[test]
+fn health_calculators() {
+    assert!(short("BAC 5 drinks, 2 hours, male, 180lb").starts_with("0.0961%"));
+    assert!(short("blood pressure 145/90").starts_with("stage 2"));
+    assert!(short("due date, last period=3/14/09").contains("December 19, 2009"));
+    assert!(pod_text(&q("20/50 vision"), "Equivalents").contains("0.4"));
+}
+
+#[test]
+fn atmosphere_earth_and_materials() {
+    assert!(short("atmosphere 40000ft").starts_with("18.82"));
+    assert!(short("speed of 1mm raindrop").starts_with("3.997"));
+    assert!(short("3000 miles below the surface of the earth").starts_with("outer core"));
+    assert_eq!(short("Vickers hardness formula 30 kgf, 0.5 mm"), "222.528 HV");
+    assert_eq!(short("lumber volume 3 ft diameter, 20 ft length"), "1280 board feet");
+}
