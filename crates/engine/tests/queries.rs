@@ -1045,3 +1045,21 @@ fn molecular_biology_and_dinosaurs() {
     assert!(short("largest dinosaur").starts_with("Argentinosaurus"));
     assert!(short("mass of a cat") != "4-nucleotide DNA sequence, 50% GC");
 }
+
+#[test]
+fn famous_people() {
+    assert!(short("Why was Albert Einstein famous?").contains("relativity"));
+    assert!(short("Charlemagne").contains("(c. 747–814)"));
+    assert_eq!(short("Mary Shelley's place of birth"), "Somers Town, London, England");
+    assert_eq!(short("when was Galileo born"), "Saturday, February 15, 1564");
+    assert_eq!(short("when did Elvis die"), "Tuesday, August 16, 1977");
+    assert!(short("Betty White age").starts_with("99 years"));
+    assert!(short("famous people from Detroit").contains("Diana Ross"));
+    assert!(short("famous people named Stephen").contains("Stephen Hawking"));
+    assert!(short("Nobel Prize winners from France").contains("Marie Curie"));
+    assert!(short("Martin Luther King, Jr., Mother Teresa, Mahatma Gandhi").contains("Mother Teresa"));
+    assert!(short("Robert Pattinson birthday moon phase").contains("illuminated"));
+    assert!(short("Paris Hilton").contains("media personality"));
+    // surnames that are also cities or units stay with geography and units
+    assert!(!short("darwin").contains("naturalist"));
+}

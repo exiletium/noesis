@@ -228,6 +228,12 @@ fn simple(interp: String, title: &str, value: String, extra: Vec<crate::engine::
     Answer::new(interp, pods)
 }
 
+/// A Wikidata person card: (display name, description, card pod).
+pub(crate) fn person_card(name: &str) -> Option<(&'static str, &'static str, crate::engine::Pod)> {
+    let p = facts().people.get(&norm(name))?;
+    Some((p.name, p.about, person_pod(name)?))
+}
+
 fn person_pod(name: &str) -> Option<crate::engine::Pod> {
     let p = facts().people.get(&norm(name))?;
     let mut rows = Vec::new();
@@ -461,6 +467,10 @@ fn people(l: &str) -> Option<Answer> {
     } else {
         return None;
     };
+    // the curated people table has checked dates and places
+    if super::people::known(name) {
+        return None;
+    }
     let p = f.people.get(&norm(name))?;
     let card: Vec<crate::engine::Pod> = person_pod(p.name).into_iter().collect();
     let age = || -> Option<String> {
