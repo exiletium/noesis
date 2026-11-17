@@ -34,6 +34,7 @@ pub mod structures;
 pub mod literature;
 pub mod anatomy;
 pub mod sky;
+pub mod technology;
 pub mod society;
 pub mod stellar;
 pub mod earth;
@@ -58,10 +59,10 @@ macro_rules! needs_word {
     };
 }
 
-needs_word!(society_h => society::handle, stellar_h => stellar::handle, animals_h => animals::handle, myth_h => myth::handle, structures_h => structures::handle, literature_h => literature::handle, anatomy_h => anatomy::handle, units_h => units::handle);
+needs_word!(society_h => society::handle, stellar_h => stellar::handle, animals_h => animals::handle, myth_h => myth::handle, structures_h => structures::handle, literature_h => literature::handle, anatomy_h => anatomy::handle, units_h => units::handle, technology_h => technology::handle);
 
 /// Domain handlers in priority order (they run before the general math
 /// analyzer, and only claim inputs that use their vocabulary).
 pub fn handlers() -> Vec<(&'static str, Handler)> {
-    vec![("live", live::handle), ("everyday", everyday::handle), ("practical", practical::handle), ("school", school::handle), ("music", music::handle), ("knowledge", knowledge::handle), ("society", society_h), ("nuclides", nuclides::handle), ("physics", physics::handle), ("shapes", shapes::handle), ("misc", misc::handle), ("clock", clock::handle), ("stellar", stellar_h), ("sky", sky::handle), ("earth", earth::handle), ("trades", trades::handle), ("money", money::handle), ("health", health::handle), ("applied", applied::handle), ("fun", fun::handle), ("objects", objects::handle), ("animals", animals_h), ("myth", myth_h), ("structures", structures_h), ("literature", literature_h), ("anatomy", anatomy_h), ("molecule", molecule::handle), ("physchem", physchem::handle), ("cosmos", cosmos::handle), ("gauges", gauges::handle), ("chem", chem::handle), ("chemcalc", chemcalc::handle), ("solutions", solutions::handle), ("materials", materials::handle), ("reactions", reactions::handle), ("formulas", formulas::handle), ("formula_db", formula_db::handle), ("astro", astro::handle), ("geo", geo::handle), ("units", units_h)]
+    vec![("live", live::handle), ("everyday", everyday::handle), ("practical", practical::handle), ("school", school::handle), ("music", music::handle), ("knowledge", knowledge::handle), ("society", society_h), ("nuclides", nuclides::handle), ("physics", physics::handle), ("shapes", shapes::handle), ("misc", misc::handle), ("clock", clock::handle), ("stellar", stellar_h), ("sky", sky::handle), ("earth", earth::handle), ("trades", trades::handle), ("money", money::handle), ("health", health::handle), ("applied", applied::handle), ("fun", fun::handle), ("objects", objects::handle), ("animals", animals_h), ("myth", myth_h), ("structures", structures_h), ("literature", literature_h), ("anatomy", anatomy_h), ("technology", technology_h), ("molecule", molecule::handle), ("physchem", physchem::handle), ("cosmos", cosmos::handle), ("gauges", gauges::handle), ("chem", chem::handle), ("chemcalc", chemcalc::handle), ("solutions", solutions::handle), ("materials", materials::handle), ("reactions", reactions::handle), ("formulas", formulas::handle), ("formula_db", formula_db::handle), ("astro", astro::handle), ("geo", geo::handle), ("units", units_h)]
 }

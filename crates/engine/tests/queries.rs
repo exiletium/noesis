@@ -944,3 +944,23 @@ fn characters_soundex_and_morse() {
     assert!(!noesis::query("...").success);
     assert!(!noesis::query("?").success);
 }
+
+#[test]
+fn machines_and_inventions() {
+    assert_eq!(short("crew of Apollo 13"), "Jim Lovell, Jack Swigert, Fred Haise");
+    assert_eq!(short("Vostok 1, Apollo 15, STS 2 launch dates"), "Vostok 1: 12 April 1961 | Apollo 15: 26 July 1971 | STS-2: 12 November 1981");
+    assert_eq!(short("How many wheels does the Opportunity rover have?"), "6");
+    assert_eq!(short("mass of the Curiosity rover"), "899 kg");
+    assert!(short("Voyager 2 velocity").starts_with("15.4 km/s"));
+    assert_eq!(short("rockets with mass > 3000 short tons"), "Starship | Saturn V | N1");
+    assert!(short("When did the Costa Concordia sink?").starts_with("13 January 2012"));
+    assert!(short("How far is the Titanic from New York?").starts_with("2009 km"));
+    assert!(short("Sandstone Zebra nuclear explosion height of burst").starts_with("tower, 61 m"));
+    assert!(short("largest nuclear explosions").starts_with("Tsar Bomba"));
+    assert!(short("who invented the cell phone").starts_with("Martin Cooper"));
+    assert_eq!(short("when was the rubik's cube invented"), "1974");
+    assert!(short("inventions by Benjamin Franklin").contains("bifocals"));
+    assert!(short("How fast was the processor on the Atari 400?").contains("1.79 MHz"));
+    assert!(short("earliest programming languages").starts_with("Plankalkül"));
+    assert!(short("hiroshima").contains("Japan"));
+}
