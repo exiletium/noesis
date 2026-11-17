@@ -824,3 +824,18 @@ fn animals_taxa_and_breeds() {
     assert!(short("dog").starts_with("Canis familiaris"));
     assert!(!noesis::query("swift").pods.iter().any(|p| p.subpods.iter().any(|s| noesis::engine::content_text(&s.content).contains("Apus"))));
 }
+
+#[test]
+fn mythology() {
+    assert_eq!(short("Zeus symbols"), "thunderbolt, eagle, bull, oak tree, scepter, aegis");
+    assert!(short("Where was Zeus born?").starts_with("born in a cave on Mount Ida"));
+    assert_eq!(short("What culture does Theseus come from?"), "Greek (Athenian) mythology");
+    assert!(short("what else was the god Jupiter called?").starts_with("Jove"));
+    assert_eq!(short("compare the symbols of Fortuna and Nike"), "Fortuna: wheel of fortune, cornucopia, rudder, globe | Nike: wings, laurel wreath, palm branch");
+    assert!(short("Ānanda's special ability").starts_with("his exceptional memory"));
+    assert!(short("Assyrian sphinx vs Egyptian sphinx").starts_with("Assyrian sphinx: protection"));
+    assert_eq!(short("what is Thoth's gender?"), "male");
+    assert!(short("thor").starts_with("Norse god"));
+    // planets keep their usual meaning
+    assert!(!short("venus").contains("goddess"));
+}
