@@ -515,7 +515,7 @@ fn facts(l: &str) -> Option<Answer> {
     None
 }
 
-const LANGUAGES: &[(&str, &str)] = &[
+pub(crate) const LANGUAGES: &[(&str, &str)] = &[
     ("en", "English"), ("fr", "French"), ("de", "German"), ("it", "Italian"), ("es", "Spanish"), ("pt", "Portuguese"), ("nl", "Dutch"), ("rm", "Romansh"), ("ru", "Russian"), ("uk", "Ukrainian"),
     ("pl", "Polish"), ("cs", "Czech"), ("sk", "Slovak"), ("hu", "Hungarian"), ("ro", "Romanian"), ("bg", "Bulgarian"), ("el", "Greek"), ("tr", "Turkish"), ("ar", "Arabic"), ("he", "Hebrew"),
     ("fa", "Persian"), ("hi", "Hindi"), ("bn", "Bengali"), ("ur", "Urdu"), ("ta", "Tamil"), ("te", "Telugu"), ("mr", "Marathi"), ("gu", "Gujarati"), ("kn", "Kannada"), ("ml", "Malayalam"),
@@ -527,7 +527,7 @@ const LANGUAGES: &[(&str, &str)] = &[
     ("mk", "Macedonian"), ("lt", "Lithuanian"), ("lv", "Latvian"), ("et", "Estonian"), ("be", "Belarusian"), ("qu", "Quechua"), ("gn", "Guaraní"), ("ay", "Aymara"), ("mi", "Māori"), ("sm", "Samoan"),
 ];
 
-fn language_name(code: &str) -> Option<String> {
+pub(crate) fn language_name(code: &str) -> Option<String> {
     let base = code.split('-').next()?.to_lowercase();
     let name = LANGUAGES.iter().find(|(c, _)| *c == base)?.1;
     Some(match code.split_once('-') {

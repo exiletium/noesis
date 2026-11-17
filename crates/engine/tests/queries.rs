@@ -907,3 +907,23 @@ fn stars_and_stellar_physics() {
     assert!(short("NGC 2808, M 53, NGC 288").contains("NGC 2808 | globular cluster"));
     assert!(!noesis::query("cancer").pods.iter().any(|p| p.subpods.iter().any(|s| noesis::engine::content_text(&s.content).contains("Crab"))));
 }
+
+#[test]
+fn countries_languages_and_religions() {
+    assert!(short("country .dk").contains("Copenhagen"));
+    assert!(short("country DJI").contains("Djibouti"));
+    assert!(short("Norway, Sweden, Finland").contains("Oslo"));
+    assert!(short("countries with area > India and population < Spain").contains("Canada"));
+    assert!(short("german speaking country with the largest land area").starts_with("Germany"));
+    assert!(short("Arabic speaking countries").contains("Saudi Arabia"));
+    assert_eq!(short("native speakers of French"), "about 81 million");
+    assert!(short("Romance languages").starts_with("Spanish | Portuguese | French"));
+    assert!(short("Basque, Finnish").contains("language isolate"));
+    assert_eq!(short("When was Scientology founded?").get(..4), Some("1954"));
+    assert_eq!(short("When was Luther's thesis written?"), "31 October 1517");
+    assert!(short("the major text of Islam").starts_with("the Quran"));
+    assert_eq!(short("Islamic vs Hindu populations in India"), "Muslims: 172.2 million (14.2%) | Hindus: 966.3 million (79.8%)");
+    assert_eq!(short("Hindu + Buddhist population UK"), "1.303 million (2.2% of the population)");
+    assert!(short("Zoroastrianism").contains("Zoroaster"));
+    assert_eq!(short("capital of france"), "Paris");
+}

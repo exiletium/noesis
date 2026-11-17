@@ -163,7 +163,7 @@ fn compass(deg: f64) -> &'static str {
     D[(((deg + 11.25) % 360.0) / 22.5) as usize]
 }
 
-fn fmt_int(n: u64) -> String {
+pub(crate) fn fmt_int(n: u64) -> String {
     let s = n.to_string();
     let mut out = String::new();
     for (k, c) in s.chars().enumerate() {
@@ -191,7 +191,7 @@ impl Country {
     }
 }
 
-fn country_pods(c: &Country) -> Vec<Pod> {
+pub(crate) fn country_pods(c: &Country) -> Vec<Pod> {
     let mut pods = vec![pod("Input", "Input interpretation", text(format!("{} (country)", c.name)))];
     let density = c.population as f64 / c.density_area();
     pods.push(primary(pod(
