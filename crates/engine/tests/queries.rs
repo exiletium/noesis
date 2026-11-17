@@ -618,3 +618,14 @@ fn atmosphere_earth_and_materials() {
     assert_eq!(short("Vickers hardness formula 30 kgf, 0.5 mm"), "222.528 HV");
     assert_eq!(short("lumber volume 3 ft diameter, 20 ft length"), "1280 board feet");
 }
+
+#[test]
+fn lighter_queries() {
+    assert_eq!(short("hue_36 to base 29"), "red_29");
+    assert_eq!(short("warp factor 6"), "392.498 times the speed of light");
+    assert_eq!(short("what is warp 9.9 in the next generation"), "3053 times the speed of light");
+    assert_eq!(short("What is Wolfram|Alpha spelled backwards?"), "ahplA|marfloW");
+    assert!(short("look and say sequence").starts_with("1, 11, 21, 1211, 111221"));
+    assert!(short("20 lb turkey frying time").starts_with("60–100 minutes"));
+    assert!(short("How many astronomers does it take to change a light bulb?").contains("dark"));
+}

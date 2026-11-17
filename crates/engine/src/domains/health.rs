@@ -244,22 +244,40 @@ fn turkey(q: &Query) -> Option<Answer> {
     }
     let lb = get(l, re!(r"([\d.]+)\s*(?:-?\s*)(?:lbs?|pounds?)")).or_else(|| get(l, re!(r"([\d.]+)\s*kg")).map(|k| k / 0.45359237))?;
     let feeds = l.contains("feed") || l.contains("serve") || l.contains("people");
+    let thaw = l.contains("thaw") || l.contains("defrost");
+    let fry = l.contains("fry") || l.contains("frying");
     let cook = l.contains("cook") || l.contains("roast") || l.contains("time");
-    if !feeds && !cook {
+    if !feeds && !cook && !thaw && !fry {
         return None;
     }
     let (lo_p, hi_p) = ((lb / 1.5).floor(), lb.floor());
-    let row = TURKEY.iter().find(|r| lb <= r.0).copied().unwrap_or((lb, 5.0, 5.0 + (lb - 24.0) * 0.1, 5.25, 5.25 + (lb - 24.0) * 0.1));
-    let roast = format!("{}–{} hours unstuffed, {}–{} hours stuffed, at 325 °F (163 °C)", n(row.1), n(row.2), n(row.3), n(row.4));
+    let extra = (lb - 24.0).max(0.0);
+    let row = TURKEY.iter().find(|r| lb <= r.0).copied().unwrap_or((lb, 4.5 + extra * 0.1, 5.0 + extra * 0.12, 4.75 + extra * 0.1, 5.25 + extra * 0.12));
+    let roast = format!("{}–{} hours unstuffed, {}–{} hours stuffed, at 325 °F (163 °C){}", n(row.1), n(row.2), n(row.3), n(row.4), if extra > 0.0 { " (extrapolated beyond the USDA table)" } else { "" });
     let serves = format!("{}–{} people (1 to 1½ lb of whole bird per person)", lo_p, hi_p);
+    let fridge = format!("about {} days (24 hours per 4–5 lb)", n((lb / 4.5).ceil()));
+    let water = format!("about {} hours (30 minutes per lb, changing the water every 30 minutes)", n(lb / 2.0));
+    let fried = format!("{}–{} minutes (3–5 minutes per lb in oil at 350 °F)", n(3.0 * lb), n(5.0 * lb));
+    let (title, head) = if feeds {
+        ("Servings", serves.clone())
+    } else if thaw && l.contains("water") {
+        ("Thawing time in cold water", water.clone())
+    } else if thaw {
+        ("Thawing time in the refrigerator", fridge.clone())
+    } else if fry {
+        ("Deep-frying time", fried.clone())
+    } else {
+        ("Roasting time", roast.clone())
+    };
     Some(Answer::new("turkey", vec![
         input(format!("{} lb turkey", n(lb))),
-        primary(pod("Result", if feeds { "Servings" } else { "Roasting time" }, text(if feeds { serves.clone() } else { roast.clone() }))),
+        primary(pod("Result", title, text(head))),
         pod("Details", "Details", rows(vec![
             ("servings", serves),
             ("roasting time", roast),
-            ("thawing in the refrigerator", format!("about {} days (24 hours per 4–5 lb)", n((lb / 4.5).ceil()))),
-            ("thawing in cold water", format!("about {} hours (30 minutes per lb)", n(lb / 2.0))),
+            ("deep-frying time", fried),
+            ("thawing in the refrigerator", fridge),
+            ("thawing in cold water", water),
             ("safe internal temperature", "165 °F (74 °C) in the thickest part of the thigh, wing and breast".into()),
         ])),
     ]))
