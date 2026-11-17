@@ -839,3 +839,18 @@ fn mythology() {
     // planets keep their usual meaning
     assert!(!short("venus").contains("goddess"));
 }
+
+#[test]
+fn structures_and_slow_matrices() {
+    assert!(short("Eiffel Tower").starts_with("tower in Paris, France; opened 1889"));
+    assert_eq!(short("length Three Gorges Dam / Hoover Dam"), "Three Gorges Dam: 2335 m (7661 ft) | Hoover Dam: 379 m (1243 ft)");
+    assert_eq!(short("seating capacity Muny Theater vs Broadway Theater"), "Muny: 11000 seats | Broadway Theatre: 1761 seats");
+    assert_eq!(short("Barbican Centre, Boston Opera House opened"), "Barbican Centre: 1982 | Boston Opera House: 1928");
+    assert!(short("castles in the UK").starts_with("Windsor Castle"));
+    assert!(short("mines over 5000 feet").starts_with("Mponeng Gold Mine"));
+    assert_eq!(short("how tall is the eiffel tower"), "330 m (1082.68 ft)");
+    // a 3 × 3 matrix with Cardano eigenvalues used to take 20 s
+    let t = std::time::Instant::now();
+    assert_eq!(short("adjugate {{8, 7, 7}, {6, 9, 2}, {-6, 9, -2}}"), "{{-36, 77, -49}, {0, 26, 26}, {108, -114, 30}}");
+    assert!(t.elapsed().as_secs() < 8);
+}

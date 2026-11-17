@@ -113,7 +113,15 @@ pub fn eigenvalues(m: &Mat) -> Vec<(Expr, usize)> {
         let mut q = p.clone();
         while k < m.len() {
             let v = q.subs(&lam, &r);
-            if !crate::eval::const_c64(&s::simplify(&v)).map_or(s::simplify(&v).is_zero(), |z| z.norm() < 1e-8) {
+            // evaluate numerically first: simplifying a polynomial at a Cardano radical is very slow
+            let zero_here = match crate::eval::const_c64(&v) {
+                Some(z) => z.norm() < 1e-8 * (1.0 + crate::eval::const_c64(&r).map_or(1.0, |x| x.norm()).powi(m.len() as i32)),
+                None => {
+                    let sv = s::simplify(&v);
+                    crate::eval::const_c64(&sv).map_or(sv.is_zero(), |z| z.norm() < 1e-8)
+                }
+            };
+            if !zero_here {
                 break;
             }
             k += 1;
@@ -142,11 +150,85 @@ pub fn nullspace(m: &Mat) -> Vec<Vec<Expr>> {
     out
 }
 
+/// True when an expression contains a root of index three or more (Cardano
+/// formulas and the like), where exact row reduction becomes intractable.
+fn has_high_root(e: &Expr) -> bool {
+    match e {
+        Expr::Pow(b, x) => {
+            let deep = matches!(&**x, Expr::Num(r) if r.denom() > &num_bigint::BigInt::from(2));
+            deep || has_high_root(b) || has_high_root(x)
+        }
+        Expr::Add(v) | Expr::Mul(v) | Expr::List(v) | Expr::Func(_, v) => v.iter().any(has_high_root),
+        Expr::Rel(_, a, b) => has_high_root(a) || has_high_root(b),
+        _ => false,
+    }
+}
+
+/// An eigenvector for a numerically known eigenvalue, by complex Gaussian
+/// elimination on A − λI, scaled so its last free component is 1.
+fn numeric_eigenvector(m: &Mat, lam: num_complex::Complex64) -> Option<Vec<Expr>> {
+    use num_complex::Complex64 as C;
+    let n = m.len();
+    let mut a: Vec<Vec<C>> = (0..n).map(|i| (0..n).map(|j| crate::eval::const_c64(&m[i][j]).map(|v| if i == j { v - lam } else { v })).collect::<Option<Vec<C>>>()).collect::<Option<_>>()?;
+    let scale = a.iter().flatten().map(|z| z.norm()).fold(0.0, f64::max).max(1.0);
+    let mut piv = vec![];
+    let mut row = 0;
+    for col in 0..n {
+        let best = (row..n).max_by(|&x, &y| a[x][col].norm().partial_cmp(&a[y][col].norm()).unwrap())?;
+        if a[best][col].norm() < 1e-9 * scale {
+            continue;
+        }
+        a.swap(row, best);
+        let p = a[row][col];
+        for j in 0..n {
+            a[row][j] /= p;
+        }
+        for i in 0..n {
+            if i != row {
+                let f = a[i][col];
+                for j in 0..n {
+                    let t = a[row][j];
+                    a[i][j] -= f * t;
+                }
+            }
+        }
+        piv.push(col);
+        row += 1;
+        if row == n {
+            break;
+        }
+    }
+    let free = (0..n).rev().find(|c| !piv.contains(c))?;
+    let mut v = vec![C::new(0.0, 0.0); n];
+    v[free] = C::new(1.0, 0.0);
+    for (r, &p) in piv.iter().enumerate() {
+        v[p] = -a[r][free];
+    }
+    let to = |z: C| -> Expr {
+        let re = if z.re.abs() < 1e-12 { 0.0 } else { z.re };
+        let im = if z.im.abs() < 1e-12 { 0.0 } else { z.im };
+        if im == 0.0 {
+            float(re)
+        } else if re == 0.0 {
+            mul(vec![float(im), Expr::Const(crate::expr::K::I)])
+        } else {
+            add(vec![float(re), mul(vec![float(im), Expr::Const(crate::expr::K::I)])])
+        }
+    };
+    Some(v.into_iter().map(to).collect())
+}
+
 pub fn eigenvectors(m: &Mat) -> Vec<(Expr, Vec<Expr>)> {
     let n = m.len();
     let mut out = Vec::new();
     for (lam, _) in eigenvalues(m) {
         if lam.has_float() {
+            continue;
+        }
+        if has_high_root(&lam) {
+            if let Some(v) = crate::eval::const_c64(&lam).and_then(|z| numeric_eigenvector(m, z)) {
+                out.push((lam.clone(), v));
+            }
             continue;
         }
         let a: Mat = (0..n).map(|i| (0..n).map(|j| if i == j { sub(m[i][j].clone(), lam.clone()) } else { m[i][j].clone() }).collect()).collect();

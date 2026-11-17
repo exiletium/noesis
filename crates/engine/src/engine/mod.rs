@@ -396,8 +396,14 @@ fn run_handlers(input: &str, opts: &Options) -> QueryResult {
     // the fallbacks (language model, encyclopedia) run only after rewordings
     let (main, fallback): (Vec<_>, Vec<_>) = all.into_iter().partition(|(n, _)| !matches!(*n, "rephrase" | "encyclopedia"));
     let try_all = |q: &Query, hs: &[(&'static str, Handler)]| -> Option<Answer> {
+        let timing = std::env::var("NOESIS_TRACE").map_or(false, |v| v == "2");
         for (_name, h) in hs {
-            if let Some(ans) = budget::attempt_opt(budget::remaining(), || h(q)) {
+            let t0 = std::time::Instant::now();
+            let got = budget::attempt_opt(budget::remaining(), || h(q));
+            if timing && t0.elapsed().as_millis() > 50 {
+                eprintln!("[slow {_name}] {} ms on {}", t0.elapsed().as_millis(), q.clean);
+            }
+            if let Some(ans) = got {
                 if !ans.pods.is_empty() {
                     if std::env::var_os("NOESIS_TRACE").is_some() {
                         eprintln!("[handler {_name}] {}", q.clean);
