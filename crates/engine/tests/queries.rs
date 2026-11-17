@@ -868,3 +868,17 @@ fn notable_texts() {
     assert!(short("Anthony and Cleopatra").starts_with("tragedy (play) by William Shakespeare"));
     assert_eq!(short("who wrote moby dick"), "Herman Melville");
 }
+
+#[test]
+fn human_anatomy() {
+    assert!(short("femur").starts_with("Femur (bone)"));
+    assert_eq!(short("origin of biceps brachii"), "short head: coracoid process of the scapula; long head: supraglenoid tubercle of the scapula");
+    assert_eq!(short("insertion of soleus"), "posterior surface of the calcaneus via the calcaneal (Achilles) tendon");
+    assert_eq!(short("glenohumeral joint articulating bones"), "head of the humerus and the glenoid cavity of the scapula");
+    assert_eq!(short("what is the fetus size at Carnegie stage 7"), "stage 7: 0.4 mm");
+    assert!(short("venous drainage of large intestine and small intestine").contains("small intestine: superior mesenteric vein"));
+    assert!(short("What are the bones of the leg and the foot?").starts_with("femur | patella | tibia | fibula"));
+    assert!(short("what are the regional parts of the neural tube").starts_with("prosencephalon"));
+    assert!(short("ileum and jejunum").starts_with("Ileum (organ)"));
+    assert!(short("how far can a jaguar jump").contains("strongest bite"));
+}

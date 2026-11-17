@@ -32,6 +32,24 @@ fn rows(r: Vec<(String, String)>) -> Content {
 
 type Range = Option<(f64, f64)>;
 
+/// Parse "key=value;key=value" where a value may itself contain semicolons:
+/// a piece without "=" continues the previous value.
+pub(crate) fn key_values(s: &str) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = vec![];
+    for piece in s.split(';') {
+        match piece.split_once('=') {
+            Some((k, v)) if !k.contains(' ') || k.split_whitespace().count() <= 3 => out.push((k.trim().to_string(), v.trim().to_string())),
+            _ => {
+                if let Some(last) = out.last_mut() {
+                    last.1.push_str(";");
+                    last.1.push_str(piece);
+                }
+            }
+        }
+    }
+    out
+}
+
 fn range(s: &str) -> Range {
     let s = s.trim();
     if s == "-" || s.is_empty() {
@@ -229,7 +247,7 @@ fn species() -> &'static Vec<Species> {
                 if f.len() < 11 {
                     return None;
                 }
-                let extra = f.get(11).map_or(vec![], |e| e.split(';').filter_map(|kv| kv.split_once('=').map(|(k, v)| (k.to_string(), v.to_string()))).collect());
+                let extra = f.get(11).map_or(vec![], |e| key_values(e));
                 Some(Species {
                     names: f[0].split(';').map(String::from).collect(),
                     sci: f[1].into(),
@@ -433,7 +451,7 @@ llama|Lama glama|Mammalia|Artiodactyla|Camelidae|130-200|1.8-2.2|15-25|56|domest
                     speed: f[8].parse().ok(),
                     status: f[9].into(),
                     range: f[10].into(),
-                    extra: f.get(11).map_or(vec![], |e| e.split(';').filter_map(|kv| kv.split_once('=').map(|(k, v)| (k.to_string(), v.to_string()))).collect()),
+                    extra: f.get(11).map_or(vec![], |e| key_values(e)),
                 })
             })
             .collect()
@@ -782,7 +800,7 @@ fn breeds() -> &'static Vec<Breed> {
                     height: range(f[6]),
                     fheight: range(f[7]),
                     life: range(f[8]),
-                    extra: f.get(9).map_or(vec![], |e| e.split(';').filter_map(|kv| kv.split_once('=').map(|(k, v)| (k.to_string(), v.to_string()))).collect()),
+                    extra: f.get(9).map_or(vec![], |e| key_values(e)),
                 })
             })
             .collect()
