@@ -1023,3 +1023,25 @@ fn physical_geography() {
     assert!(short("kenya").contains("Nairobi"));
     assert!(short("jordan").contains("Amman"));
 }
+
+#[test]
+fn molecular_biology_and_dinosaurs() {
+    assert_eq!(short("reverse complement of ATGC"), "5′-GCAT-3′");
+    assert_eq!(short("AAGCTAGCTAGC"), "12-nucleotide DNA sequence, 50% GC");
+    assert_eq!(short("melting point GCTCGTAGCTACGT"), "40.3 °C");
+    assert!(short("ATTGGGCAAAAA molecular weight").starts_with("3702.51 g/mol"));
+    assert_eq!(short("translate AUGGCCUAA"), "MA*");
+    assert_eq!(short("alanine codons"), "GCU, GCC, GCA, GCG");
+    assert_eq!(short("stop codons"), "UAA, UAG, UGA");
+    assert!(short("codon AUG").starts_with("methionine"));
+    assert_eq!(short("how many chromosomes orangutan vs human vs chimp"), "orangutan: 48 | human: 46 | chimpanzee: 48");
+    assert!(short("how many chromosomes does a dog have").starts_with("78"));
+    assert!(short("insulin amino acid sequence").contains("GIVEQCCTSICSLYQLENYCN"));
+    assert!(short("TCA cycle").contains("acetyl-CoA"));
+    assert!(short("homologs of CCR5 gene").contains("mouse Ccr5"));
+    assert!(short("E. coli mutS and human MSH2 genes").starts_with("E. coli mutS"));
+    assert!(short("triceratops").contains("Late Cretaceous"));
+    assert!(short("saurischia").contains("lizard-hipped"));
+    assert!(short("largest dinosaur").starts_with("Argentinosaurus"));
+    assert!(short("mass of a cat") != "4-nucleotide DNA sequence, 50% GC");
+}
