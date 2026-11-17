@@ -804,3 +804,23 @@ fn positions_seawater_codes_and_bonds() {
     assert!(short("cosmic origins of gold and iron").starts_with("Gold: merging neutron stars"));
     assert!(!noesis::query("salt to sugar").pods.iter().any(|p| p.id == "Route" || p.title == "Distance"));
 }
+
+#[test]
+fn animals_taxa_and_breeds() {
+    assert!(short("jaguar").starts_with("Panthera onca"));
+    assert_eq!(short("how fast can a giraffe run?"), "60 km/h (37.28 mph)");
+    assert!(short("air speed of a peregrine falcon vs land speed of a cheetah").contains("cheetah: 112 km/h"));
+    assert_eq!(short("wingspan of the greater flamingo"), "1.4–1.65 m (4.6–5.4 ft)");
+    assert_eq!(short("average lifespan of a horse, goat, and sheep"), "horse: 25–30 years | goat: 15–18 years | sheep: 10–12 years");
+    assert_eq!(short("taxonomy of the great white shark"), "Animalia > Chordata > Chondrichthyes > Lamniformes > Lamnidae > Carcharodon carcharias");
+    assert!(short("Lepidoptera").starts_with("butterflies and moths"));
+    assert!(short("tallest dog breeds").starts_with("Irish Wolfhound"));
+    assert_eq!(short("goats with female height less than 23 inches"), "Pygmy | Nigerian Dwarf");
+    assert_eq!(short("cat breeds with mean weight < 8 lbs"), "Singapura | Devon Rex | Cornish Rex | Turkish Angora");
+    assert!(short("most milk producing cow").starts_with("Holstein Friesian"));
+    assert_eq!(short("Is a British Longhair cat > a Pomeranian's weight?"), "True");
+    assert_eq!(short("lifespan of a pug"), "12–15 years");
+    assert!(short("origin of Targhee sheep").starts_with("United States"));
+    assert!(short("dog").starts_with("Canis familiaris"));
+    assert!(!noesis::query("swift").pods.iter().any(|p| p.subpods.iter().any(|s| noesis::engine::content_text(&s.content).contains("Apus"))));
+}

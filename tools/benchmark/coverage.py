@@ -15,7 +15,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-NOESIS = os.path.join(ROOT, "target", "release", "noesis")
+NOESIS = os.environ.get("NOESIS_BIN") or os.path.join(ROOT, "target", "release", "noesis")
 ONLINE = "--online" in sys.argv
 
 
