@@ -367,49 +367,156 @@ fn systems(l: &str) -> Option<Answer> {
 // black holes
 // ---------------------------------------------------------------------------
 
-/// Masses in solar masses (published estimates).
-const BLACK_HOLES: &[(&[&str], &str, f64, &str)] = &[
-    (&["sagittarius a*", "sgr a*", "sagittarius a", "milky way black hole", "black hole at the center of the milky way"], "Sagittarius A*", 4.3e6, "Milky Way centre; GRAVITY and EHT estimates ≈ 4.0–4.3 million M☉"),
-    (&["m87*", "m87 black hole", "black hole in the center of m87", "black hole at the center of m87", "m87"], "M87*", 6.5e9, "first black hole imaged (EHT, 2019)"),
-    (&["gaia bh1", "gaia bh1 black hole"], "Gaia BH1", 9.62, "nearest known black hole (≈ 480 pc), found by Gaia astrometry, 2022"),
-    (&["gaia bh2", "gaia bh2 black hole"], "Gaia BH2", 8.94, "Gaia astrometric binary, 2023"),
-    (&["gaia bh3", "gaia bh3 black hole"], "Gaia BH3", 32.7, "most massive known stellar black hole in the Milky Way, 2024"),
-    (&["cygnus x-1", "cygnus x-1 black hole", "cyg x-1"], "Cygnus X-1", 21.2, "first widely accepted black hole (X-ray binary)"),
-    (&["v404 cygni", "v404 cygni black hole"], "V404 Cygni", 9.0, "X-ray nova"),
+/// Masses in solar masses (published estimates), distances in light years
+/// (NaN when cosmological), kind ("stellar" or "supermassive") and a note.
+type Bh = (&'static [&'static str], &'static str, f64, f64, &'static str, &'static str);
+const BLACK_HOLES: &[Bh] = &[
+    (&["sagittarius a*", "sgr a*", "sagittarius a", "milky way black hole", "black hole at the center of the milky way", "black hole in the center of the milky way"], "Sagittarius A*", 4.3e6, 26_670.0, "supermassive", "Milky Way centre; GRAVITY and EHT estimates ≈ 4.0–4.3 million M☉"),
+    (&["m87*", "m87 black hole", "black hole in the center of m87", "black hole at the center of m87", "m87", "powehi"], "M87*", 6.5e9, 53.5e6, "supermassive", "first black hole imaged (EHT, 2019)"),
+    (&["m31*", "andromeda black hole", "m31 black hole", "andromeda galaxy black hole", "black hole in the center of andromeda"], "M31* (Andromeda)", 1.4e8, 2.5e6, "supermassive", "centre of the Andromeda Galaxy"),
+    (&["ton 618", "ton618"], "TON 618", 4.07e10, f64::NAN, "supermassive", "quasar at redshift 2.22; earlier estimates up to 6.6×10¹⁰ M☉"),
+    (&["holmberg 15a", "holm 15a"], "Holmberg 15A", 4.0e10, 700e6, "supermassive", "central galaxy of the cluster Abell 85; mass from stellar dynamics (2019)"),
+    (&["ngc 4889"], "NGC 4889", 2.1e10, 308e6, "supermassive", "brightest galaxy of the Coma Cluster"),
+    (&["oj 287"], "OJ 287", 1.8e10, 3.5e9, "supermassive", "blazar; primary of a binary black hole"),
+    (&["3c 273"], "3C 273", 8.9e8, 2.4e9, "supermassive", "the first quasar identified (1963)"),
+    (&["sombrero galaxy black hole", "m104 black hole", "m104*"], "M104 (Sombrero)", 1.0e9, 31.1e6, "supermassive", "centre of the Sombrero Galaxy"),
+    (&["centaurus a black hole", "centaurus a*", "ngc 5128 black hole"], "Centaurus A", 5.5e7, 12e6, "supermassive", "nearest active radio galaxy"),
+    (&["m81 black hole", "m81*", "bode's galaxy black hole"], "M81*", 7.0e7, 11.8e6, "supermassive", "centre of Bode's Galaxy"),
+    (&["ngc 4258 black hole", "m106 black hole", "m106*"], "NGC 4258 (M106)", 3.9e7, 23.7e6, "supermassive", "mass from water masers orbiting the nucleus"),
+    (&["gaia bh1"], "Gaia BH1", 9.62, 1_560.0, "stellar", "nearest known black hole, found by Gaia astrometry, 2022"),
+    (&["gaia bh2"], "Gaia BH2", 8.94, 3_800.0, "stellar", "Gaia astrometric binary, 2023"),
+    (&["gaia bh3"], "Gaia BH3", 32.7, 1_926.0, "stellar", "most massive known stellar black hole in the Milky Way, 2024"),
+    (&["cygnus x-1", "cyg x-1"], "Cygnus X-1", 21.2, 7_240.0, "stellar", "first widely accepted black hole (X-ray binary, 1964)"),
+    (&["v404 cygni", "v404 cyg"], "V404 Cygni", 9.0, 7_800.0, "stellar", "X-ray nova (outbursts 1989 and 2015)"),
+    (&["v616 monocerotis", "v616 mon", "a0620-00", "a0620"], "V616 Monocerotis (A0620-00)", 6.6, 3_300.0, "stellar", "X-ray nova of 1975"),
+    (&["xte j1118+480", "kv ursae majoris", "kv uma"], "XTE J1118+480", 7.5, 5_700.0, "stellar", "X-ray transient in Ursa Major"),
+    (&["gro j1655-40", "v1033 scorpii", "v1033 sco"], "GRO J1655-40", 5.4, 11_000.0, "stellar", "microquasar in Scorpius"),
+    (&["gu muscae", "gu mus", "grs 1124-683", "nova muscae 1991"], "GU Muscae (GRS 1124-683)", 11.0, 16_300.0, "stellar", "X-ray nova of 1991; mass estimate of 2016"),
+    (&["v381 normae", "v0381 normae", "v381 nor", "xte j1550-564"], "V381 Normae (XTE J1550-564)", 9.1, 14_300.0, "stellar", "microquasar in Norma"),
+    (&["grs 1915+105", "v1487 aquilae", "v1487 aql"], "GRS 1915+105", 12.4, 28_000.0, "stellar", "microquasar with superluminal jets"),
+    (&["v4641 sagittarii", "v4641 sgr"], "V4641 Sagittarii", 6.4, 20_000.0, "stellar", "X-ray binary"),
+    (&["m33 x-7", "m33 black hole"], "M33 X-7", 15.65, 2.73e6, "stellar", "eclipsing X-ray binary in the Triangulum Galaxy (M33 has no detected central supermassive black hole)"),
+    (&["lmc x-1"], "LMC X-1", 10.9, 165_000.0, "stellar", "X-ray binary in the Large Magellanic Cloud"),
+    (&["gw150914", "gw150914 remnant"], "GW150914 remnant", 62.0, 1.3e9, "stellar", "product of the first observed black hole merger (LIGO, 14 September 2015)"),
 ];
 
-fn bh_props(name: &str, msun: f64, note: &str, want: Option<&str>) -> Answer {
+fn find_bh(name: &str) -> Option<&'static Bh> {
+    let full = name.trim().trim_start_matches("the ").trim();
+    let n = full.trim_end_matches(" black hole").trim_end_matches(" system").trim();
+    BLACK_HOLES.iter().find(|b| b.0.contains(&full)).or_else(|| BLACK_HOLES.iter().find(|b| b.0.contains(&n)))
+}
+
+fn ly_text(d: f64) -> String {
+    if d.is_nan() {
+        "cosmological (see note)".into()
+    } else if d >= 1e6 {
+        format!("{} million light years", fmt(d / 1e6))
+    } else {
+        format!("{} light years", fmt(d))
+    }
+}
+
+fn bh_props(name: &str, msun: f64, dist: f64, note: &str, want: Option<&str>) -> Answer {
     let m = msun * MSUN;
     let rs = 2.0 * G * m / (C * C);
     let t = HBAR * C.powi(3) / (8.0 * PI * G * m * KB);
     let s_over_k = 4.0 * PI * G * m * m / (HBAR * C);
     let tev = 5120.0 * PI * G * G * m.powi(3) / (HBAR * C.powi(4)) / 3.15576e7;
-    let rows = vec![("mass", format!("{} M☉ = {}", sci(msun, ""), sci(m, "kg"))), ("Schwarzschild radius", if rs > 1e9 { format!("{} = {} AU", sci(rs, "m"), sci(rs / 1.495978707e11, "")) } else { sci(rs / 1e3, "km") }), ("Hawking temperature", sci(t, "K")), ("Bekenstein–Hawking entropy", format!("{} k_B", sci(s_over_k, ""))), ("evaporation time", sci(tev, "years")), ("note", note.to_string())];
+    let mut rows = vec![("mass", format!("{} M☉ = {}", sci(msun, ""), sci(m, "kg"))), ("Schwarzschild radius", if rs > 1e9 { format!("{} = {} AU", sci(rs, "m"), sci(rs / 1.495978707e11, "")) } else { sci(rs / 1e3, "km") }), ("Hawking temperature", sci(t, "K")), ("Bekenstein–Hawking entropy", format!("{} k_B", sci(s_over_k, ""))), ("evaporation time", sci(tev, "years"))];
+    if dist != 0.0 {
+        rows.push(("distance", ly_text(dist)));
+    }
+    rows.push(("note", note.to_string()));
     let (title, main) = match want {
         Some("radius") => ("Schwarzschild radius", rows[1].1.clone()),
         Some("entropy") => ("Entropy", rows[3].1.clone()),
         Some("temperature") => ("Hawking temperature", rows[2].1.clone()),
-        Some("mass") => ("Mass", rows[0].1.clone()),
+        Some("distance") if dist != 0.0 => ("Distance", ly_text(dist)),
         _ => ("Mass", rows[0].1.clone()),
     };
     Answer::new("black hole", vec![input(format!("{name} black hole")), primary(pod("Result", title, text(main))), pod("Properties", "Properties (non-rotating estimate)", kv(rows))])
 }
 
+fn bh_table(title: &str, list: &[&Bh]) -> Answer {
+    let rows: Vec<Vec<Content>> = list.iter().map(|b| vec![text(b.1), text(format!("{} M☉", sci(b.2, ""))), text(ly_text(b.3)), text(b.4)]).collect();
+    let main = list.iter().map(|b| b.1).collect::<Vec<_>>().join(" | ");
+    Answer::new(title, vec![input(title.to_string()), primary(pod("Result", "Result", text(main))), pod("Table", "Black holes", table(Some(vec!["name", "mass", "distance", "kind"]), rows)), pod("Note", "Note", text("published estimates; masses of distant black holes are uncertain by tens of percent"))])
+}
+
 fn black_holes(l: &str) -> Option<Answer> {
-    if let Some(m) = re!(r"^(?:the\s+)?(?:(mass|radius|schwarzschild radius|entropy|temperature|hawking temperature)\s+of\s+(?:the\s+)?)?(.+?)(?:\s+black hole)?$").captures(l) {
-        let name = m[2].trim().trim_end_matches(" black hole");
-        if let Some((_, disp, ms, note)) = BLACK_HOLES.iter().find(|(names, _, _, _)| names.contains(&name)) {
-            let want = m.get(1).map(|w| match w.as_str() {
-                "schwarzschild radius" | "radius" => "radius",
-                "hawking temperature" | "temperature" => "temperature",
-                x => x,
-            });
-            return Some(bh_props(disp, *ms, note, want));
+    // lists: "stellar mass black holes", "7 nearest black holes", "supermassive black holes"
+    if let Some(m) = re!(r"^(?:the\s+|list of\s+)?(?:(\d+)\s+)?(stellar[- ]mass|supermassive|nearest|closest|most massive|largest|biggest|known|famous)\s+black holes?(?:\s+to earth)?$").captures(l) {
+        let k: Option<usize> = m.get(1).and_then(|x| x.as_str().parse().ok());
+        let kind = m[2].replace('-', " ");
+        let mut list: Vec<&Bh> = BLACK_HOLES.iter().collect();
+        let title = match kind.as_str() {
+            "stellar mass" => {
+                list.retain(|b| b.4 == "stellar");
+                list.sort_by(|a, b| a.3.partial_cmp(&b.3).unwrap_or(std::cmp::Ordering::Equal));
+                "stellar-mass black holes (nearest first)"
+            }
+            "supermassive" => {
+                list.retain(|b| b.4 == "supermassive");
+                list.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+                "supermassive black holes (most massive first)"
+            }
+            "nearest" | "closest" => {
+                list.retain(|b| !b.3.is_nan());
+                list.sort_by(|a, b| a.3.partial_cmp(&b.3).unwrap_or(std::cmp::Ordering::Equal));
+                if m.get(1).is_none() && l.ends_with("hole") {
+                    let b = list[0];
+                    return Some(bh_props(b.1, b.2, b.3, b.5, Some("distance")));
+                }
+                "nearest known black holes"
+            }
+            "most massive" | "largest" | "biggest" => {
+                list.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+                "most massive known black holes"
+            }
+            _ => "known black holes",
+        };
+        if let Some(k) = k {
+            list.truncate(k.max(1));
+        }
+        return Some(bh_table(title, &list));
+    }
+    let (want, rest) = match re!(r"^(?:the\s+)?(mass|masses|radius|schwarzschild radius|event horizon radius|entropy|temperature|hawking temperature|distance)\s+(?:of|to)\s+(?:the\s+)?(.+)$").captures(l) {
+        Some(m) => (Some(match &m[1] {
+            "schwarzschild radius" | "radius" | "event horizon radius" => "radius",
+            "hawking temperature" | "temperature" => "temperature",
+            "entropy" => "entropy",
+            "distance" => "distance",
+            _ => "mass",
+        }), m[2].to_string()),
+        None => (None, l.to_string()),
+    };
+    let items: Vec<&str> = re!(r"\s*(?:,\s*(?:and\s+)?|/|\s+vs\.?\s+|\s+versus\s+|\s+and\s+)\s*").split(&rest).filter(|s| !s.trim().is_empty()).collect();
+    if !items.is_empty() && items.len() <= 8 {
+        let found: Option<Vec<&Bh>> = items.iter().map(|s| find_bh(s)).collect();
+        if let Some(found) = found {
+            if found.len() == 1 {
+                let b = found[0];
+                return Some(bh_props(b.1, b.2, b.3, b.5, want));
+            }
+            let val = |b: &Bh| -> String {
+                let m = b.2 * MSUN;
+                match want {
+                    Some("radius") => sci(2.0 * G * m / (C * C) / 1e3, "km"),
+                    Some("entropy") => format!("{} k_B", sci(4.0 * PI * G * m * m / (HBAR * C), "")),
+                    Some("temperature") => sci(HBAR * C.powi(3) / (8.0 * PI * G * m * KB), "K"),
+                    Some("distance") => ly_text(b.3),
+                    _ => format!("{} M☉", sci(b.2, "")),
+                }
+            };
+            let label = match want { Some("radius") => "Schwarzschild radius", Some("entropy") => "Bekenstein–Hawking entropy", Some("temperature") => "Hawking temperature", Some("distance") => "distance", _ => "mass" };
+            let main = found.iter().map(|b| format!("{}: {}", b.1, val(b))).collect::<Vec<_>>().join(" | ");
+            let rows: Vec<Vec<Content>> = found.iter().map(|b| vec![text(b.1), text(format!("{} M☉", sci(b.2, ""))), text(ly_text(b.3)), text(sci(2.0 * G * b.2 * MSUN / (C * C) / 1e3, "km"))]).collect();
+            return Some(Answer::new("black holes", vec![input(format!("{} | {label}", found.iter().map(|b| b.1).collect::<Vec<_>>().join(", "))), primary(pod("Result", label, text(main))), pod("Table", "Comparison", table(Some(vec!["name", "mass", "distance", "Schwarzschild radius"]), rows))]));
         }
     }
     let m = re!(r"^(?:a\s+)?(?:black hole\s+(?:of\s+|with\s+mass\s+)?([\d.e+]+)\s*(?:solar masses|msun|m☉|suns)|([\d.e+]+)\s*(?:solar mass(?:es)?|msun|m☉)\s+black hole)$").captures(l)?;
     let ms: f64 = m.get(1).or(m.get(2))?.as_str().parse().ok()?;
-    Some(bh_props(&format!("{} M☉", fmt(ms)), ms, "computed from the mass alone", None))
+    Some(bh_props(&format!("{} M☉", fmt(ms)), ms, 0.0, "computed from the mass alone", None))
 }
 
 // ---------------------------------------------------------------------------

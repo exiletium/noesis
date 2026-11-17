@@ -77,7 +77,7 @@ pub(super) fn substance(s: &str) -> Option<(String, String, BTreeMap<String, u32
 
 pub(super) struct Substance {
     names: &'static [&'static str],
-    formula: &'static str,
+    pub(super) formula: &'static str,
     /// melting point, °C
     mp: Option<f64>,
     /// boiling point at 1 atm, °C
@@ -212,8 +212,8 @@ fn property_rows(x: &Substance) -> Vec<(&'static str, String)> {
 
 /// A table of physical properties for a compound name, when it is known.
 pub(crate) fn property_pod(name: &str) -> Option<Pod> {
-    let x = find_substance(name)?;
-    let rows = property_rows(x);
+    let mut rows: Vec<(String, String)> = find_substance(name).map(|x| property_rows(x).into_iter().map(|(k, v)| (k.to_string(), v)).collect()).unwrap_or_default();
+    rows.extend(super::fluids::card_rows(name));
     (!rows.is_empty()).then(|| pod("Physical", "Physical properties", table(None, rows.into_iter().map(|(k, v)| vec![text(k), text(v)]).collect())))
 }
 

@@ -964,3 +964,42 @@ fn machines_and_inventions() {
     assert!(short("earliest programming languages").starts_with("Plankalkül"));
     assert!(short("hiroshima").contains("Japan"));
 }
+
+#[test]
+fn liquids_materials_spectra_and_black_holes() {
+    // liquids, gases and fuels
+    assert_eq!(short("surface tension of hexadecane at 25C"), "27.05 mN/m at 25 °C");
+    assert!(short("flash point methane, butane, octane").starts_with("Methane (CH₄): -188 °C"));
+    assert!(short("viscosity glycerol / methanol").contains("934 mPa·s"));
+    assert!(short("tlv of pentane").starts_with("1000 ppm"));
+    assert!(short("combustion heat of C3H8").starts_with("ΔcH° = −2219.2 kJ/mol"));
+    assert!(short("energy content of H2").contains("141.77 MJ/kg"));
+    assert!(short("How fast does sound travel in chloroform?").starts_with("987 m/s"));
+    assert!(short("refractive index of natural diamond").starts_with("2.417"));
+    assert_eq!(short("speed of sound in water"), "1482 m/s");
+    assert!(short("saturation vapor pressure 30C").starts_with("42.42"));
+    // polymers, bulk materials, minerals and gems
+    assert!(short("35 cubic yards crushed stone").starts_with("42.815 t"));
+    assert_eq!(short("chemical formula of nylon"), "(C₁₂H₂₂N₂O₂)ₙ");
+    assert_eq!(short("what is the chemical formula of asbestos"), "Mg₃(Si₂O₅)(OH)₄");
+    assert_eq!(short("olivine Mohs hardness"), "6.5–7");
+    assert!(short("mass of the Delong Star Ruby").starts_with("100.32 carats"));
+    assert!(short("asphalt r-value").starts_with("R-0.19"));
+    assert!(short("steel").contains("7.87 g/cm³"));
+    assert!(short("gasoline").contains("0.745 g/cm³"));
+    // street-name synonyms in the compound list are not indexed
+    assert!(!short("snow density").contains("1.22"));
+    for q in ["coke", "crystal", "abs", "earth"] {
+        assert!(!noesis::query(q).pods.iter().any(|p| noesis::engine::content_text(&p.subpods[0].content).contains("C17H21NO4")), "{q}");
+    }
+    assert!(short("earth").contains("planet"));
+    // cosmic origins and emission spectra
+    assert!(short("What are the cosmic origins of C & Au?").contains("Gold: merging neutron stars"));
+    assert!(short("Ne emission spectrum").contains("640.2"));
+    assert!(short("emission spectrum of potassium").contains("766.5"));
+    // black holes
+    assert!(short("7 nearest black holes").starts_with("Gaia BH1 | Gaia BH3"));
+    assert!(short("mass of M87 black hole/M33 black hole").contains("M33 X-7: 15.65 M☉"));
+    assert!(short("supermassive black holes").starts_with("TON 618"));
+    assert!(short("entropy of V0381 Normae black hole, GU Muscae black hole").contains("k_B | GU Muscae"));
+}

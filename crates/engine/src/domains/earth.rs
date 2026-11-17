@@ -480,7 +480,12 @@ fn cosmic_origins(l: &str) -> Option<Answer> {
         .or_else(|| re!(r"^(.+?)\s+(?:cosmic|nucleosynthetic)\s+origins?$").captures(l))
         .or_else(|| re!(r"^where (?:did|does|do)\s+(.+?)\s+come from$").captures(l))?;
     let names: Vec<&str> = re!(r"\s*(?:,|&|\band\b)\s*").split(&m[1]).filter(|s| !s.trim().is_empty()).collect();
-    let els: Option<Vec<&super::chem::Element>> = names.iter().map(|s| super::chem::find_element(s.trim())).collect();
+    // symbols arrive lowercased: "c & au" → C, Au
+    let sym = |s: &str| {
+        let mut c = s.chars();
+        c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+    };
+    let els: Option<Vec<&super::chem::Element>> = names.iter().map(|s| super::chem::find_element(s.trim()).or_else(|| (s.trim().len() <= 2).then(|| super::chem::find_element(&sym(s.trim()))).flatten())).collect();
     let els = els?;
     let rowsv: Vec<Vec<Content>> = els.iter().map(|e| vec![text(format!("{} ({})", e.name, e.symbol)), text(origins(e.z))]).collect();
     if els.iter().any(|e| origins(e.z).is_empty()) {

@@ -20,6 +20,8 @@ pub mod school;
 pub mod nuclides;
 pub mod physics;
 pub mod physchem;
+pub mod fluids;
+pub mod bulk;
 pub mod cosmos;
 pub mod money;
 pub mod health;
@@ -64,5 +66,5 @@ needs_word!(society_h => society::handle, stellar_h => stellar::handle, animals_
 /// Domain handlers in priority order (they run before the general math
 /// analyzer, and only claim inputs that use their vocabulary).
 pub fn handlers() -> Vec<(&'static str, Handler)> {
-    vec![("live", live::handle), ("everyday", everyday::handle), ("practical", practical::handle), ("school", school::handle), ("music", music::handle), ("knowledge", knowledge::handle), ("society", society_h), ("nuclides", nuclides::handle), ("physics", physics::handle), ("shapes", shapes::handle), ("misc", misc::handle), ("clock", clock::handle), ("stellar", stellar_h), ("sky", sky::handle), ("earth", earth::handle), ("trades", trades::handle), ("money", money::handle), ("health", health::handle), ("applied", applied::handle), ("fun", fun::handle), ("objects", objects::handle), ("animals", animals_h), ("myth", myth_h), ("structures", structures_h), ("literature", literature_h), ("anatomy", anatomy_h), ("technology", technology_h), ("molecule", molecule::handle), ("physchem", physchem::handle), ("cosmos", cosmos::handle), ("gauges", gauges::handle), ("chem", chem::handle), ("chemcalc", chemcalc::handle), ("solutions", solutions::handle), ("materials", materials::handle), ("reactions", reactions::handle), ("formulas", formulas::handle), ("formula_db", formula_db::handle), ("astro", astro::handle), ("geo", geo::handle), ("units", units_h)]
+    vec![("live", live::handle), ("everyday", everyday::handle), ("practical", practical::handle), ("school", school::handle), ("music", music::handle), ("knowledge", knowledge::handle), ("society", society_h), ("nuclides", nuclides::handle), ("physics", physics::handle), ("shapes", shapes::handle), ("misc", misc::handle), ("clock", clock::handle), ("stellar", stellar_h), ("sky", sky::handle), ("earth", earth::handle), ("trades", trades::handle), ("money", money::handle), ("health", health::handle), ("applied", applied::handle), ("fun", fun::handle), ("objects", objects::handle), ("animals", animals_h), ("myth", myth_h), ("structures", structures_h), ("literature", literature_h), ("anatomy", anatomy_h), ("technology", technology_h), ("molecule", molecule::handle), ("physchem", physchem::handle), ("fluids", fluids::handle), ("cosmos", cosmos::handle), ("gauges", gauges::handle), ("chem", chem::handle), ("chemcalc", chemcalc::handle), ("solutions", solutions::handle), ("materials", materials::handle), ("bulk", bulk::handle), ("reactions", reactions::handle), ("formulas", formulas::handle), ("formula_db", formula_db::handle), ("astro", astro::handle), ("geo", geo::handle), ("units", units_h)]
 }

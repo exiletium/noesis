@@ -154,6 +154,38 @@ pub struct DbCompound {
 
 static COMPOUNDS_Z: &[u8] = include_bytes!("../../data/compounds.z");
 
+/// Synonyms in the Wikidata compound list that are street names, brand
+/// names, abbreviations or ordinary words ("snow" for cocaine, "gravel"
+/// for α-PVP, "air" for a ribotide); they are not indexed.
+pub(crate) const SYNONYM_BLOCK: &[&str] = &[
+    "aba", "abate", "ace", "aces", "acid", "add", "ado", "advance", "age", "ags", "aha", "air",
+    "ait", "ala", "aldehyde", "alf", "alpha", "als", "amen", "ammine", "amp", "amyl", "anon",
+    "apollo", "asp", "auf", "aye", "azo", "badge", "bal", "balance", "bap", "bas", "base", "basen",
+    "beans", "beg", "bet", "bez", "biocide", "bit", "blow", "bro", "bru", "caa", "caddy", "camp",
+    "cap", "caps", "carbonyl", "cash", "cat", "caz", "cetane", "cha", "chalk", "chamomile", "chaps",
+    "chi", "cid", "cis", "cit", "clarity", "cod", "coke", "cop", "copper", "cor", "cot", "counter",
+    "crack", "crank", "crypto", "crystal", "dab", "dago", "damp", "dap", "deb", "def", "deg", "den",
+    "dex", "diamide", "diamine", "diethyl", "dim", "dimethyl", "dip", "dit", "dob", "doc", "dod",
+    "doh", "dom", "don", "dop", "dot", "dots", "dump", "dust", "dynamos", "ean", "ecstasy", "eds",
+    "eld", "ems", "encore", "erg", "essence", "eta", "eth", "ethanoyl", "eureka", "eve", "faa",
+    "fad", "fantasy", "fas", "fast", "ferry", "flash", "flea", "foh", "formyl", "foster", "fou",
+    "foxy", "gad", "gan", "gap", "gaucho", "geo", "glass", "goey", "goog", "gravel", "gun", "han",
+    "hat", "hem", "henna", "him", "his", "hits", "hmm", "hog", "hoi", "hug", "hydrastis",
+    "hydroxyl", "hyp", "ice", "imp", "imperator", "intellect", "intercept", "jak", "jeff", "lac",
+    "lah", "leu", "lime", "limestone", "lost", "lovely", "maa", "mac", "magenta", "mauve",
+    "mediator", "meg", "mem", "men", "meow", "merit", "merlin", "mes", "met", "mib", "mic",
+    "microdot", "molly", "mops", "muse", "mustard", "myc", "nag", "nam", "nana", "nas", "nexus",
+    "nis", "nit", "nitro", "nitrous", "nix", "noo", "nor", "nos", "oca", "oda", "ole", "one",
+    "ozone", "pac", "pah", "palladium", "pan", "panorama", "pap", "para", "pas", "pat", "patrol",
+    "pax", "pea", "ped", "pegasus", "pent", "pep", "pia", "pic", "pinky", "pip", "pix", "poa",
+    "polo", "poppers", "pos", "prink", "pro", "pure", "pursuit", "pyx", "qin", "raiser", "ran",
+    "ras", "revolution", "ripcord", "roofies", "sac", "sad", "sam", "same", "sandal", "sau",
+    "scoop", "sea", "sec", "ser", "sham", "shh", "sic", "silicon", "silver", "snap", "snow",
+    "speed", "stronghold", "tai", "tao", "tar", "tee", "teg", "tel", "telos", "ten", "tetra",
+    "today", "tranq", "triac", "tub", "tweak", "uppers", "urd", "vac", "vanilla", "voltage", "wack",
+    "was", "water", "wax", "whiz", "yay", "zol",
+];
+
 pub fn compound_db() -> &'static (Vec<DbCompound>, std::collections::HashMap<String, usize>) {
     static DB: OnceLock<(Vec<DbCompound>, std::collections::HashMap<String, usize>)> = OnceLock::new();
     DB.get_or_init(|| {
@@ -171,7 +203,11 @@ pub fn compound_db() -> &'static (Vec<DbCompound>, std::collections::HashMap<Str
             list.push(DbCompound { name: f[0], formula: f[1], mp_k: num(f[2]), bp_k: num(f[3]), density: num(f[4]), smiles: f.get(6).copied().unwrap_or("") });
             index.insert(f[0].to_lowercase(), i);
             for a in f.get(5).map(|a| a.split('|')).into_iter().flatten() {
-                index.entry(a.to_lowercase()).or_insert(i);
+                let a = a.to_lowercase();
+                if SYNONYM_BLOCK.binary_search(&a.as_str()).is_ok() {
+                    continue;
+                }
+                index.entry(a).or_insert(i);
             }
         }
         (list, index)

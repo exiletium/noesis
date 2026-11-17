@@ -168,6 +168,29 @@ fn goff_gratch_ice(t_k: f64) -> f64 {
     10f64.powf(x)
 }
 
+/// "saturation vapor pressure 30C", "saturation vapor pressure over ice at -10 C"
+fn saturation(l: &str) -> Option<Answer> {
+    let r = Regex::new(&format!(r"^(?:the )?saturation vapou?r pressure(?: of water| over (water|ice))?(?: at)? (-?[\d.]+)\s*{TUNIT}$")).ok()?;
+    let m = r.captures(l)?;
+    let t = temp_c(m[2].parse().ok()?, &m[3])?;
+    let tk = t + 273.15;
+    if !(173.0..=473.0).contains(&tk) {
+        return None;
+    }
+    let over_ice = m.get(1).is_some_and(|x| x.as_str() == "ice");
+    let e = if over_ice { goff_gratch_ice(tk) } else { goff_gratch_water(tk) };
+    let over = if over_ice { "ice" } else { "liquid water" };
+    let mut pods = vec![
+        input(format!("saturation vapor pressure over {over} at {}", temp_text(t))),
+        primary(pod("Result", "Saturation vapor pressure", text(format!("{} hPa = {} kPa ({} mmHg, {} psi)", n(e), n(e / 10.0), n(e * 100.0 / 133.322_368), n(e * 100.0 / 6894.757))))),
+    ];
+    if t < 0.0 && !over_ice {
+        pods.push(pod("Ice", "Over ice at the same temperature", text(format!("{} hPa (supercooled water has the higher vapor pressure)", n(goff_gratch_ice(tk))))));
+    }
+    pods.push(pod("Method", "Method", text("Goff–Gratch equation (World Meteorological Organization reference formulation until 2008)")));
+    Some(Answer::new("saturation vapor pressure", pods))
+}
+
 fn goff(l: &str) -> Option<Answer> {
     if !l.contains("goff") {
         return None;
@@ -320,6 +343,64 @@ fn solutions(l: &str) -> Option<Answer> {
     Some(Answer::new("seawater", vec![input(format!("seawater {what}")), primary(pod("Result", "Result", text(main))), pod("Properties", "Typical properties of seawater", table(None, rows))]))
 }
 
+/// Strong lines (nm, in air) of neutral atoms in or near the visible range,
+/// from the NIST Atomic Spectra Database persistent lines, with the colour
+/// of a discharge tube or flame.
+const SPECTRA: &[(&str, &str, &str, &str)] = &[
+    ("He", "helium", "388.9, 447.1, 471.3, 492.2, 501.6, 587.6 (D₃), 667.8, 706.5", "pinkish yellow (discharge tube)"),
+    ("Li", "lithium", "460.3, 610.4, 670.8", "crimson (flame)"),
+    ("Na", "sodium", "568.8, 589.0 and 589.6 (the D lines), 615.4, 818.3, 819.5", "intense yellow (flame)"),
+    ("K", "potassium", "404.4, 404.7, 691.1, 693.9, 766.5, 769.9", "lilac (flame)"),
+    ("Rb", "rubidium", "420.2, 421.6, 780.0, 794.8", "red-violet (flame)"),
+    ("Cs", "cesium", "455.5, 459.3, 852.1, 894.3", "blue-violet (flame)"),
+    ("Ca", "calcium", "422.7 (Ca I); 393.4 and 396.8 (Ca II, the H and K lines)", "orange-red (flame)"),
+    ("Sr", "strontium", "407.8, 421.6 (Sr II); 460.7 (Sr I)", "crimson red (flame)"),
+    ("Ba", "barium", "455.4, 493.4 (Ba II); 553.5 (Ba I)", "pale green (flame)"),
+    ("Cu", "copper", "324.8, 327.4, 510.6, 515.3, 521.8", "blue-green (flame)"),
+    ("Zn", "zinc", "468.0, 472.2, 481.1, 636.2", "bluish white"),
+    ("Cd", "cadmium", "467.8, 480.0, 508.6, 643.8", "red and blue lines"),
+    ("Hg", "mercury", "404.7, 435.8, 546.1, 577.0, 579.1", "blue-violet (discharge tube)"),
+    ("Ne", "neon", "540.1, 585.2, 588.2, 594.5, 609.6, 614.3, 626.6, 633.4, 640.2, 650.7, 659.9, 692.9, 703.2", "red-orange (discharge tube)"),
+    ("Ar", "argon", "696.5, 706.7, 750.4, 763.5, 811.5, 912.3; Ar II 488.0 and 514.5", "violet-lavender (discharge tube)"),
+    ("Kr", "krypton", "557.0, 587.1, 760.2, 811.3", "greyish white to lavender (discharge tube)"),
+    ("Xe", "xenon", "462.4, 467.1, 823.2, 881.9", "blue-violet (discharge tube)"),
+    ("N", "nitrogen", "742.4, 744.2, 746.8, 818.5, 821.6, 868.0 (N I); N II 463.0, 500.5, 567.9", "pink-violet (discharge tube, mostly N₂ molecular bands)"),
+    ("O", "oxygen", "777.2 (triplet), 844.6; forbidden lines 557.7 (green aurora) and 630.0 (red aurora)", "pale violet (discharge tube)"),
+];
+
+/// "Ne emission spectrum", "emission spectrum of potassium", "atomic spectrum of nitrogen"
+fn element_spectrum(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:the )?(.+?) (?:emission|atomic|line|visible|spectral)(?: line)? spectrum$|^(?:the )?(?:emission|atomic|line|visible) spectrum (?:of|for) (.+)$|^(?:the )?spectral lines (?:of|for) (.+)$|^(.+?) spectral lines$").captures(l)?;
+    let name = m.get(1).or(m.get(2)).or(m.get(3)).or(m.get(4))?.as_str().trim();
+    let name = name.trim_end_matches(" gas").trim_end_matches(" atom");
+    let key = if name.len() <= 2 {
+        let mut c = name.chars();
+        c.next()?.to_uppercase().collect::<String>() + c.as_str()
+    } else {
+        name.replace("caesium", "cesium")
+    };
+    let (sym, el, lines, colour) = SPECTRA.iter().find(|(s, n, _, _)| *s == key || *n == key)?;
+    let wl: Vec<f64> = re!(r"\d{3}\.\d").find_iter(lines).filter_map(|x| x.as_str().parse().ok()).collect();
+    let band = |w: f64| match w {
+        w if w < 380.0 => "ultraviolet",
+        w if w < 450.0 => "violet",
+        w if w < 495.0 => "blue",
+        w if w < 570.0 => "green",
+        w if w < 590.0 => "yellow",
+        w if w < 620.0 => "orange",
+        w if w < 750.0 => "red",
+        _ => "infrared",
+    };
+    let rows: Vec<Vec<Content>> = wl.iter().map(|w| vec![text(format!("{w} nm")), text(band(*w)), text(format!("{} eV", n(1239.841_98 / w)))]).collect();
+    Some(Answer::new(format!("{el} emission spectrum"), vec![
+        input(format!("{} ({sym}) | emission spectrum", { let mut c = el.chars(); c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default() })),
+        primary(pod("Result", "Strong lines (wavelength in air)", text(format!("{lines} nm")))),
+        pod("Lines", "Lines", table(Some(vec!["wavelength", "colour", "photon energy"]), rows)),
+        pod("Colour", "Observed colour", text(*colour)),
+        pod("Source", "Source", text("NIST Atomic Spectra Database (persistent lines)")),
+    ]))
+}
+
 fn hydrogen_spectrum(l: &str) -> Option<Answer> {
     if !re!(r"^(?:the )?(?:hydrogen|h) (?:emission|atomic|line) spectrum$|^(?:the )?(?:emission|line|atomic) spectrum of hydrogen$|^spectral lines of hydrogen$").is_match(l) {
         return None;
@@ -370,7 +451,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).replace('’', "'");
     let l = re!(r"^(?:what is |what are |find |calculate |compute )").replace(&l, "").to_string();
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
-    vapour(&l).or_else(|| goff(&l)).or_else(|| water_phase(&l)).or_else(|| titration(&l)).or_else(|| solutions(&l)).or_else(|| hydrogen_spectrum(&l)).or_else(|| formulas(&l))
+    vapour(&l).or_else(|| saturation(&l)).or_else(|| goff(&l)).or_else(|| water_phase(&l)).or_else(|| titration(&l)).or_else(|| solutions(&l)).or_else(|| hydrogen_spectrum(&l)).or_else(|| element_spectrum(&l)).or_else(|| formulas(&l))
 }
 
 #[cfg(test)]
