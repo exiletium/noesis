@@ -854,3 +854,17 @@ fn structures_and_slow_matrices() {
     assert_eq!(short("adjugate {{8, 7, 7}, {6, 9, 2}, {-6, 9, -2}}"), "{{-36, 77, -49}, {0, 26, 26}, {108, -114, 30}}");
     assert!(t.elapsed().as_secs() < 8);
 }
+
+#[test]
+fn notable_texts() {
+    assert!(short("1 Corinthians 13:11").starts_with("When I was a child, I spake as a child"));
+    assert_eq!(short("number of words in the US constitution"), "about 4,543");
+    assert!(short("books by Sinclair Lewis").contains("Main Street | Babbitt"));
+    assert_eq!(short("number of chapters in On the Origin of Species, Walden"), "On the Origin of Species: 14 | Walden: 18");
+    assert_eq!(short("number of scenes in the Tempest act 3"), "3");
+    assert_eq!(short("compare the number of scenes in King Lear, King John, King Richard II"), "King Lear: 26 | King John: 16 | Richard II: 19");
+    assert_eq!(short("When was Dune published?"), "1965");
+    assert_eq!(short("original language of War and Peace, Lolita"), "War and Peace: Russian (with substantial passages in French) | Lolita: English");
+    assert!(short("Anthony and Cleopatra").starts_with("tragedy (play) by William Shakespeare"));
+    assert_eq!(short("who wrote moby dick"), "Herman Melville");
+}
