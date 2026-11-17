@@ -546,7 +546,7 @@ fn gamma_rat(r: &Rat) -> Option<Expr> {
 }
 
 fn fractional(l: &str) -> Option<Answer> {
-    let (body, var, order, caputo) = if let Some(m) = re!(r"^(?:the\s+)?(fractional|riemann[- ]liouville|caputo|caputod)\s*(?:derivative|differintegral)?\s+(?:of\s+)?(.+?)\s*\{\s*([a-z])\s*,\s*([^}]+?)\s*\}$").captures(l) {
+    let (body, var, order, caputo) = if let Some(m) = re!(r"^(?:the\s+)?(fractional|riemann[- ]liouville|caputod|caputo)\s*(?:derivative|differintegral)?\s+(?:of\s+)?(.+?)\s*\{\s*([a-z])\s*,\s*([^}]+?)\s*\}$").captures(l) {
         (m[2].to_string(), m[3].to_string(), m[4].to_string(), m[1].starts_with("caputo"))
     } else if let Some(m) = re!(r"^(?:the\s+)?(half|1/2|one[- ]half)[- ](?:order\s+)?derivative\s+(?:of\s+)?(.+)$").captures(l) {
         (m[2].to_string(), String::new(), "1/2".to_string(), false)

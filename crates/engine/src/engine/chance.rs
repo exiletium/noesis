@@ -291,7 +291,9 @@ fn roulette(l: &str) -> Option<Answer> {
 }
 
 fn lottery(l: &str) -> Option<Answer> {
-    let l = l.trim_start_matches("odds of winning ").trim_start_matches("the ").trim_end_matches(" lottery").trim_end_matches(" odds").trim_end_matches(" jackpot");
+    let l = l.trim_start_matches("chances of winning ").trim_start_matches("chance of winning ").trim_start_matches("probability of winning ").trim_start_matches("odds of winning ").trim_start_matches("the ");
+    let l = if l == "lottery" { l } else { l.trim_end_matches(" lottery") };
+    let l = l.trim_end_matches(" odds").trim_end_matches(" jackpot");
     let (name, white, pick, extra, extra_pick) = match l {
         "powerball" => ("Powerball", 69u64, 5u64, 26u64, 1u64),
         "mega millions" => ("Mega Millions", 70, 5, 24, 1),

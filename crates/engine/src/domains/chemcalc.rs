@@ -149,6 +149,8 @@ static SUBSTANCES: &[Substance] = &[
     s(&["diamond"], "C", Some(3550.0), None, Some(3.51), Some(0.51), "converts to graphite before melting at ordinary pressure"),
     s(&["graphite"], "C", Some(3600.0), None, Some(2.26), Some(0.71), "sublimes near 3600 °C"),
     s(&["sand"], "", None, None, Some(1.6), Some(0.83), "dry, loose"),
+    s(&["wet sand"], "", None, None, Some(1.92), Some(1.38), "damp, packed (about 1.9–2.0 g/cm³)"),
+    s(&["saturated sand"], "", None, None, Some(2.08), Some(1.6), "water-saturated"),
     s(&["human body", "the human body"], "", None, None, Some(0.985), Some(3.5), "average"),
 ];
 
@@ -738,7 +740,17 @@ fn amounts(c: &str) -> Option<Answer> {
 }
 
 fn mass_volume(l: &str) -> Option<Answer> {
-    use super::units::{parse_quantity, to_si};
+    use super::units::{parse_quantity, parse_unit, to_si};
+    // "weight of 1 cup milk in grams": a target unit, and "of" left out
+    let (l, target) = match re!(r"^(.+?)\s+in\s+(grams?|g|kilograms?|kg|ounces?|oz|pounds?|lbs?|liters?|litres?|l|ml|milliliters?|millilitres?|cups?|gallons?|fluid ounces?|fl oz)$").captures(l) {
+        Some(c) if re!(r"^(?:the\s+)?(?:weight|mass|volume)\s+of\s").is_match(&c[1]) => (c[1].to_string(), Some(c[2].to_string())),
+        _ => (l.to_string(), None),
+    };
+    let l = match re!(r"^((?:the\s+)?(?:weight|mass|volume)\s+of\s+\d+(?:\.\d+)?\s*(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|liters?|litres?|ml|milliliters?|gallons?|quarts?|pints?|fl oz|fluid ounces?|grams?|g|kg|kilograms?|ounces?|oz|pounds?|lbs?))\s+(.+)$").captures(&l) {
+        Some(c) if !c[2].starts_with("of ") => format!("{} of {}", &c[1], &c[2]),
+        _ => l,
+    };
+    let l = l.as_str();
     let m = re!(r"^(?:the\s+)?(weight|mass|volume)\s+of\s+(?:a\s+|an\s+|one\s+)?(.+?)\s+of\s+(.+)$").captures(l).or_else(|| re!(r"^(?:how much (?:does|do|would)\s+)()(.+?)\s+of\s+(.+?)\s+weigh$").captures(l))?;
     let want = if m[1].is_empty() { "weight" } else { &m[1] };
     let amount = m[2].trim();
@@ -760,6 +772,16 @@ fn mass_volume(l: &str) -> Option<Answer> {
         return None;
     };
     let label = format!("{want} of {shown} of {name}");
+    let value = match target.as_deref().and_then(|t| parse_unit(t).map(|u| (t.to_string(), u))) {
+        Some((t, tu)) => {
+            let si_out = if u.dim == VOL && want != "volume" { si * d } else { si / d };
+            if tu.dim != (if u.dim == VOL && want != "volume" { MASS } else { VOL }) {
+                return None;
+            }
+            format!("{} {}  ({value})", n(si_out / to_si(1.0, &tu)), t)
+        }
+        None => value,
+    };
     let pods = vec![
         pod("Input", "Input interpretation", text(label.clone())),
         primary(pod("Result", title, text(value))),

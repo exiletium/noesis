@@ -995,7 +995,7 @@ pub fn statistics(q: &Query, l: &str, c: &str) -> Option<Answer> {
     let std = Normal::new(0.0, 1.0).ok()?;
 
     // quartiles and five-number summaries
-    if let Some(m) = cap(re!(r"^(?:the\s+)?(quartiles|five[- ]number summary|5[- ]number summary|interquartile range|iqr|outliers|box ?plot|box and whisker plot|range|midrange)\s+(?:of|for)?\s*(.+)$")) {
+    if let Some(m) = cap(re!(r"^(?:the\s+)?(quartiles|five[- ]number summary|5[- ]number summary|interquartile range|iqr|outliers|outlier|box ?plot|box and whisker plot|range|midrange)\s+(?:of|for|in)?\s*(?:the\s+)?(?:data ?set\s+|data\s+|numbers\s+|list\s+)?(.+)$")) {
         let mut xs = number_list(&g(&m, 2))?;
         xs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let n = xs.len();
@@ -1006,13 +1006,27 @@ pub fn statistics(q: &Query, l: &str, c: &str) -> Option<Answer> {
         let iqr = q3 - q1;
         let (lo_f, hi_f) = (q1 - 1.5 * iqr, q3 + 1.5 * iqr);
         let out: Vec<String> = xs.iter().filter(|v| **v < lo_f || **v > hi_f).map(|v| pr(*v)).collect();
-        let what = g(&m, 1).to_lowercase();
+        let what = g(&m, 1).to_lowercase().replace("outlier", "outliers").replace("outlierss", "outliers");
         let five = table(None, vec![vec![text("minimum"), text(pr(xs[0]))], vec![text("first quartile Q₁"), text(pr(q1))], vec![text("median"), text(pr(med))], vec![text("third quartile Q₃"), text(pr(q3))], vec![text("maximum"), text(pr(xs[n - 1]))]]);
         let mut pods = Vec::new();
         match what.as_str() {
             "quartiles" => pods.push(primary(pod("Result", "Quartiles", text(format!("Q₁ = {},  Q₂ (median) = {},  Q₃ = {}", pr(q1), pr(med), pr(q3)))))),
             "interquartile range" | "iqr" => pods.push(primary(pod("Result", "Interquartile range", text(format!("{}  (Q₃ − Q₁ = {} − {})", pr(iqr), pr(q3), pr(q1)))))),
-            "outliers" => pods.push(primary(pod("Result", "Outliers (1.5 × IQR rule)", text(if out.is_empty() { "none".to_string() } else { out.join(", ") })))),
+            "outliers" => {
+                // quartiles interpolated at positions n p + 1/2 (as Mathematica's Quartiles),
+                // which flag a lone extreme value in a small sample
+                let at = |p: f64| {
+                    let h = (n as f64 * p + 0.5).clamp(1.0, n as f64);
+                    let (k, f) = (h.floor() as usize, h.fract());
+                    xs[k - 1] + f * (xs[k.min(n) - 1 + usize::from(k < n)] - xs[k - 1])
+                };
+                let (a, b) = (at(0.25), at(0.75));
+                let r = b - a;
+                let (lo2, hi2) = (a - 1.5 * r, b + 1.5 * r);
+                let out2: Vec<String> = xs.iter().filter(|v| **v < lo2 || **v > hi2).map(|v| pr(*v)).collect();
+                pods.push(primary(pod("Result", "Outliers (1.5 × IQR rule)", text(if out2.is_empty() { "none".to_string() } else { out2.join(", ") }))));
+                pods.push(pod("Fences", "Fences", text(format!("Q₁ = {}, Q₃ = {} (interpolated quartiles); values outside {} to {} are outliers", pr(a), pr(b), pr(lo2), pr(hi2)))));
+            }
             "range" => pods.push(primary(pod("Result", "Range", text(format!("{}  ({} − {})", pr(xs[n - 1] - xs[0]), pr(xs[n - 1]), pr(xs[0])))))),
             "midrange" => pods.push(primary(pod("Result", "Midrange", text(pr((xs[n - 1] + xs[0]) / 2.0))))),
             _ => {}

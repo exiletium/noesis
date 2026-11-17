@@ -771,3 +771,36 @@ fn materials_food_formulas_and_inequalities() {
     assert_eq!(short("round π% of 1337"), "42");
     assert_eq!(short("peak zenith hourly rate Quadrantids / Eta Aquariids"), "Quadrantids: 110 per hour | Eta Aquariids: 50 per hour");
 }
+
+#[test]
+fn holomorphic_functions_quadrics_and_state_space() {
+    assert_eq!(short("caputod exp(t) {t, 1/7}"), "e^(t) (1 − Γ(6/7, t)/Γ(6/7))");
+    assert_eq!(short("holomorphic function imaginary part Sinh[x] Sin[y]"), "f(z) = cosh(z) + c, with c real");
+    assert_eq!(short("limit arctan(x^2/y^2) as x -> 0 as y -> 0"), "0");
+    assert_eq!(short("differential equations sin 2x"), "y″ + 4 y = 0");
+    assert_eq!(short("differential equations J_2(x)"), "x² y″ + x y′ + (x² − 4) y = 0");
+    assert_eq!(short("plot x^2 - 3y^2 - z^2 = 1"), "x^2 - 3 y^2 - z^2 = 1 is a hyperboloid of two sheets");
+    assert_eq!(short("state {{0,1,0},{0,0,1},{1/5,-1,0}}, input {{0},{0},{1}}, output {{-3,0,1}}"), "H(s) = (s^2 - 3)/(s^3 + s - 1/5)");
+    assert!(short("julia set -1").starts_with("connected"));
+    assert!(short("random permutation on 15 elements").starts_with('['));
+    assert_eq!(short("2 by 3 rectangle rotated 45 degrees"), "(0, 0), (sqrt(2), sqrt(2)), (-sqrt(2)/2, (5 sqrt(2))/2), (-(3 sqrt(2))/2, (3 sqrt(2))/2)");
+    assert_eq!(short("what is the outlier for the data set 21.3, 22, 12.7, 11, 100"), "100");
+    assert_eq!(short("density of wet sand"), "1.92 g/cm³  (1920 kg/m³)");
+}
+
+#[test]
+fn positions_seawater_codes_and_bonds() {
+    assert_eq!(short("weight of 1 cup milk in grams"), "243.686 grams  (0.243686 kg  (0.537235 lb))");
+    assert!(short("55 deg 45' N, 37 deg 37' E").contains("Moscow"));
+    assert!(short("23.5S 46.4W to 56.8N 60.6E").starts_with("13201 km"));
+    assert!(short("Paris to Berlin to Rome").starts_with("2062.6 km"));
+    assert!(short("seawater with 33 psu at 4 C").contains("1026.195 kg/m³"));
+    assert!(short("barometric pressure at extreme altitudes").starts_with("31.44 kPa"));
+    assert_eq!(short("codes that can correct 7 errors"), "minimum Hamming distance d ≥ 15");
+    assert_eq!(short("golay code"), "[23, 12, 7]");
+    assert_eq!(short("information rate of BCH code 31, 5"), "11/31 ≈ 0.3548");
+    assert_eq!(short("N N bonds"), "N–N: 163 kJ/mol, 145 pm | N=N: 418 kJ/mol, 125 pm | N≡N: 945 kJ/mol, 110 pm");
+    assert_eq!(short("MOM ether functional group"), "R–O–CH₂–O–CH₃");
+    assert!(short("cosmic origins of gold and iron").starts_with("Gold: merging neutron stars"));
+    assert!(!noesis::query("salt to sugar").pods.iter().any(|p| p.id == "Route" || p.title == "Distance"));
+}
