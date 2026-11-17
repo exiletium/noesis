@@ -722,3 +722,21 @@ fn lagrangians_waveguides_and_flow_formulas() {
     assert!(short("Rossiter formula for mach 2").starts_with("0.1997"));
     assert!(short("radioactive decay, half-life 5 days, time 2 days").starts_with("0.7578"));
 }
+
+#[test]
+fn restricted_ranges_saddles_and_unit_arithmetic() {
+    assert_eq!(short("range of 1/sqrt(x^2+1) restricted to 1<x<4"), "{y ∈ ℝ : 1/√17 < y < 1/√2}");
+    assert_eq!(short("range of 1/x restricted to x>1"), "{y ∈ ℝ : 0 < y < 1}");
+    assert_eq!(short("domain of f(x,y) = log(1-(x^2+y^2))"), "{(x, y) ∈ ℝ² : x^2 + y^2 < 1}");
+    assert_eq!(short("period of sin(x y)"), "x: 2π/y (for y ≠ 0); y: 2π/x (for x ≠ 0)");
+    assert!(short("rotate 30 degrees").starts_with("( sqrt(3)/2  -1/2 )"));
+    assert_eq!(short("fractional derivative x^2 {x,1/2}"), "(8 x^(3/2))/(3 sqrt(π))");
+    assert_eq!(short("cusps of sqrt |x-2| - cbrt |x+2|"), "(-2, 2), (2, -1.5874)");
+    assert!(short("area between y=sinc(x) and the x-axis from x=-4pi to 4pi").starts_with("5.449"));
+    assert_eq!(short("saddle point of sin(x y)-tan x near (5,6)"), "saddle point at (x, y) ≈ (0, 1), value 0");
+    assert_eq!(short("1 + (even number * odd number)"), "odd integer");
+    assert_eq!(short("negative number ^ 40"), "positive real number");
+    assert_eq!(short("transfer function (s+1)/(s^2+3s+2)"), "stable: every pole has negative real part");
+    assert_eq!(short("(5 meters - 2 meters)/(18 seconds - 8 seconds)"), "0.3 m/s");
+    assert_eq!(short("solve y'(x) = -2 y+x apply heun method"), "0.42181");
+}

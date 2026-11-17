@@ -148,8 +148,11 @@ fn parse_ivp(c: &str) -> Option<Ivp> {
     let t = c.replace("y'(x)", "y'").replace("y′", "y'").replace("dy/dx", "y'").replace("dy/dt", "y'");
     let rhs_m = re!(r"y'\s*=\s*([^,{}]+?)(?:\s*,|\s*\}|\s+from\b|\s+with\b|\s+apply\b|\s+using\b|\s+by\b|$)").captures(&t)?;
     let rhs = ex(&rhs_m[1])?;
-    let ic = re!(r"y\s*\(\s*(-?[\d.]+)\s*\)\s*=\s*(-?[\d.]+)").captures(&t)?;
-    let (x0, y0) = (num(&ic[1])?, num(&ic[2])?);
+    // without an initial condition, assume y(0) = 1 (shown in the input line)
+    let (x0, y0) = match re!(r"y\s*\(\s*(-?[\d.]+)\s*\)\s*=\s*(-?[\d.]+)").captures(&t) {
+        Some(ic) => (num(&ic[1])?, num(&ic[2])?),
+        None => (0.0, 1.0),
+    };
     let range = re!(r"from\s+(-?[\d.]+)\s+to\s+(-?[\d.]+)").captures(&t);
     let x1 = range.as_ref().and_then(|r| num(&r[2])).or_else(|| re!(r"(?:to|until)\s+x\s*=\s*(-?[\d.]+)").captures(&t).and_then(|m| num(&m[1])));
     let h = re!(r"(?:\bh|step(?:\s+size)?)\s*=\s*(-?\.?[\d.]+)").captures(&t).and_then(|m| num(&m[1]));
