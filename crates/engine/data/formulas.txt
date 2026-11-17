@@ -981,3 +981,42 @@ var m; azimuthal mode index; ; m; 1
 var n; radial mode index; ; n; 1
 var a; waveguide radius; mm; radius, a
 note cutoffs use the zeros j′_mn (TE) and j_mn (TM) of the Bessel function J_m; the dominant mode is TE11 with j′_11 ≈ 1.8412
+
+== Helmholtz coil | helmholtz coils | helmholtz coil field
+eq B = (4/5)^(3/2) * mu0 * N * I / R
+var B; magnetic field at the centre; T; field, magnetic field, flux density
+var N; turns per coil; ; turns, number of turns; 1
+var I; current; A; current
+var R; coil radius (also the coil spacing); m; radius, coil radius, spacing; 1
+note two identical coaxial coils separated by their radius; the field is nearly uniform between them
+
+== Laplace number | suratman number | laplace number calculation
+eq La = sigma * rho * L / mu^2
+var La; Laplace number;
+var sigma; surface tension; N/m; surface tension
+var rho; density; kg/m^3; density; 1000
+var L; characteristic length; m; length, diameter, size
+var mu; dynamic viscosity; Pa s; viscosity
+note ratio of surface tension to momentum transport inside a fluid; La = Re²/We
+
+== Pasteurization units | pasteur units | pasteur unit | pu value | pasteurisation units
+eq PU = (t / 60) * 1.393^(T - 333.15)
+var PU; pasteurization units;
+var t; holding time; s; time, duration
+var T; temperature; K; temperature
+note one PU is one minute at 60 °C; beer is typically given 15–25 PU
+
+== Kinematic viscosity | convert viscosity | viscosity conversion | dynamic to kinematic viscosity
+eq nu = mu / rho
+var nu; kinematic viscosity; m^2/s; kinematic viscosity
+var mu; dynamic viscosity; Pa s; dynamic viscosity, viscosity
+var rho; density; kg/m^3; density; 1000
+note 1 cSt = 1 mm²/s; 1 cP = 1 mPa s
+
+== Particle number from volume fraction | particle number | number of particles from volume fraction
+eq N = phi * V / Vp
+var N; number of particles;
+var phi; volume fraction; ; volume fraction, packing fraction
+var V; total volume; m^3; volume, total volume
+var Vp; volume of one particle; m^3; particle volume
+note random close packing of equal spheres is about 0.64

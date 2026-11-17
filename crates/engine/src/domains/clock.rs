@@ -167,11 +167,11 @@ fn time_in_place(l: &str) -> Option<Answer> {
     ))
 }
 
-fn weekday(s: &str) -> Option<Weekday> {
+pub(crate) fn weekday(s: &str) -> Option<Weekday> {
     s.parse().ok()
 }
 
-fn ordinal_word(s: &str) -> Option<i32> {
+pub(crate) fn ordinal_word(s: &str) -> Option<i32> {
     Some(match s {
         "first" | "1st" => 1,
         "second" | "2nd" => 2,
@@ -185,7 +185,7 @@ fn ordinal_word(s: &str) -> Option<i32> {
 
 const MONTHS: [&str; 12] = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 
-fn month_num(s: &str) -> Option<u32> {
+pub(crate) fn month_num(s: &str) -> Option<u32> {
     let s = s.trim();
     MONTHS.iter().position(|m| *m == s || (s.len() >= 3 && m.starts_with(s))).map(|k| k as u32 + 1)
 }

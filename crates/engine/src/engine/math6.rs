@@ -1212,11 +1212,91 @@ fn unit_arith(l: &str) -> Option<Answer> {
     Some(ans("unit arithmetic", l.to_string(), "Result", text(format!("{}{unit}", n(v))), extra))
 }
 
+// ---------------------------------------------------------------------------
+// linear inequalities in several variables, solved for one of them
+// ---------------------------------------------------------------------------
+
+fn linear_inequality(l: &str) -> Option<Answer> {
+    let (body, v) = if let Some(m) = re!(r"^solve\s+(.+?)\s+for\s+([a-z])$").captures(l) {
+        (m[1].to_string(), m[2].to_string())
+    } else if let Some(m) = re!(r"^(.+?),?\s+solve for\s+([a-z])$").captures(l) {
+        (m[1].to_string(), m[2].to_string())
+    } else {
+        return None;
+    };
+    let m = re!(r"^(.+?)\s*(<=|>=|≤|≥|<|>)\s*(.+)$").captures(&body)?;
+    // "i" would read as the imaginary unit: give it a stand-in name
+    let stand = if v == "i" { "q" } else { v.as_str() };
+    if v == "i" && re!(r"\bq\b|q[a-z0-9(]").is_match(&body) {
+        return None;
+    }
+    let fix = |t: &str| if v == "i" { re!(r"(^|[^a-z])i($|[^a-z])").replace_all(t, "${1}q${2}").replace("iq", "i q") } else { t.to_string() };
+    let fix2 = |t: String| if v == "i" { re!(r"(^|[^a-z])i($|[^a-z])").replace_all(&t, "${1}q${2}").to_string() } else { t };
+    let lhs = ex(&fix2(fix(&m[1])))?;
+    let rhs = ex(&fix2(fix(&m[3])))?;
+    let x = sym(stand);
+    let f = s::simplify(&s::expand(&sub(lhs.clone(), rhs.clone())));
+    if !f.free_symbols().iter().any(|n| &**n == stand) || f.free_symbols().len() < 2 {
+        return None;
+    }
+    let a = s::simplify(&diff(&f, &x));
+    if a.free_symbols().iter().any(|n| &**n == stand) || a.is_zero() {
+        return None;
+    }
+    let b = s::simplify(&f.subs(&x, &int(0)));
+    let bound = s::simplify(&s::expand(&neg(mul(vec![b, pow(a.clone(), int(-1))]))));
+    let rel = match &m[2] {
+        "<=" | "≤" => "≤",
+        ">=" | "≥" => "≥",
+        r => r,
+    };
+    let flip = |r: &str| match r { "<" => ">", ">" => "<", "≤" => "≥", _ => "≤" }.to_string();
+    let rename = |t: String| if v == "i" { re!(r"\bq\b").replace_all(&t, "i").to_string() } else { t };
+    let shown_input = rename(format!("{} {rel} {}", show(&lhs), show(&rhs)));
+    let (main, extra) = if let Some(av) = crate::eval::eval_f64(&a, &[]) {
+        let r = if av < 0.0 { flip(rel) } else { rel.to_string() };
+        (rename(format!("{stand} {r} {}", show(&bound))), vec![])
+    } else {
+        let main = rename(format!("{stand} {rel} {} when {} > 0;  {stand} {} {} when {} < 0", show(&bound), show(&a), flip(rel), show(&bound), show(&a)));
+        (main, vec![pod("Note", "Note", text(rename(format!("the coefficient of {stand} is {}, whose sign decides the direction", show(&a)))))])
+    };
+    Some(ans("inequality", format!("solve {shown_input} for {v}"), "Solution", text(main), extra))
+}
+
+// ---------------------------------------------------------------------------
+// rounding an expression
+// ---------------------------------------------------------------------------
+
+fn round_expr(l: &str) -> Option<Answer> {
+    let m = re!(r"^round(?: off)?\s+(.+?)(?:\s+to the nearest\s+(integer|whole number|ten|tenth|hundredth|hundred|thousandth|thousand))?$").captures(l)?;
+    let mut e = m[1].to_string();
+    if let Some(p) = re!(r"^(.+?)\s*%\s*of\s+(.+)$").captures(&e) {
+        e = format!("({})/100*({})", &p[1], &p[2]);
+    }
+    let v = crate::eval::eval_f64(&ex(&e.replace('π', "pi"))?, &[])?;
+    if !v.is_finite() {
+        return None;
+    }
+    let step = match m.get(2).map(|g| g.as_str()) {
+        Some("ten") => 10.0,
+        Some("hundred") => 100.0,
+        Some("thousand") => 1000.0,
+        Some("tenth") => 0.1,
+        Some("hundredth") => 0.01,
+        Some("thousandth") => 0.001,
+        _ => 1.0,
+    };
+    let r = (v / step).round() * step;
+    Some(ans("rounding", format!("round {}", m[1].trim()), "Result", text(n(r)), vec![pod("Exact", "Value before rounding", text(fmt_float(v, 12)))]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
     restricted(l)
+        .or_else(|| linear_inequality(l))
+        .or_else(|| round_expr(l))
         .or_else(|| periods(l))
         .or_else(|| rotation(l))
         .or_else(|| fractional(l))

@@ -740,3 +740,34 @@ fn restricted_ranges_saddles_and_unit_arithmetic() {
     assert_eq!(short("(5 meters - 2 meters)/(18 seconds - 8 seconds)"), "0.3 m/s");
     assert_eq!(short("solve y'(x) = -2 y+x apply heun method"), "0.42181");
 }
+
+#[test]
+fn eclipses_stars_and_spaceflight() {
+    assert!(short("solar eclipses in 2027").starts_with("February 6, 2027 (annular solar); August 2, 2027 (total solar)"));
+    assert_eq!(short("lunar eclipses in 2026"), "March 3, 2026 (total lunar); August 28, 2026 (partial lunar)");
+    assert!(short("moon phase on July 4 2026").starts_with("waning gibbous"));
+    assert_eq!(short("apparent magnitude of Rigel"), "0.13");
+    assert!(short("angular separation between Mizar and Alcor").starts_with("11.8"));
+    assert!(short("the shortest distance of the Earth to our Sun during orbit").starts_with("0.9833 au"));
+    assert!(short("mass of our Moon vs. Phobos vs. Deimos").contains("Phobos: 1.0659×10^16 kg"));
+    assert!(short("When can I see Orion?").starts_with("January"));
+    assert_eq!(short("100 year anniversary of the discovery of Pluto"), "Monday, February 18, 2030");
+    assert!(short("Sputnik launch date to Sputnik decay date").starts_with("92 days"));
+    assert!(short("first animal in orbit").starts_with("Laika"));
+}
+
+#[test]
+fn materials_food_formulas_and_inequalities() {
+    assert!(short("compare thermal conductivity of copper, aluminum, iron, carbon steel, stainless steel").starts_with("Copper: 401 W/(m K) | Aluminum: 237"));
+    assert_eq!(short("density of mahogany, walnut wood"), "Mahogany: 0.59 g/cm³ (36.83 lb/ft³) | Black walnut: 0.61 g/cm³ (38.08 lb/ft³)");
+    assert_eq!(short("Mohs 6.5"), "between orthoclase feldspar (6) and quartz (7)");
+    assert_eq!(short("hardness of iron vs copper"), "Iron: 4 | Copper: 3");
+    assert_eq!(short("stitches on a baseball"), "108");
+    assert!(short("Calculate Laplace number, 0.05 N/m, 1420 kg/m^3, 0.01m, 10680 cP").starts_with("0.00622"));
+    assert_eq!(short("Pasteur units for beer, 60°C, 20 min"), "20");
+    assert!(short("1m 1A Helmholtz coil").starts_with("8.99176×10^-7 T"));
+    assert_eq!(short("10680 cP in Pa s"), "10.68 pascals seconds");
+    assert_eq!(short("9x - 7i > 3 (3x - 7u) solve for i"), "i < 3 u");
+    assert_eq!(short("round π% of 1337"), "42");
+    assert_eq!(short("peak zenith hourly rate Quadrantids / Eta Aquariids"), "Quadrantids: 110 per hour | Eta Aquariids: 50 per hour");
+}

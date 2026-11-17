@@ -31,6 +31,12 @@ const ELEMENTS: &[(&str, [f64; 6], [f64; 6])] = &[
     ("Pluto", [39.48211675, 0.24882730, 17.14001206, 238.92903833, 224.06891629, 110.30393684], [-0.00031596, 0.00005170, 0.00004818, 145.20780515, -0.04062942, -0.01183482]),
 ];
 
+/// Semi-major axis (au) and eccentricity at `t` centuries from J2000.
+pub fn orbit_shape(name: &str, t: f64) -> Option<(f64, f64)> {
+    let (_, el, rate) = ELEMENTS.iter().find(|(n, _, _)| *n == name)?;
+    Some((el[0] + rate[0] * t, el[1] + rate[1] * t))
+}
+
 /// Heliocentric ecliptic position (au) at `t` centuries from J2000.
 /// "Earth" is the Earth–Moon barycentre; the Sun is the origin.
 pub fn heliocentric(name: &str, t: f64) -> Option<[f64; 3]> {

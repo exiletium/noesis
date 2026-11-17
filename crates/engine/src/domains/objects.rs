@@ -226,6 +226,7 @@ const COUNTS: &[(&str, &[&str], u32)] = &[
     ("stripes", &["american flag", "us flag", "united states flag", "flag of the united states"], 13), ("stars", &["american flag", "us flag", "united states flag", "flag of the united states"], 50),
     ("stars", &["australian flag", "flag of australia"], 6), ("stars", &["chinese flag", "flag of china"], 5), ("stars", &["brazilian flag", "flag of brazil"], 27), ("stars", &["new zealand flag", "flag of new zealand"], 4), ("stars", &["eu flag", "european flag", "flag of europe"], 12),
     ("keys", &["piano"], 88), ("strings", &["guitar"], 6), ("strings", &["violin"], 4), ("cards", &["deck of cards", "deck"], 52), ("squares", &["chessboard", "chess board"], 64), ("pieces", &["chess set"], 32),
+    ("stitches", &["baseball", "major league baseball"], 108), ("stitches", &["softball"], 88), ("dimples", &["golf ball"], 336), ("panels", &["soccer ball", "football (soccer)"], 32), ("holes", &["golf course"], 18), ("players", &["soccer team", "football team"], 11), ("players", &["basketball team"], 5), ("players", &["baseball team"], 9),
     ("teeth", &["adult human", "adult", "human"], 32), ("bones", &["human body", "adult human", "human"], 206),
 ];
 
