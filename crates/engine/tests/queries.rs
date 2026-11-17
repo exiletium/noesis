@@ -693,3 +693,17 @@ fn clocks_calendars_and_holidays() {
     assert!(short("holidays 2009").contains("Thursday, November 26"));
     assert!(short("year 1951").contains("Metal Rabbit"));
 }
+
+#[test]
+fn inflation_sizes_threads_and_moist_air() {
+    assert_eq!(short("US$250 1965 dollars in 1995"), "$1,209.52");
+    assert_eq!(short("inflation from 1980 to 2020"), "+214.09% cumulative (2.9% per year)");
+    assert_eq!(short("US women's size 6 shoe in french shoe size"), "36.5 (EU / French)");
+    assert_eq!(short("U.K. men's size 11 shoe in Japanese size"), "30 cm (Japan / Mondopoint 300 mm)");
+    assert_eq!(short("What is the thread count of a coarse #6 bolt?"), "32 threads per inch");
+    assert!(short("1/2 inch bolt").starts_with("1/2-13 UNC"));
+    assert!(short("lumber volume diameter=3 ft, length=20 ft").contains("1280 board feet"));
+    assert!(short("moist air drybulb 72F, wetbulb 66F, pressure 29inHg").starts_with("relative humidity 73"));
+    assert_eq!(short("dew point of 25C and 50% humidity"), "dew point 13.9 °C (57 °F)");
+    assert!(short("sound speed of air -40 F").starts_with("306.1 m/s"));
+}

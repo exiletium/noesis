@@ -97,6 +97,11 @@ fn layer_name(z: f64) -> &'static str {
 
 fn standard_atmosphere(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']);
+    // "sound speed of air -40 F", "density of dry air at 5 C"
+    let alt = re!(r"^(?:the )?(sound speed|speed of sound|density)(?: of| in)? (?:dry )?air (?:at )?(-?[\d.]+\s*(?:°\s*|degrees? )?(?:c|f|k|celsius|fahrenheit|kelvin))$")
+        .captures(l)
+        .map(|c| format!("{} at {}", if &c[1] == "density" { "density of air" } else { "speed of sound" }, &c[2]));
+    let l = alt.as_deref().unwrap_or(l);
     if l.contains("depth") || l.contains("below") || l.contains("underwater") || l.contains("ocean") || l.contains("water") {
         return None;
     }
