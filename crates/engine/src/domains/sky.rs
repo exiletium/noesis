@@ -38,7 +38,7 @@ fn cos(d: f64) -> f64 {
     d.to_radians().cos()
 }
 
-fn jd_now() -> f64 {
+pub(crate) fn jd_now() -> f64 {
     Utc::now().timestamp() as f64 / 86400.0 + 2_440_587.5
 }
 
@@ -196,7 +196,7 @@ fn eclipse_answer(e: &Eclipse, heading: &str, table_of: Vec<Eclipse>) -> Answer 
     Answer::new("eclipse", pods)
 }
 
-fn capitalize(s: &str) -> String {
+pub(crate) fn capitalize(s: &str) -> String {
     let mut c = s.chars();
     c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
 }
@@ -380,24 +380,24 @@ fn next_moon(l: &str) -> Option<Answer> {
 // stars and deep-sky objects
 // ---------------------------------------------------------------------------
 
-struct Star {
-    names: &'static [&'static str],
+pub(crate) struct Star {
+    pub(crate) names: &'static [&'static str],
     /// right ascension (h, m, s) and declination (sign, d, m, s), J2000
-    ra: (f64, f64, f64),
-    dec: (f64, f64, f64, f64),
-    mag: f64,
+    pub(crate) ra: (f64, f64, f64),
+    pub(crate) dec: (f64, f64, f64, f64),
+    pub(crate) mag: f64,
     /// distance, light years
-    ly: f64,
-    spectral: &'static str,
-    constellation: &'static str,
-    note: &'static str,
+    pub(crate) ly: f64,
+    pub(crate) spectral: &'static str,
+    pub(crate) constellation: &'static str,
+    pub(crate) note: &'static str,
 }
 
 const fn st(names: &'static [&'static str], ra: (f64, f64, f64), dec: (f64, f64, f64, f64), mag: f64, ly: f64, spectral: &'static str, constellation: &'static str, note: &'static str) -> Star {
     Star { names, ra, dec, mag, ly, spectral, constellation, note }
 }
 
-static STARS: &[Star] = &[
+pub(crate) static STARS: &[Star] = &[
     st(&["sirius", "alpha canis majoris", "dog star"], (6.0, 45.0, 8.9), (-1.0, 16.0, 42.0, 58.0), -1.46, 8.60, "A1V + DA2 (white dwarf companion)", "Canis Major", "the brightest star in the night sky"),
     st(&["canopus", "alpha carinae"], (6.0, 23.0, 57.1), (-1.0, 52.0, 41.0, 44.0), -0.74, 310.0, "A9II", "Carina", "second-brightest star"),
     st(&["alpha centauri", "rigil kentaurus", "rigil kent", "alpha centauri a"], (14.0, 39.0, 36.5), (-1.0, 60.0, 50.0, 2.0), -0.27, 4.37, "G2V + K1V", "Centaurus", "the nearest star system to the Sun; combined light of A and B"),
@@ -427,6 +427,9 @@ static STARS: &[Star] = &[
     st(&["mizar", "zeta ursae majoris"], (13.0, 23.0, 55.5), (1.0, 54.0, 55.0, 31.0), 2.23, 82.9, "A2V (quadruple system)", "Ursa Major", "middle star of the Big Dipper's handle; naked-eye pair with Alcor"),
     st(&["alcor", "80 ursae majoris"], (13.0, 25.0, 13.5), (1.0, 54.0, 59.0, 17.0), 3.99, 81.7, "A5V", "Ursa Major", "naked-eye companion of Mizar"),
     st(&["algol", "beta persei", "demon star"], (3.0, 8.0, 10.1), (1.0, 40.0, 57.0, 20.0), 2.12, 90.0, "B8V", "Perseus", "eclipsing binary"),
+    st(&["eta draconis", "athebyne"], (16.0, 23.0, 59.5), (1.0, 61.0, 30.0, 51.0), 2.73, 92.0, "G8III", "Draco", "a yellow giant with a white-dwarf companion"),
+    st(&["gamma centauri", "muhlifain"], (12.0, 41.0, 31.0), (-1.0, 48.0, 57.0, 35.0), 2.17, 130.0, "A1IV", "Centaurus", "a close binary of two similar A-type stars"),
+    st(&["mira", "omicron ceti"], (2.0, 19.0, 20.8), (-1.0, 2.0, 58.0, 39.0), 3.04, 300.0, "M7IIIe", "Cetus", "the prototype long-period (Mira) variable"),
     st(&["proxima centauri", "proxima", "alpha centauri c"], (14.0, 29.0, 43.0), (-1.0, 62.0, 40.0, 46.0), 11.13, 4.2465, "M5.5Ve", "Centaurus", "the nearest known star to the Sun; flare star with planets"),
     st(&["barnard's star", "barnards star"], (17.0, 57.0, 48.5), (1.0, 4.0, 41.0, 36.0), 9.51, 5.96, "M4V", "Ophiuchus", "largest proper motion of any star"),
     st(&["wolf 359"], (10.0, 56.0, 29.2), (1.0, 7.0, 0.0, 53.0), 13.51, 7.86, "M6V", "Leo", ""),
@@ -439,26 +442,45 @@ static STARS: &[Star] = &[
     st(&["pleiades", "m45", "seven sisters", "messier 45"], (3.0, 47.0, 24.0), (1.0, 24.0, 7.0, 0.0), 1.6, 444.0, "open star cluster", "Taurus", ""),
     st(&["ring nebula", "m57", "messier 57"], (18.0, 53.0, 35.1), (1.0, 33.0, 1.0, 45.0), 8.8, 2570.0, "planetary nebula", "Lyra", ""),
     st(&["whirlpool galaxy", "m51", "messier 51"], (13.0, 29.0, 52.7), (1.0, 47.0, 11.0, 43.0), 8.4, 2.3e7, "spiral galaxy", "Canes Venatici", ""),
+    st(&["lagoon nebula", "m8", "messier 8", "ngc 6523"], (18.0, 3.0, 37.0), (-1.0, 24.0, 23.0, 12.0), 6.0, 4100.0, "emission nebula (H II region)", "Sagittarius", "a star-forming cloud visible to the naked eye"),
+    st(&["eta carinae nebula", "carina nebula", "ngc 3372", "great nebula in carina"], (10.0, 45.0, 8.5), (-1.0, 59.0, 52.0, 4.0), 1.0, 8500.0, "emission nebula (H II region)", "Carina", "one of the largest diffuse nebulae in the sky; contains the luminous blue variable Eta Carinae"),
+    st(&["tarantula nebula", "30 doradus", "ngc 2070"], (5.0, 38.0, 38.0), (-1.0, 69.0, 5.0, 42.0), 8.0, 160000.0, "emission nebula (H II region)", "Dorado", "in the Large Magellanic Cloud; the most active star-forming region in the Local Group"),
+    st(&["helix nebula", "ngc 7293", "eye of god"], (22.0, 29.0, 38.55), (-1.0, 20.0, 50.0, 13.6), 7.6, 655.0, "planetary nebula", "Aquarius", "one of the nearest planetary nebulae"),
+    st(&["ngc 246", "skull nebula"], (0.0, 47.0, 3.3), (-1.0, 11.0, 52.0, 19.0), 10.9, 1600.0, "planetary nebula", "Cetus", ""),
+    st(&["m76", "messier 76", "little dumbbell nebula", "ngc 650"], (1.0, 42.0, 19.9), (1.0, 51.0, 34.0, 31.0), 10.1, 2500.0, "planetary nebula", "Perseus", ""),
+    st(&["m4", "messier 4", "ngc 6121"], (16.0, 23.0, 35.22), (-1.0, 26.0, 31.0, 32.7), 5.6, 7200.0, "globular cluster", "Scorpius", "one of the nearest globular clusters"),
+    st(&["m3", "messier 3", "ngc 5272"], (13.0, 42.0, 11.62), (1.0, 28.0, 22.0, 38.2), 6.2, 33900.0, "globular cluster", "Canes Venatici", "about 500,000 stars, rich in RR Lyrae variables"),
+    st(&["m15", "messier 15", "ngc 7078"], (21.0, 29.0, 58.33), (1.0, 12.0, 10.0, 1.2), 6.2, 35700.0, "globular cluster", "Pegasus", "one of the densest globular clusters, with a collapsed core"),
+    st(&["m13", "messier 13", "hercules cluster", "great globular cluster in hercules", "ngc 6205"], (16.0, 41.0, 41.24), (1.0, 36.0, 27.0, 35.5), 5.8, 22200.0, "globular cluster", "Hercules", ""),
+    st(&["omega centauri", "ngc 5139"], (13.0, 26.0, 47.28), (-1.0, 47.0, 28.0, 46.1), 3.9, 17090.0, "globular cluster", "Centaurus", "the largest globular cluster of the Milky Way, about 10 million stars"),
+    st(&["m37", "messier 37", "ngc 2099"], (5.0, 52.0, 18.0), (1.0, 32.0, 33.0, 2.0), 6.2, 4500.0, "open cluster", "Auriga", ""),
+    st(&["m80", "messier 80", "ngc 6093"], (16.0, 17.0, 2.41), (-1.0, 22.0, 58.0, 33.9), 7.87, 32600.0, "globular cluster", "Scorpius", ""),
+    st(&["ngc 2808"], (9.0, 12.0, 3.1), (-1.0, 64.0, 51.0, 48.6), 6.2, 31300.0, "globular cluster", "Carina", "hosts several generations of stars"),
+    st(&["m53", "messier 53", "ngc 5024"], (13.0, 12.0, 55.25), (1.0, 18.0, 10.0, 5.4), 7.6, 58000.0, "globular cluster", "Coma Berenices", ""),
+    st(&["ngc 288"], (0.0, 52.0, 45.24), (-1.0, 26.0, 34.0, 57.4), 8.1, 28700.0, "globular cluster", "Sculptor", ""),
+    st(&["beehive cluster", "m44", "messier 44", "praesepe"], (8.0, 40.0, 24.0), (1.0, 19.0, 40.0, 0.0), 3.7, 577.0, "open cluster", "Cancer", ""),
+    st(&["double cluster", "ngc 869 and ngc 884", "h and chi persei"], (2.0, 20.0, 0.0), (1.0, 57.0, 8.0, 0.0), 3.7, 7500.0, "pair of open clusters (NGC 869 and NGC 884)", "Perseus", ""),
+    st(&["ngc 4603"], (12.0, 40.0, 55.2), (-1.0, 40.0, 58.0, 35.0), 11.9, 1.08e8, "spiral galaxy (SA(s)c)", "Centaurus", "its distance was measured with Cepheid variables by the Hubble Space Telescope"),
     st(&["leo triplet", "m66 group"], (11.0, 18.0, 55.0), (1.0, 13.0, 5.0, 0.0), 8.9, 3.5e7, "group of three spiral galaxies (M65, M66, NGC 3628)", "Leo", ""),
 ];
 
-fn ra_deg(s: &Star) -> f64 {
+pub(crate) fn ra_deg(s: &Star) -> f64 {
     (s.ra.0 + s.ra.1 / 60.0 + s.ra.2 / 3600.0) * 15.0
 }
 
-fn dec_deg(s: &Star) -> f64 {
+pub(crate) fn dec_deg(s: &Star) -> f64 {
     s.dec.0 * (s.dec.1 + s.dec.2 / 60.0 + s.dec.3 / 3600.0)
 }
 
-fn ra_text(s: &Star) -> String {
+pub(crate) fn ra_text(s: &Star) -> String {
     format!("{}h {:02}m {:04.1}s", s.ra.0, s.ra.1, s.ra.2)
 }
 
-fn dec_text(s: &Star) -> String {
+pub(crate) fn dec_text(s: &Star) -> String {
     format!("{}{}° {:02}′ {:02}″", if s.dec.0 < 0.0 { "−" } else { "+" }, s.dec.1, s.dec.2, s.dec.3.round())
 }
 
-fn ly_text(ly: f64) -> String {
+pub(crate) fn ly_text(ly: f64) -> String {
     if ly >= 1e6 {
         format!("{} million light years", n(ly / 1e6))
     } else {
@@ -466,18 +488,22 @@ fn ly_text(ly: f64) -> String {
     }
 }
 
-fn find_star(w: &str) -> Option<&'static Star> {
+pub(crate) fn find_star(w: &str) -> Option<&'static Star> {
     let w = w.trim().trim_start_matches("the ").trim_start_matches("star ").trim();
-    STARS.iter().find(|s| s.names.iter().any(|n| *n == w || n.trim_start_matches("the ") == w))
+    let w = re!(r"^(?:m|messier)\s*(\d+)$").replace(w, "m$1");
+    let w = re!(r"^(ngc|ic)\s*(\d+)$").replace(&w, "$1 $2").into_owned();
+    let w = w.as_str();
+    let find = |w: &str| STARS.iter().find(|s| s.names.iter().any(|n| *n == w || n.trim_start_matches("the ") == w));
+    find(w).or_else(|| find(re!(r"\s+(?:star cluster|cluster|star|galaxy)$").replace(w, "").trim()))
 }
 
-fn star_rows(s: &Star) -> Vec<(&'static str, String)> {
+pub(crate) fn star_rows(s: &Star) -> Vec<(&'static str, String)> {
     let mut r = vec![
         ("right ascension", ra_text(s)),
         ("declination", dec_text(s)),
         ("apparent magnitude", fmt_float(s.mag, 3)),
         ("distance", ly_text(s.ly)),
-        (if s.spectral.contains("nebula") || s.spectral.contains("galaxy") || s.spectral.contains("cluster") || s.spectral.contains("remnant") { "type" } else { "spectral type" }, s.spectral.to_string()),
+        (if s.spectral.contains("nebula") || s.spectral.contains("galax") || s.spectral.contains("cluster") || s.spectral.contains("remnant") { "type" } else { "spectral type" }, s.spectral.to_string()),
         ("constellation", s.constellation.to_string()),
     ];
     if s.ly < 1e5 && !s.spectral.contains("nebula") && !s.spectral.contains("cluster") && !s.spectral.contains("remnant") {
@@ -529,6 +555,7 @@ fn stars(l: &str) -> Option<Answer> {
             "algol" => vec![("variable type", "Algol-type eclipsing binary (EA)".into()), ("magnitude range", "2.12 to 3.39 (V)".into()), ("period", "2.867 days (2 d 20 h 49 m)".into()), ("eclipse duration", "about 10 hours".into()), ("components", "B8V primary eclipsed by a K0IV subgiant".into())],
             "betelgeuse" => vec![("variable type", "semiregular (SRc)".into()), ("magnitude range", "0.0 to 1.6".into()), ("periods", "about 400 days, with a long secondary period near 2100 days".into())],
             "polaris" => vec![("variable type", "classical Cepheid (DCEP-S)".into()), ("magnitude range", "1.86 to 2.13".into()), ("period", "3.97 days".into())],
+            "mira" => vec![("variable type", "Mira variable (M), the prototype".into()), ("magnitude range", "2.0 to 10.1 (V)".into()), ("period", "332 days".into())],
             "antares" => vec![("variable type", "semiregular (LC)".into()), ("magnitude range", "0.6 to 1.6".into()), ("period", "about 1650 days".into())],
             _ => return None,
         };
@@ -558,7 +585,7 @@ fn stars(l: &str) -> Option<Answer> {
     }
     // a bare name
     let s = find_star(l)?;
-    if matches!(l, "andromeda" | "proxima") {
+    if matches!(l, "andromeda" | "proxima" | "m3" | "m4" | "m8" | "m13" | "m15" | "m37" | "m44" | "m53" | "m76" | "m80") {
         return None;
     }
     Some(Answer::new(s.names[0], vec![input(capitalize(s.names[0])), primary(pod("Properties", "Properties", rows(star_rows(s))))]))
@@ -603,7 +630,7 @@ fn sky_coordinates(l: &str) -> Option<Answer> {
 // ---------------------------------------------------------------------------
 
 /// (name, RA hours, Dec degrees, note)
-const CONSTELLATIONS: &[(&str, f64, f64, &str)] = &[
+pub(crate) const CONSTELLATIONS: &[(&str, f64, f64, &str)] = &[
     ("orion", 5.6, 5.0, "the Hunter: the three stars of Orion's Belt, red Betelgeuse and blue-white Rigel"),
     ("ursa major", 11.3, 50.0, "the Great Bear; contains the Big Dipper (the Plough)"),
     ("big dipper", 12.2, 56.0, "seven bright stars of Ursa Major"),
@@ -638,11 +665,11 @@ const CONSTELLATIONS: &[(&str, f64, f64, &str)] = &[
     ("hercules", 17.4, 27.0, "the Hero, with the globular cluster M13"),
 ];
 
-const MONTH_NAMES: [&str; 12] = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+pub(crate) const MONTH_NAMES: [&str; 12] = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 /// The month in which an object at right ascension `ra` hours is highest
 /// in the sky at about 9 pm local time.
-fn best_month(ra: f64) -> usize {
+pub(crate) fn best_month(ra: f64) -> usize {
     // local sidereal time at midnight is about 0h on September 21 and gains
     // 2 hours a month; at 9 pm it is 3 hours less
     let months_after_sep = ((ra + 3.0) / 2.0).rem_euclid(12.0);

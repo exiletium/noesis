@@ -882,3 +882,28 @@ fn human_anatomy() {
     assert!(short("ileum and jejunum").starts_with("Ileum (organ)"));
     assert!(short("how far can a jaguar jump").contains("strongest bite"));
 }
+
+#[test]
+fn stars_and_stellar_physics() {
+    assert!(short("spectral class G2V").starts_with("G2V: a yellow main-sequence star"));
+    assert!(short("spectral class A2Ia").contains("luminous supergiant"));
+    assert_eq!(short("spectral class Pollux"), "K0III");
+    assert_eq!(short("What will a class B9V star turn into when it dies?"), "a class B9V star will end as a carbon–oxygen white dwarf");
+    assert!(short("9800K star").contains("spectral class about A0 (peak emission at 295.7 nm)"));
+    assert!(short("star 0.65 solar luminosities").contains("0.8979 M☉"));
+    assert!(short("10 solar mass supergiant star").ends_with("ends as a neutron star"));
+    assert!(short("Sirius mass").starts_with("2.063 M☉"));
+    assert_eq!(short("surface temperature Arcturus, Rigel"), "Arcturus: 4286 K | Rigel: 12100 K");
+    assert!(short("color Aldebaran").starts_with("orange"));
+    assert!(short("variability period of Mira").starts_with("332 days"));
+    assert!(short("supernova 1987A").contains("Large Magellanic Cloud"));
+    assert!(short("Crab pulsar, Vela pulsar").contains("33.5 ms"));
+    assert!(short("HR diagram Deneb, Pollux, Sirius").contains("supergiants"));
+    assert!(short("10 nearest stars").contains("Proxima Centauri"));
+    assert!(short("Orion").starts_with("Orion: the Hunter"));
+    assert_eq!(short("Shapley–Sawyer concentration classification of Omega Centauri"), "VIII");
+    assert_eq!(short("average radius of M3"), "about 90 light years");
+    assert!(short("How far is NGC 4603 from Earth?").starts_with("108 million"));
+    assert!(short("NGC 2808, M 53, NGC 288").contains("NGC 2808 | globular cluster"));
+    assert!(!noesis::query("cancer").pods.iter().any(|p| p.subpods.iter().any(|s| noesis::engine::content_text(&s.content).contains("Crab"))));
+}
