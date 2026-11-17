@@ -927,3 +927,20 @@ fn countries_languages_and_religions() {
     assert!(short("Zoroastrianism").contains("Zoroaster"));
     assert_eq!(short("capital of france"), "Paris");
 }
+
+#[test]
+fn characters_soundex_and_morse() {
+    assert_eq!(short("... .--. .. -.- . -.--"), "SPIKEY");
+    assert_eq!(short("morse code ... --- ..."), "SOS");
+    assert_eq!(short("Soundex Wolfram"), "W416");
+    assert!(short("Soundex code A626").contains("archer"));
+    assert!(short("sounds like Rubin").contains("robin"));
+    assert_eq!(short("ASCII 32 to 39"), "(space)!\"#$%&'");
+    assert_eq!(short("&#42;"), "*");
+    assert_eq!(short("u umlaut"), "ü");
+    assert_eq!(short("degree symbol"), "°");
+    assert!(short("French letters").starts_with("é è ê"));
+    assert_eq!(short("letter K"), "K");
+    assert!(!noesis::query("...").success);
+    assert!(!noesis::query("?").success);
+}

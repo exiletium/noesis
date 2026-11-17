@@ -510,14 +510,14 @@ fn bmi(l: &str) -> Option<Answer> {
 // words
 // ---------------------------------------------------------------------------
 
-const MORSE: &[(char, &str)] = &[
+pub(crate) const MORSE: &[(char, &str)] = &[
     ('a', ".-"), ('b', "-..."), ('c', "-.-."), ('d', "-.."), ('e', "."), ('f', "..-."), ('g', "--."), ('h', "...."), ('i', ".."), ('j', ".---"), ('k', "-.-"), ('l', ".-.."), ('m', "--"),
     ('n', "-."), ('o', "---"), ('p', ".--."), ('q', "--.-"), ('r', ".-."), ('s', "..."), ('t', "-"), ('u', "..-"), ('v', "...-"), ('w', ".--"), ('x', "-..-"), ('y', "-.--"), ('z', "--.."),
     ('0', "-----"), ('1', ".----"), ('2', "..---"), ('3', "...--"), ('4', "....-"), ('5', "....."), ('6', "-...."), ('7', "--..."), ('8', "---.."), ('9', "----."),
     ('.', ".-.-.-"), (',', "--..--"), ('?', "..--.."), ('!', "-.-.--"), ('/', "-..-."), ('-', "-....-"), ('@', ".--.-."),
 ];
 
-const NATO: [&str; 26] = ["Alfa", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliett", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"];
+pub(crate) const NATO: [&str; 26] = ["Alfa", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliett", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"];
 
 fn scrabble_value(c: char) -> u32 {
     match c.to_ascii_lowercase() {
@@ -633,6 +633,25 @@ fn words(q: &Query) -> Option<Answer> {
         let rows: Vec<Vec<Content>> = w.chars().filter(|c| !c.is_whitespace()).filter_map(|c| MORSE.iter().find(|(k, _)| *k == c).map(|(_, v)| vec![text(c.to_ascii_uppercase().to_string()), text(*v)])).collect();
         let pods = vec![pod("Input", "Input interpretation", text(format!("\"{w}\" in Morse code"))), primary(pod("Result", "Result", text(code))), pod("Letters", "Letter by letter", table(Some(vec!["character", "code"]), rows))];
         return Some(Answer::new("Morse code", pods));
+    }
+    // decode Morse code: "... .--. .. -.- . -.--", "morse code ... --- ..."
+    // (matched on the raw input: cleaning strips trailing dots)
+    let raw_lower = q.raw.trim().to_lowercase();
+    if let Some(m) = re!(r"^(?:(?:decode |translate )?(?:morse(?:\s+code)?|from morse)(?:\s+to\s+(?:text|english))?:?\s+)?([.\-−–_·•/| ]+?)(?:\s+(?:from|in)\s+morse(?:\s+code)?)?$").captures(&raw_lower) {
+        let body = m[1].replace(['−', '–', '_'], "-").replace(['·', '•'], ".").replace('|', "/");
+        let prefixed = raw_lower.len() > m[1].len();
+        if body.contains(['.', '-']) && (prefixed || body.trim().contains(' ')) {
+            let words: Vec<&str> = re!(r"\s*/\s*|\s{3,}").split(body.trim()).collect();
+            let mut out = Vec::new();
+            for w in &words {
+                let letters: Option<String> = w.split_whitespace().map(|code| MORSE.iter().find(|(_, v)| *v == code).map(|(k, _)| k.to_ascii_uppercase())).collect();
+                out.push(letters?);
+            }
+            let txt = out.join(" ");
+            let rows: Vec<Vec<Content>> = words.iter().flat_map(|w| w.split_whitespace()).filter_map(|code| MORSE.iter().find(|(_, v)| *v == code).map(|(k, v)| vec![text(*v), text(k.to_ascii_uppercase().to_string())])).collect();
+            let pods = vec![pod("Input", "Input interpretation", text(format!("{} (Morse code)", body.trim()))), primary(pod("Result", "Decoded text", text(txt))), pod("Letters", "Code by code", table(Some(vec!["code", "character"]), rows))];
+            return Some(Answer::new("Morse code", pods));
+        }
     }
     // NATO phonetic spelling
     if let Some(m) = re!(r"^(?:(.+?)\s+(?:in|to|into|as)\s+(?:the\s+)?(?:nato|phonetic)(?:\s+phonetic)?(?:\s+alphabet)?|(?:nato|phonetic)(?:\s+phonetic)?(?:\s+alphabet)?\s+(?:for|of)\s+(.+)|spell\s+(.+?)\s+phonetically)$").captures(l) {

@@ -225,7 +225,79 @@ fn validity(l: &str) -> Option<Answer> {
     Some(Answer::new(format!("is {w} a word"), pods))
 }
 
+/// American Soundex code of a word ("Wolfram" → "W416").
+pub fn soundex(w: &str) -> Option<String> {
+    let cs: Vec<char> = w.chars().filter(|c| c.is_ascii_alphabetic()).map(|c| c.to_ascii_lowercase()).collect();
+    let first = *cs.first()?;
+    let code = |c: char| match c {
+        'b' | 'f' | 'p' | 'v' => '1',
+        'c' | 'g' | 'j' | 'k' | 'q' | 's' | 'x' | 'z' => '2',
+        'd' | 't' => '3',
+        'l' => '4',
+        'm' | 'n' => '5',
+        'r' => '6',
+        'h' | 'w' => '-',
+        _ => '0',
+    };
+    let mut out = first.to_ascii_uppercase().to_string();
+    let mut last = code(first);
+    for &c in &cs[1..] {
+        let d = code(c);
+        if d == '-' {
+            continue;
+        }
+        if d != '0' && d != last {
+            out.push(d);
+            if out.len() == 4 {
+                break;
+            }
+        }
+        last = d;
+    }
+    while out.len() < 4 {
+        out.push('0');
+    }
+    Some(out)
+}
+
+fn same_soundex(code: &str, except: &str) -> Vec<&'static str> {
+    let mut v: Vec<&'static str> = words().iter().copied().filter(|w| w.len() <= 12 && *w != except && w.chars().next().map(|c| c.to_ascii_uppercase()) == code.chars().next() && soundex(w).as_deref() == Some(code)).collect();
+    v.sort_by_key(|w| (!dictionary().contains_key(w), w.len(), *w));
+    v.truncate(40);
+    v
+}
+
+fn soundex_query(l: &str) -> Option<Answer> {
+    if let Some(m) = re!(r"^soundex(?: code)?(?: of| for)? ([a-z])(\d{3})$").captures(l) {
+        let code = format!("{}{}", m[1].to_uppercase(), &m[2]);
+        let ws = same_soundex(&code, "");
+        let pods = vec![pod("Input", "Input interpretation", text(format!("words with Soundex code {code}"))), primary(pod("Result", "Words", text(if ws.is_empty() { "none in the word list".into() } else { ws.join(" | ") })))];
+        return Some(Answer::new("Soundex", pods));
+    }
+    if let Some(m) = re!(r"^(?:the )?soundex(?: code| encoding)?(?: of| for)? ([a-z][a-z' -]*)$").captures(l) {
+        let w = m[1].trim();
+        let code = soundex(w)?;
+        let ws = same_soundex(&code, w);
+        let mut pods = vec![pod("Input", "Input interpretation", text(format!("Soundex code of \"{w}\""))), primary(pod("Result", "Soundex code", text(code.clone())))];
+        if !ws.is_empty() {
+            pods.push(pod("Similar", "Words with the same code", text(ws.join(" | "))));
+        }
+        return Some(Answer::new("Soundex", pods));
+    }
+    if let Some(m) = re!(r"^(?:words (?:that )?)?sounds? (?:like|similar to) ([a-z]+)$").captures(l) {
+        let w = &m[1];
+        let code = soundex(w)?;
+        let ws = same_soundex(&code, w);
+        if ws.is_empty() {
+            return None;
+        }
+        let pods = vec![pod("Input", "Input interpretation", text(format!("words that sound like \"{w}\" (Soundex {code})"))), primary(pod("Result", "Words", text(ws.join(" | "))))];
+        return Some(Answer::new("sounds like", pods));
+    }
+    None
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches('?').trim();
-    anagram_query(l).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
+    soundex_query(l).or_else(|| anagram_query(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
 }

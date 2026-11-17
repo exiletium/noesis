@@ -608,7 +608,7 @@ fn unicode(l: &str) -> Option<Answer> {
         char::from_u32(u32::from_str_radix(m.get(1).or(m.get(2))?.as_str(), 16).ok()?)
     } else if let Some(m) = re!(r"^(?:unicode|unicode character|code point)\s+(\d{1,7})$").captures(l) {
         char::from_u32(m[1].parse().ok()?)
-    } else if let Some((_, u)) = NAMED.iter().find(|(n, _)| *n == l || format!("{n} character") == l || format!("unicode {n}") == l) {
+    } else if let Some((_, u)) = NAMED.iter().find(|(n, _)| *n == l || format!("{n} character") == l || format!("unicode {n}") == l || n.replace(" sign", " symbol") == l || format!("{n} symbol") == l) {
         char::from_u32(*u)
     } else if let Some(m) = re!(r"^(?:unicode|code point|utf-?8)\s+(?:of|for)\s+(.+)$").captures(l) {
         let t = unquote(&m[1]);
@@ -622,6 +622,149 @@ fn unicode(l: &str) -> Option<Answer> {
     };
     let c = c?;
     Some(ans("unicode", format!("Unicode character U+{:04X}", c as u32), "Character", text(c.to_string()), vec![pod("Props", "Properties", kv(char_rows(c)))]))
+}
+
+/// base letter + combining mark name → precomposed character
+const DIACRITICS: &[(&str, &str)] = &[
+    ("umlaut", "aäAÄeëEËiïIÏoöOÖuüUÜyÿYŸ"),
+    ("acute", "aáAÁeéEÉiíIÍoóOÓuúUÚyýYÝcćCĆnńNŃsśSŚzźZŹ"),
+    ("grave", "aàAÀeèEÈiìIÌoòOÒuùUÙ"),
+    ("circumflex", "aâAÂeêEÊiîIÎoôOÔuûUÛ"),
+    ("tilde", "aãAÃnñNÑoõOÕ"),
+    ("cedilla", "cçCÇsşSŞ"),
+    ("ring", "aåAÅuůUŮ"),
+    ("caron", "cčCČeěEĚnňNŇrřRŘsšSŠzžZŽ"),
+    ("macron", "aāAĀeēEĒiīIĪoōOŌuūUŪ"),
+    ("ogonek", "aąAĄeęEĘ"),
+    ("stroke", "lłLŁoøOØdđDĐ"),
+];
+
+/// (language, letters beyond the basic Latin alphabet, number of letters, note)
+const ALPHABETS: &[(&str, &str, u32, &str)] = &[
+    ("french", "é è ê ë à â î ï ô û ù ü ÿ ç œ æ", 26, "accented letters are not counted as separate letters"),
+    ("german", "ä ö ü ß", 26, "the umlauts and ß (Eszett) are usually counted in addition to the 26 letters"),
+    ("spanish", "ñ á é í ó ú ü", 27, "ñ is a separate letter; accents mark stress"),
+    ("portuguese", "á â ã à ç é ê í ó ô õ ú", 26, ""),
+    ("italian", "à è é ì í î ò ó ù ú", 21, "j, k, w, x and y appear only in loanwords"),
+    ("polish", "ą ć ę ł ń ó ś ź ż", 32, "q, v and x appear only in loanwords"),
+    ("turkish", "ç ğ ı İ ö ş ü", 29, "q, w and x are not used"),
+    ("swedish", "å ä ö", 29, ""),
+    ("finnish", "å ä ö", 29, ""),
+    ("norwegian", "æ ø å", 29, ""),
+    ("danish", "æ ø å", 29, ""),
+    ("icelandic", "á ð é í ó ú ý þ æ ö", 32, "c, q, w and z are not used"),
+    ("czech", "á č ď é ě í ň ó ř š ť ú ů ý ž", 42, "ch counts as a single letter"),
+    ("romanian", "ă â î ș ț", 31, ""),
+    ("hungarian", "á é í ó ö ő ú ü ű", 44, "includes digraphs such as cs, gy, ly, ny, sz, ty, zs and the trigraph dzs"),
+    ("dutch", "ij (digraph) and occasional é ë ï ö", 26, ""),
+];
+
+fn html_entity(e: &str) -> Option<char> {
+    if let Some(d) = e.strip_prefix("#x") {
+        return char::from_u32(u32::from_str_radix(d, 16).ok()?);
+    }
+    if let Some(d) = e.strip_prefix('#') {
+        return char::from_u32(d.parse().ok()?);
+    }
+    Some(match e {
+        "amp" => '&',
+        "lt" => '<',
+        "gt" => '>',
+        "quot" => '"',
+        "apos" => '\'',
+        "nbsp" => '\u{a0}',
+        "copy" => '©',
+        "reg" => '®',
+        "trade" => '™',
+        "deg" => '°',
+        "euro" => '€',
+        "pound" => '£',
+        "yen" => '¥',
+        "cent" => '¢',
+        "sect" => '§',
+        "para" => '¶',
+        "middot" => '·',
+        "times" => '×',
+        "divide" => '÷',
+        "plusmn" => '±',
+        "micro" => 'µ',
+        "mdash" => '—',
+        "ndash" => '–',
+        "hellip" => '…',
+        "laquo" => '«',
+        "raquo" => '»',
+        "hearts" => '♥',
+        "spades" => '♠',
+        "clubs" => '♣',
+        "diams" => '♦',
+        "infin" => '∞',
+        "pi" => 'π',
+        _ => return None,
+    })
+}
+
+fn control_name(u: u32) -> Option<&'static str> {
+    const NAMES: [&str; 33] = ["NUL (null)", "SOH (start of heading)", "STX (start of text)", "ETX (end of text)", "EOT (end of transmission)", "ENQ (enquiry)", "ACK (acknowledge)", "BEL (bell)", "BS (backspace)", "HT (horizontal tab)", "LF (line feed)", "VT (vertical tab)", "FF (form feed)", "CR (carriage return)", "SO (shift out)", "SI (shift in)", "DLE (data link escape)", "DC1 (device control 1)", "DC2 (device control 2)", "DC3 (device control 3)", "DC4 (device control 4)", "NAK (negative acknowledge)", "SYN (synchronous idle)", "ETB (end of transmission block)", "CAN (cancel)", "EM (end of medium)", "SUB (substitute)", "ESC (escape)", "FS (file separator)", "GS (group separator)", "RS (record separator)", "US (unit separator)", "space"];
+    match u {
+        0..=32 => Some(NAMES[u as usize]),
+        127 => Some("DEL (delete)"),
+        _ => None,
+    }
+}
+
+fn characters(l: &str) -> Option<Answer> {
+    // ASCII ranges: "ASCII 32 to 39"
+    if let Some(m) = re!(r"^ascii (?:characters? |codes? |table )?(?:from )?(\d{1,3}) ?(?:to|through|thru|-|–) ?(\d{1,3})$").captures(l) {
+        let (a, b): (u32, u32) = (m[1].parse().ok()?, m[2].parse().ok()?);
+        if a > b || b > 127 {
+            return None;
+        }
+        let t: Vec<Vec<Content>> = (a..=b).map(|u| vec![text(u.to_string()), text(format!("{u:02X}")), text(format!("{u:07b}")), text(control_name(u).map(|x| x.to_string()).unwrap_or_else(|| char::from_u32(u).unwrap().to_string()))]).collect();
+        let chars: String = (a..=b).filter(|u| *u > 32 && *u != 127).filter_map(char::from_u32).collect();
+        let shown = if a <= 32 && b >= 32 { format!("(space){chars}") } else { chars };
+        return Some(ans("ascii", format!("ASCII characters {a} to {b}"), "Characters", text(shown), vec![pod("Table", "Codes", table(Some(vec!["decimal", "hex", "binary", "character"]), t))]));
+    }
+    // HTML entities: "&#42;", "&amp;"
+    if let Some(m) = re!(r"^(?:html (?:entity |character )?)?&(#x[0-9a-f]+|#\d+|[a-z]+);?$").captures(l) {
+        let c = html_entity(&m[1])?;
+        return Some(ans("html entity", format!("HTML entity &{};", &m[1]), "Character", text(c.to_string()), vec![pod("Props", "Properties", kv(char_rows(c)))]));
+    }
+    // letters with diacritics: "u umlaut", "e with acute accent"
+    if let Some(m) = re!(r"^(?:(lowercase|small|uppercase|capital) )?(?:letter )?([a-z]) (?:with (?:an? )?)?(umlaut|diaeresis|dieresis|trema|acute|grave|circumflex|tilde|cedilla|ring|caron|hacek|háček|macron|ogonek|stroke|slash)(?: accent| mark)?$").captures(l) {
+        let mark = match &m[3] {
+            "diaeresis" | "dieresis" | "trema" => "umlaut",
+            "hacek" | "háček" => "caron",
+            "slash" => "stroke",
+            x => x,
+        };
+        let upper = matches!(m.get(1).map(|x| x.as_str()), Some("uppercase" | "capital"));
+        let base = if upper { m[2].to_uppercase() } else { m[2].to_string() };
+        let table_s: Vec<char> = DIACRITICS.iter().find(|d| d.0 == mark)?.1.chars().collect();
+        let c = table_s.chunks(2).find(|p| p[0].to_string() == base).map(|p| p[1])?;
+        return Some(ans("character", format!("{base} with {mark}"), "Character", text(c.to_string()), vec![pod("Props", "Properties", kv(char_rows(c)))]));
+    }
+    // "French letters", "German alphabet"
+    if let Some(m) = re!(r"^(?:the )?([a-z]+) (?:letters|alphabet|special characters|special letters|accented letters|accents|diacritics)$").captures(l) {
+        let (lang, extra, count, note) = ALPHABETS.iter().find(|a| a.0 == &m[1])?;
+        let mut r = vec![("letters beyond A–Z", extra.to_string()), ("number of letters", count.to_string())];
+        if !note.is_empty() {
+            r.push(("note", note.to_string()));
+        }
+        let title = format!("{}{} alphabet", lang[..1].to_uppercase(), &lang[1..]);
+        return Some(ans("alphabet", title, "Special letters", text(extra.to_string()), vec![pod("Props", "Details", kv(r))]));
+    }
+    // "letter K"
+    if let Some(m) = re!(r"^(?:the )?(?:(lowercase|small|uppercase|capital) )?letter ([a-z])$").captures(l) {
+        let lower = matches!(m.get(1).map(|x| x.as_str()), Some("lowercase" | "small"));
+        let c = m[2].chars().next()?;
+        let c = if lower { c } else { c.to_ascii_uppercase() };
+        let idx = (c.to_ascii_lowercase() as u8 - b'a') as usize;
+        let morse = crate::domains::everyday::MORSE.iter().find(|(k, _)| *k == c.to_ascii_lowercase()).map(|(_, v)| v.to_string()).unwrap_or_default();
+        let mut r = vec![("position in the alphabet", format!("{} of 26", idx + 1)), ("type", if "aeiou".contains(c.to_ascii_lowercase()) { "vowel".into() } else { "consonant".to_string() }), ("uppercase / lowercase", format!("{} / {}", c.to_ascii_uppercase(), c.to_ascii_lowercase())), ("ASCII codes", format!("{} / {}", c.to_ascii_uppercase() as u32, c.to_ascii_lowercase() as u32)), ("NATO phonetic", crate::domains::everyday::NATO[idx].to_string()), ("Morse code", morse)];
+        r.extend(char_rows(c).into_iter().filter(|(k, _)| matches!(*k, "code point" | "UTF-8" | "HTML entity")));
+        return Some(ans("letter", format!("letter {c}"), "Letter", text(c.to_string()), vec![pod("Props", "Properties", kv(r))]));
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -684,7 +827,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let raw = q.clean.trim().trim_end_matches(['?']).trim();
     let l = raw.to_lowercase();
     let l = l.trim_end_matches('.').to_string();
-    transforms(&l, raw).or_else(|| passwords(&l, raw)).or_else(|| networks(&l, raw)).or_else(|| standards(&l, raw)).or_else(|| unicode(&l)).or_else(|| keyboards(raw))
+    transforms(&l, raw).or_else(|| passwords(&l, raw)).or_else(|| networks(&l, raw)).or_else(|| standards(&l, raw)).or_else(|| characters(&l)).or_else(|| unicode(&l)).or_else(|| keyboards(raw))
 }
 
 #[cfg(test)]
