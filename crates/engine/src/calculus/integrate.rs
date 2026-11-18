@@ -939,6 +939,19 @@ fn special(e: &Expr, x: &Expr, depth: usize) -> Option<Expr> {
             return Some(div(f(fname, &mul(vec![k.clone(), x.clone()])), k));
         }
         Mul(v) if v.len() == 2 => {
+            // sin(a x)/x^k and cos(a x)/x^k, k ≥ 2, by parts down to Si and Ci
+            for (p_, g) in [(&v[0], &v[1]), (&v[1], &v[0])] {
+                if let (Pow(b, e), Func(name, args)) = (p_, g) {
+                    let k = e.as_i64().map(|k| -k).unwrap_or(0);
+                    if **b == *x && (2..=12).contains(&k) && args.len() == 1 && matches!(&**name, "sin" | "cos") {
+                        let (a, b0) = linear(&args[0], x)?;
+                        if !b0.is_zero() {
+                            return None;
+                        }
+                        return Some(trig_over_power(name, &a, k, x));
+                    }
+                }
+            }
             // g(a x)/x
             let (inv, g) = if v[0] == pow(x.clone(), int(-1)) {
                 (true, &v[1])
@@ -1215,6 +1228,19 @@ fn parts_poly(e: &Expr, x: &Expr, depth: usize) -> Option<(Expr, Expr, Expr)> {
     let rest = simplify::expand(&mul(vec![dp, big_g.clone()]));
     let r = integ(&rest, x, depth + 1)?;
     Some((sub(mul(vec![p.clone(), big_g]), r), p, g))
+}
+
+/// ∫ sin(a x)/x^k dx or ∫ cos(a x)/x^k dx for k ≥ 1.
+fn trig_over_power(name: &str, a: &Expr, k: i64, x: &Expr) -> Expr {
+    let ax = mul(vec![a.clone(), x.clone()]);
+    if k == 1 {
+        return f(if name == "sin" { "Si" } else { "Ci" }, &ax);
+    }
+    let km1 = int(k - 1);
+    let boundary = neg(div(f(name, &ax), mul(vec![km1.clone(), pow(x.clone(), int(k - 1))])));
+    let (other, sign) = if name == "sin" { ("cos", one()) } else { ("sin", int(-1)) };
+    let rest = mul(vec![sign, div(a.clone(), km1), trig_over_power(other, a, k - 1, x)]);
+    add(vec![boundary, rest])
 }
 
 const LOGLIKE: &[&str] = &["ln", "atan", "asin", "acos", "asinh", "acosh", "atanh", "erf", "erfc", "erfi", "Si", "Ci", "Ei", "li", "fresnels", "fresnelc"];

@@ -1600,3 +1600,10 @@ fn geopotential_goddesses_and_tm_width() {
     assert!(short("Isis, Seshat").contains("Seshat: writing"));
     assert!(!short("evolve TM 120597441632 on random tape, width = 5").contains("did not understand"));
 }
+
+#[test]
+fn spherical_bessel_and_trig_over_powers() {
+    assert_eq!(short("spherical bessel j(2, 1.5)"), "0.127349");
+    assert!(short("integrate spherical Bessel j3(x)").contains("(x^2 sin(x) + 5 x cos(x) - 5 sin(x))/x^3"));
+    assert!(short("integrate cos(2x)/x^2").contains("-2 Si(2 x) - cos(2 x)/x"));
+}

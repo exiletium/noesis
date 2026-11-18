@@ -992,6 +992,27 @@ fn evaluate(name: &str, args: &[Expr]) -> Option<Expr> {
         let terms: Vec<Expr> = cs.iter().enumerate().filter(|(_, c)| !c.is_zero()).map(|(i, c)| mul(vec![num(c.clone()), pow(x.clone(), int(i as i64))])).collect();
         return Some(crate::simplify::expand(&add(terms)));
     }
+    // spherical Bessel functions of small integer order are elementary:
+    // f_{k+1} = (2k+1)/x f_k − f_{k−1}
+    if n == 2 && matches!(name, "sphericalbesselj" | "sphericalbessely") {
+        let deg = small_degree(&args[0]).filter(|d| *d <= 20)?;
+        let x = args[1].clone();
+        let (s_, c_) = (func("sin", vec![x.clone()]), func("cos", vec![x.clone()]));
+        let (mut a, mut b) = if name == "sphericalbesselj" {
+            (div(s_.clone(), x.clone()), sub(div(s_.clone(), pow(x.clone(), int(2))), div(c_.clone(), x.clone())))
+        } else {
+            (neg(div(c_.clone(), x.clone())), sub(neg(div(c_.clone(), pow(x.clone(), int(2)))), div(s_.clone(), x.clone())))
+        };
+        if deg == 0 {
+            return Some(a);
+        }
+        for k in 1..deg {
+            let c = sub(mul(vec![int(2 * k as i64 + 1), pow(x.clone(), int(-1)), b.clone()]), a);
+            a = b;
+            b = crate::simplify::expand(&c);
+        }
+        return Some(b);
+    }
     if n == 2 && name == "legendreq" {
         // Q_0 = artanh x, Q_1 = x Q_0 − 1, (k+1) Q_{k+1} = (2k+1) x Q_k − k Q_{k−1}
         let deg = small_degree(&args[0]).filter(|d| *d <= 20)?;
