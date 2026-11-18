@@ -640,7 +640,7 @@ fn turing(q: &Query) -> Option<Answer> {
 
 fn substitution(q: &Query) -> Option<Answer> {
     let l = q.clean.trim().trim_end_matches(['?', '.']).to_lowercase();
-    let m = re!(r"^(?:string\s+)?substitution system\s+(.+?)(?:,?\s*(\d+)\s+steps)?$").captures(&l)?;
+    let m = re!(r"^(?:string\s+)?(?:substitution system|lindenmayer system|l-system|l system)\s+(.+?)(?:,?\s*(\d+)\s+steps)?$").captures(&l)?;
     let rules: Vec<(String, String)> = re!(r"([0-9a-z]+)\s*(?:->|→)\s*([0-9a-z]*)").captures_iter(&m[1]).map(|c| (c[1].to_string(), c[2].to_string())).collect();
     if rules.is_empty() {
         return None;

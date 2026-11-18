@@ -157,6 +157,23 @@ fn facts() -> &'static Facts {
                 _ => {}
             }
         }
+        for &(office, aliases, terms) in EXTRA_OFFICES {
+            let id = match f.offices.get(&norm(office)) {
+                Some(id) => *id,
+                None => {
+                    f.office_list.push(Office { name: office, terms: Vec::new() });
+                    f.office_list.len() - 1
+                }
+            };
+            let replaced: Vec<&str> = terms.iter().map(|t| t.0).collect();
+            f.office_list[id].terms.retain(|t| !replaced.contains(&t.holder));
+            for &(holder, start, end) in terms {
+                f.office_list[id].terms.push(Term { holder, start, end, ordinal: None });
+            }
+            for a in std::iter::once(office).chain(aliases.iter().copied()) {
+                f.offices.insert(norm(a), id);
+            }
+        }
         for o in &mut f.office_list {
             o.terms.sort_by_key(|t| sort_key(t.start));
         }
@@ -166,6 +183,34 @@ fn facts() -> &'static Facts {
         f
     })
 }
+
+/// Office terms missing from the generated data (which starts the British
+/// monarchy at the 1927 change of title): office | aliases | (holder, start, end).
+#[allow(clippy::type_complexity)]
+const EXTRA_OFFICES: &[(&str, &[&str], &[(&str, &str, &str)])] = &[
+    (
+        "Monarch of the United Kingdom",
+        &["king of england", "queen of england", "monarch of england", "english monarch", "king of britain", "queen of britain", "king of great britain", "queen of great britain", "british monarch", "king of the uk", "queen of the uk", "king of the united kingdom", "queen of the united kingdom", "monarch of the uk", "british king", "british queen"],
+        &[
+            ("Henry VII", "1485-08-22", "1509-04-21"), ("Henry VIII", "1509-04-22", "1547-01-28"), ("Edward VI", "1547-01-28", "1553-07-06"),
+            ("Lady Jane Grey", "1553-07-10", "1553-07-19"), ("Mary I", "1553-07-19", "1558-11-17"), ("Elizabeth I", "1558-11-17", "1603-03-24"),
+            ("James I", "1603-03-24", "1625-03-27"), ("Charles I", "1625-03-27", "1649-01-30"), ("Charles II", "1660-05-29", "1685-02-06"),
+            ("James II", "1685-02-06", "1688-12-11"), ("William III and Mary II", "1689-02-13", "1694-12-28"), ("William III", "1694-12-28", "1702-03-08"),
+            ("Anne", "1702-03-08", "1714-08-01"), ("George I", "1714-08-01", "1727-06-11"), ("George II", "1727-06-11", "1760-10-25"),
+            ("George III", "1760-10-25", "1820-01-29"), ("George IV", "1820-01-29", "1830-06-26"), ("William IV", "1830-06-26", "1837-06-20"),
+            ("Victoria", "1837-06-20", "1901-01-22"), ("Edward VII", "1901-01-22", "1910-05-06"), ("George V", "1910-05-06", "1936-01-20"),
+        ],
+    ),
+    (
+        "President of Sudan",
+        &["president of sudan", "leader of sudan", "head of state of sudan"],
+        &[
+            ("Ismail al-Azhari", "1965-07-10", "1969-05-25"), ("Gaafar Nimeiry", "1969-05-25", "1985-04-06"), ("Abdel Rahman Swar al-Dahab", "1985-04-06", "1986-05-06"),
+            ("Ahmed al-Mirghani", "1986-05-06", "1989-06-30"), ("Omar al-Bashir", "1989-06-30", "2019-04-11"), ("Ahmed Awad Ibn Auf", "2019-04-11", "2019-04-12"),
+            ("Abdel Fattah al-Burhan", "2019-04-12", ""),
+        ],
+    ),
+];
 
 /// Well-known characters missing from the generated data.
 const EXTRA_CHARACTERS: &[(&str, &str, &str, &str)] = &[
@@ -442,6 +487,50 @@ fn find_office(name: &str) -> Option<&'static Office> {
     f.offices.get(&key).or_else(|| f.offices.get(singular)).map(|id| &f.office_list[*id])
 }
 
+/// Dates of events named in a clause: "Osama Bin Laden was killed", "WWI ended".
+const EVENT_PHRASES: &[(&str, &str)] = &[
+    ("osama bin laden was killed", "2011-05-02"), ("bin laden was killed", "2011-05-02"), ("osama bin laden died", "2011-05-02"), ("bin laden died", "2011-05-02"),
+    ("gettysburg address", "1863-11-19"), ("south sudan's independence date", "2011-07-09"), ("south sudan's independence", "2011-07-09"),
+    ("south sudan became independent", "2011-07-09"), ("moon landing", "1969-07-20"), ("apollo 11 landed", "1969-07-20"), ("berlin wall fell", "1989-11-09"),
+    ("fall of the berlin wall", "1989-11-09"), ("titanic sank", "1912-04-15"), ("pearl harbor was attacked", "1941-12-07"), ("attack on pearl harbor", "1941-12-07"),
+    ("jfk was assassinated", "1963-11-22"), ("kennedy was assassinated", "1963-11-22"), ("declaration of independence was signed", "1776-07-04"),
+    ("9/11", "2001-09-11"), ("september 11 attacks", "2001-09-11"), ("lincoln was assassinated", "1865-04-14"),
+];
+
+fn event_date(phrase: &str) -> Option<(i32, u32, u32)> {
+    let p = phrase.trim().trim_end_matches('?').trim().replace('\u{2019}', "'");
+    let p = p.strip_prefix("the ").unwrap_or(&p);
+    if let Some((_, d)) = EVENT_PHRASES.iter().find(|(k, _)| *k == p) {
+        return parts(d);
+    }
+    if let Some(d) = super::misc::parse_date(p) {
+        return Some((d.year(), d.month(), d.day()));
+    }
+    let f = facts();
+    let (name, end) = if let Some(m) = re!(r"^(?:the\s+)?(end|start|beginning|outbreak)\s+of\s+(?:the\s+)?(.+)$").captures(p) {
+        (m[2].to_string(), &m[1] == "end")
+    } else {
+        let m = re!(r"^(.+?)(?:\s+(ended|began|started|broke out|happened|took place|occurred|was signed))?$").captures(p)?;
+        (m[1].to_string(), m.get(2).is_some_and(|x| x.as_str() == "ended"))
+    };
+    let e = &f.event_list[*f.events.get(&norm(&name))?];
+    let d = if end && !e.end.is_empty() { e.end } else if !e.start.is_empty() { e.start } else { e.point };
+    parts(d).filter(|d| d.1 > 0)
+}
+
+/// The holder of an office on a date (the later one on a handover day).
+fn holder_on(office: &'static Office, d: (i32, u32, u32)) -> Option<&'static Term> {
+    office.terms.iter().rfind(|t| sort_key(t.start) <= d && (t.end.is_empty() || parts(t.end).is_some_and(|e| e >= d)))
+}
+
+/// "leader of X", "ruler of X": the head of state, then of government.
+fn office_or_leader(name: &str) -> Option<&'static Office> {
+    find_office(name).or_else(|| {
+        let rest = re!(r"^(?:leader|ruler|head)\s+of\s+(.+)$").captures(name)?.get(1)?.as_str().to_string();
+        ["president of", "monarch of", "head of state of", "prime minister of"].iter().find_map(|p| find_office(&format!("{p} {rest}")))
+    })
+}
+
 fn offices(l: &str) -> Option<Answer> {
     let today = super::misc::today();
     let now = (today.year(), today.month(), today.day());
@@ -457,6 +546,8 @@ fn offices(l: &str) -> Option<Answer> {
                 match office.terms.iter().find(|t| t.ordinal == Some(n)) {
                     Some(t) => t,
                     None if office.terms.iter().any(|t| t.ordinal.is_some()) => return None,
+                    // the English crown long predates the holders listed here
+                    None if office.name == "Monarch of the United Kingdom" => return None,
                     None => {
                         // number the holders in order of their first term
                         let mut seen: Vec<&str> = Vec::new();
@@ -478,6 +569,20 @@ fn offices(l: &str) -> Option<Answer> {
         extra.push(pod("Sequence", "Predecessors and successors", table(None, near)));
         return Some(simple(format!("{} | {which}", office.name), "Result", term_text(term), extra));
     }
+    // "Prime Minister of Pakistan when Osama Bin Laden was killed", "President of the US 87 years after the Gettysburg Address"
+    let when = re!(r"^(?:who\s+(?:is|was)\s+(?:the\s+)?)?(?:the\s+)?(.+?)\s+(?:when|at the time of|on the day of|on|during)\s+(.+)$").captures(l).map(|m| (m[1].to_string(), m[2].to_string(), 0i32))
+        .or_else(|| re!(r"^(?:who\s+(?:is|was)\s+(?:the\s+)?)?(?:the\s+)?(.+?)\s+(\d+)\s+years?\s+(after|before)\s+(.+)$").captures(l).map(|m| {
+            let n: i32 = m[2].parse().unwrap_or(0);
+            (m[1].to_string(), m[4].to_string(), if &m[3] == "after" { n } else { -n })
+        }));
+    if let Some((off, ev, shift)) = when {
+        if let (Some(office), Some(d)) = (office_or_leader(&off), event_date(&ev)) {
+            let d = (d.0 + shift, d.1, d.2);
+            let term = holder_on(office, d)?;
+            let date = NaiveDate::from_ymd_opt(d.0, d.1.max(1), d.2.max(1)).map(|x| x.format("%B %-d, %Y").to_string()).unwrap_or_else(|| d.0.to_string());
+            return Some(simple(format!("{} | {}", office.name, date), "Result", term_text(term), person_pod(term.holder).into_iter().collect()));
+        }
+    }
     // "who was president of the united states in 1975", "president of france 1960"
     if let Some(m) = re!(r"^(?:who\s+(?:is|was)\s+)?(?:the\s+)?(.+?)\s+(?:in|during)?\s*(\d{4})$").captures(l) {
         let office = find_office(m.get(1)?.as_str())?;
@@ -491,6 +596,38 @@ fn offices(l: &str) -> Option<Answer> {
             extra.extend(person_pod(t.holder));
         }
         return Some(simple(format!("{} | {y}", office.name), "Result", held.iter().map(|t| term_text(t)).collect::<Vec<_>>().join("\n"), extra));
+    }
+    // "leaders of New Zealand": the current heads of state and of government
+    if let Some(m) = re!(r"^(?:who\s+are\s+)?(?:the\s+)?(?:current\s+)?(?:leaders|heads of state and government)\s+of\s+(?:the\s+)?(.+?)(?:\s+(?:today|now))?$").captures(l) {
+        let place = m[1].to_string();
+        let mut rows: Vec<(&str, &'static Office, &'static Term)> = Vec::new();
+        let roles: [(&str, &[&str]); 2] = [
+            ("head of state", &["president of", "monarch of", "king of", "emperor of", "head of state of"]),
+            ("head of government", &["prime minister of", "chancellor of", "premier of", "head of government of"]),
+        ];
+        for (role, prefixes) in roles {
+            let found = prefixes.iter().filter_map(|p| find_office(&format!("{p} {place}"))).find_map(|o| {
+                let t = o.terms.iter().rfind(|t| sort_key(t.start) <= now && (t.end.is_empty() || parts(t.end).is_some_and(|e| e >= now)))?;
+                Some((o, t))
+            });
+            if let Some((o, t)) = found {
+                match rows.iter_mut().find(|r| std::ptr::eq(r.1, o)) {
+                    Some(r) => r.0 = "head of state and government",
+                    None => rows.push((role, o, t)),
+                }
+            }
+        }
+        if !rows.is_empty() {
+            let value = rows.iter().map(|r| format!("{} ({})", r.2.holder, r.1.name)).collect::<Vec<_>>().join(" | ");
+            let table_rows = rows.iter().map(|r| vec![text(r.0), text(r.1.name), text(r.2.holder), text(format!("since {}", short_date(r.2.start)))]).collect();
+            let interp = format!("leaders of {}", place);
+            return Some(Answer::new(interp.clone(), vec![
+                pod("Input", "Input interpretation", text(interp)),
+                primary(pod("Result", "Current leaders", text(value))),
+                pod("Table", "Offices", table(Some(vec!["role", "office", "holder", "term"]), table_rows)),
+                pod("Source", "Source", text("Wikidata (CC0)")),
+            ]));
+        }
     }
     // "who is the president of france", "list of presidents of the united states",
     // and a bare office "President of Argentina" (the current holder)

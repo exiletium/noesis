@@ -1568,3 +1568,11 @@ fn bare_offices_and_opening_lines() {
     assert_eq!(short("first line of moby dick"), "Call me Ishmael.");
     assert!(short("opening phrase of A Tale of Two Cities").starts_with("It was the best of times"));
 }
+
+#[test]
+fn office_holders_at_events() {
+    assert!(short("Who was King of England when WWI ended?").starts_with("George V"));
+    assert!(short("Prime Minister of Pakistan when Osama Bin Laden was killed?").starts_with("Yusuf Raza Gilani"));
+    assert!(short("President of the US 87 years after the Gettysburg Address").starts_with("Harry S. Truman"));
+    assert!(short("Leader of Sudan on South Sudan's independence date").starts_with("Omar al-Bashir"));
+}
