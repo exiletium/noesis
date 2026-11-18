@@ -764,7 +764,9 @@ fn meteor_showers(l: &str) -> Option<Answer> {
         return Some(Answer::new("meteor showers", pods));
     }
     let name = re!(r"\b(quadrantid|lyrid|eta aquariid|delta aquariid|perseid|draconid|orionid|leonid|geminid|ursid)s?\b").captures(l)?;
-    if !re!(r"meteor|shower|peak|when").is_match(l) {
+    // "Leonids", "the Perseids": a bare plural shower name
+    let bare = re!(r"^(?:the )?(?:quadrantids|lyrids|eta aquariids|(?:southern )?delta aquariids|perseids|draconids|orionids|leonids|geminids|ursids)$").is_match(l);
+    if !bare && !re!(r"meteor|shower|peak|when").is_match(l) {
         return None;
     }
     let key = name[1].replace(' ', "");

@@ -1389,3 +1389,24 @@ fn colours_text_length_holidays_and_prayer_times() {
     assert!(pod_text(&q("prayer times in Cairo"), "Table").contains("Maghrib"));
     assert!(short("population of Cologne").starts_with("1,024,621"));
 }
+
+#[test]
+fn board_games_ropes_comets_and_lab_ranges() {
+    assert_eq!(short("Agricola"), "1–5 players | ages 12+ | 30–150 minutes");
+    assert!(short("Axis & Allies vs. Risk").contains("Risk: 2–6 players"));
+    assert_eq!(short("how many players are needed for Risk?"), "2–6 players");
+    // a bare common word is not a game
+    assert!(!noesis::query("Risk").success || !noesis::query("Risk").short_answer().unwrap_or_default().contains("players"));
+    assert!(short("21mm nylon rope").starts_with("breaking strength about 83.8 kN"));
+    assert!(short("specific gravity of 28mm polyester rope").starts_with("1.38"));
+    assert_eq!(short("last perihelion of Comet Holmes"), "February 19, 2021");
+    assert_eq!(short("when will halley's comet return"), "July 28, 2061");
+    assert!(short("Leonids").contains("November 17"));
+    assert_eq!(short("serum blood urea nitrogen"), "7–20 mg/dL");
+    assert!(short("creatinine=0.9mg/dL, adult male").starts_with("within the reference range"));
+    assert!(short("potassium 5.8 mmol/L").starts_with("above"));
+    assert_eq!(short("iodine-123 biological half-life"), "138 days (thyroid)");
+    assert_eq!(short("effective half-life of cesium-137"), "69.56 days");
+    // calcium-40 stays a nuclide
+    assert!(!short("calcium 40").contains("reference range"));
+}

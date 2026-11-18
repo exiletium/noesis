@@ -155,6 +155,71 @@ pub fn handle(q: &Query) -> Option<Answer> {
 }
 
 // ---------------------------------------------------------------------------
+// biological and effective half-lives
+// ---------------------------------------------------------------------------
+
+/// (Z, A, biological half-life in days, critical organ or compartment), from
+/// standard health-physics tables (Cember, Introduction to Health Physics;
+/// ICRP); individual values vary widely.
+const BIOLOGICAL: &[(u32, u32, f64, &str)] = &[
+    (1, 3, 10.0, "whole body (as tritiated water)"),
+    (6, 14, 40.0, "whole body"),
+    (11, 24, 11.0, "whole body"),
+    (15, 32, 1155.0, "bone"),
+    (16, 35, 90.0, "skin"),
+    (19, 42, 58.0, "whole body"),
+    (20, 45, 18000.0, "bone"),
+    (26, 59, 600.0, "blood"),
+    (27, 60, 9.5, "whole body"),
+    (38, 90, 18000.0, "bone"),
+    (43, 99, 1.0, "whole body (as pertechnetate)"),
+    (53, 123, 138.0, "thyroid"),
+    (53, 125, 138.0, "thyroid"),
+    (53, 129, 138.0, "thyroid"),
+    (53, 131, 138.0, "thyroid"),
+    (55, 134, 70.0, "whole body"),
+    (55, 137, 70.0, "whole body"),
+    (84, 210, 50.0, "whole body (spleen and kidneys)"),
+    (88, 226, 16000.0, "bone"),
+    (92, 238, 15.0, "kidney"),
+    (94, 239, 73000.0, "bone"),
+    (95, 241, 73000.0, "bone"),
+];
+
+fn days_text(d: f64) -> String {
+    half_life_text(d * 86400.0)
+}
+
+fn biological(e: &Element, a: u32, rest: &str) -> Option<Answer> {
+    let &(_, _, tb, organ) = BIOLOGICAL.iter().find(|b| b.0 == e.z && b.1 == a)?;
+    let tp = nuclide(e.z, a)?.half_life.filter(|h| h.is_finite())? / 86400.0;
+    let te = tp * tb / (tp + tb);
+    let effective = rest.contains("effective");
+    let lifetime = rest.contains("lifetime") || rest.contains("mean life");
+    let name = format!("{}-{a}", e.name.to_lowercase());
+    let ln2 = std::f64::consts::LN_2;
+    let (title, res) = if effective && lifetime {
+        ("Effective mean lifetime", format!("{} (effective half-life {} ÷ ln 2)", days_text(te / ln2), days_text(te)))
+    } else if effective {
+        ("Effective half-life", days_text(te))
+    } else {
+        ("Biological half-life", format!("{} ({organ})", days_text(tb)))
+    };
+    Some(Answer::new(format!("{name} biological half-life"), vec![
+        pod("Input", "Input interpretation", text(format!("{name} | {}", title.to_lowercase()))),
+        primary(pod("Result", title, text(res))),
+        pod("Table", "Half-lives", table(None, vec![
+            vec![text("physical half-life T_p"), text(days_text(tp))],
+            vec![text("biological half-life T_b"), text(format!("{} ({organ})", days_text(tb)))],
+            vec![text("effective half-life T_e"), text(days_text(te))],
+            vec![text("effective mean lifetime"), text(days_text(te / ln2))],
+        ])),
+        pod("Formula", "Formula", text("1/T_e = 1/T_p + 1/T_b, so T_e = T_p·T_b/(T_p + T_b)")),
+        pod("Note", "Note", text("biological half-lives are typical reference values for adults; they depend on chemical form, organ and the individual")),
+    ]))
+}
+
+// ---------------------------------------------------------------------------
 // nuclide questions
 // ---------------------------------------------------------------------------
 
@@ -164,7 +229,7 @@ fn nuclide_question(l: &str) -> Option<Answer> {
     let rest = rest.trim();
     // a biological or effective half-life is not a property of the nuclide
     if rest.contains("biological") || rest.contains("effective") {
-        return None;
+        return biological(e, a, rest);
     }
     // only nuclide words around the nuclide, so "oxygen 2 atoms" is not one
     let prop = if rest.is_empty() || rest == "isotope" || rest == "nucleus" {
