@@ -1561,3 +1561,10 @@ fn carbon_footprints_dated_positions_and_can_volumes() {
     assert!(short("mars on 2020-10-13").ends_with("in Pisces"));
     assert_eq!(short("2 cans of coke in ml."), "710 ml");
 }
+
+#[test]
+fn bare_offices_and_opening_lines() {
+    assert!(short("President of Argentina").starts_with("Javier Milei"));
+    assert_eq!(short("first line of moby dick"), "Call me Ishmael.");
+    assert!(short("opening phrase of A Tale of Two Cities").starts_with("It was the best of times"));
+}

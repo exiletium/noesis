@@ -492,10 +492,16 @@ fn offices(l: &str) -> Option<Answer> {
         }
         return Some(simple(format!("{} | {y}", office.name), "Result", held.iter().map(|t| term_text(t)).collect::<Vec<_>>().join("\n"), extra));
     }
-    // "who is the president of france", "list of presidents of the united states"
-    let m = re!(r"^(?:who\s+is\s+(?:the\s+)?|(?:list of\s+|all\s+)(?:the\s+)?)(.+)$").captures(l)?;
+    // "who is the president of france", "list of presidents of the united states",
+    // and a bare office "President of Argentina" (the current holder)
+    let l = l.trim_end_matches(" today").trim_end_matches(" right now").trim_end_matches(" now");
+    let bare = re!(r"^(?:the\s+)?(?:president|prime minister|premier|chancellor|king|queen|monarch|emperor|governor|head of state|head of government)\s+of\s+.+$").is_match(l);
+    let m = re!(r"^(?:who\s+is\s+(?:the\s+)?|(?:list of\s+|all\s+)(?:the\s+)?|(?:the\s+)?)(.+)$").captures(l)?;
+    if !bare && !l.starts_with("who is") && !l.starts_with("list of") && !l.starts_with("all ") {
+        return None;
+    }
     let office = find_office(m.get(1)?.as_str())?;
-    if l.starts_with("who is") {
+    if l.starts_with("who is") || bare {
         let term = office.terms.iter().filter(|t| sort_key(t.start) <= now).next_back()?;
         let mut extra = Vec::new();
         extra.extend(person_pod(term.holder));
