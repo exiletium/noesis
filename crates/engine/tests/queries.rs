@@ -1632,3 +1632,10 @@ fn oxidation_numbers_and_bubble_formulas() {
     assert_eq!(short("critical radius for bubble creation, supersaturating ratio 5"), "185.542 nm");
     assert_eq!(short("diffusion distance, diffusion constant 9*10^-10 m^2/s, 2 hours"), "3.6 mm");
 }
+
+#[test]
+fn radio_horizon_lens_tilt_and_threads() {
+    assert!(short("radio horizon antenna height 100 m").starts_with("41.2181 km"));
+    assert!(short("martin's formula 10 degrees, power 5 diopters").starts_with("5.05026"));
+    assert_eq!(short("M10 thread pitch diameter, diameter 10 mm, pitch 1.5 mm"), "9.02572 mm");
+}

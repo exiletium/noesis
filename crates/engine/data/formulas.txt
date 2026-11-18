@@ -1056,3 +1056,39 @@ eq delta = 1.7208 * x / sqrt(Re)
 var delta; displacement thickness; mm; displacement thickness, thickness
 var x; distance from the leading edge; m; distance, length
 var Re; local Reynolds number; ; reynolds number, Re
+
+== radio horizon | radio waves propagate | radio line of sight | radio range from antenna height
+eq d = sqrt(2 * k * R * h)
+var d; distance to the radio horizon; km; distance, range
+var h; antenna height; m; height, antenna height
+var k; effective Earth radius factor; ; k factor; 1.3333333
+var R; Earth radius; km; earth radius; 6371
+note standard atmosphere (k = 4/3): d ≈ 4.12 km × √(h in m); two antennas see each other up to the sum of their horizons
+
+== Martin's formula | martins formula | tilted lens power | lens tilt formula
+eq Fs = F * (1 + sin(theta)^2 / (2 * n))
+eq Fc = Fs * tan(theta)^2
+var Fs; new sphere power; 1/m; new sphere, sphere power
+var Fc; induced cylinder power; 1/m; induced cylinder, cylinder
+var F; lens power; 1/m; power, lens power
+var theta; tilt angle; deg; tilt, angle, tilt angle
+var n; refractive index of the lens; ; refractive index, index; 1.5
+note powers in diopters (1/m); the cylinder axis lies along the axis of tilt
+
+== threading formula | screw thread formula | metric thread formula | thread pitch diameter
+eq d2 = d - 0.649519 * P
+eq d3 = d - 1.226869 * P
+var d2; pitch diameter; mm; pitch diameter
+var d3; minor diameter of the external thread; mm; minor diameter
+var d; major (nominal) diameter; mm; major diameter, nominal diameter, diameter
+var P; pitch; mm; pitch, thread pitch
+note ISO 68-1 basic profile; thread height H = 0.866025 P
+
+== Brinkman number | Brinkman rheological number
+eq Br = mu * U^2 / (k * dT)
+var Br; Brinkman number; ; brinkman number
+var mu; dynamic viscosity; Pa s; viscosity
+var U; flow speed; m/s; speed, velocity
+var k; thermal conductivity; W/(m K); thermal conductivity, conductivity
+var dT; temperature difference; K; temperature difference
+note viscous heating relative to heat conduction
