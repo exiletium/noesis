@@ -80,7 +80,7 @@ static UNITS: &[UnitDef] = &[
     u!(&["mil", "mils", "thou"], 2.54e-5, L, "mils"),
     u!(&["micron", "microns"], 1e-6, L, "microns"),
     u!(&["pica", "picas"], 0.0254 / 6.0, L, "picas"),
-    u!(&["point", "points"], 0.0254 / 72.0, L, "points"),
+    u!(&["point", "points", "desktop publishing point", "desktop publishing points", "dtp point", "dtp points", "postscript point", "postscript points"], 0.0254 / 72.0, L, "points"),
     u!(&["cubit", "cubits"], 0.4572, L, "cubits"),
     u!(&["fermi", "fermis"], 1e-15, L, "fermis"),
     // mass

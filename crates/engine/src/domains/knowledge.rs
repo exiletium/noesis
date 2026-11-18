@@ -289,6 +289,11 @@ fn half_life_text(s: f64) -> String {
 /// UTC hour of sunrise or sunset (NOAA almanac algorithm); `Err(true)` when
 /// the sun never rises that day, `Err(false)` when it never sets.
 fn sun_event(date: NaiveDate, lat: f64, lon: f64, rising: bool) -> Result<f64, bool> {
+    sun_event_z(date, lat, lon, rising, 90.833)
+}
+
+/// As `sun_event`, for the sun's centre at the given zenith angle (degrees).
+fn sun_event_z(date: NaiveDate, lat: f64, lon: f64, rising: bool, zenith: f64) -> Result<f64, bool> {
     let (rad, deg) = (std::f64::consts::PI / 180.0, 180.0 / std::f64::consts::PI);
     let day = date.ordinal() as f64;
     let lng_hour = lon / 15.0;
@@ -301,7 +306,7 @@ fn sun_event(date: NaiveDate, lat: f64, lon: f64, rising: bool) -> Result<f64, b
     ra /= 15.0;
     let sin_dec = 0.39782 * (l * rad).sin();
     let cos_dec = sin_dec.asin().cos();
-    let cos_h = ((90.833 * rad).cos() - sin_dec * (lat * rad).sin()) / (cos_dec * (lat * rad).cos());
+    let cos_h = ((zenith * rad).cos() - sin_dec * (lat * rad).sin()) / (cos_dec * (lat * rad).cos());
     if cos_h > 1.0 {
         return Err(true);
     }
@@ -311,6 +316,70 @@ fn sun_event(date: NaiveDate, lat: f64, lon: f64, rising: bool) -> Result<f64, b
     let h = if rising { 360.0 - cos_h.acos() * deg } else { cos_h.acos() * deg } / 15.0;
     let local_mean = h + ra - 0.06571 * t - 6.622;
     Ok((local_mean - lng_hour).rem_euclid(24.0))
+}
+
+/// A place's name, latitude, longitude and time zone (a city, or a country's capital).
+fn place_coords(place: &str) -> Option<(String, f64, f64, String)> {
+    if let Some(c) = find_city(place) {
+        return Some((format!("{}, {}", c.name, countries().get(&c.country).map_or(c.country.clone(), |x| x.name.clone())), c.lat, c.lon, c.timezone.clone()));
+    }
+    let c = find_country(place)?;
+    let big = cities().iter().filter(|x| x.country == c.iso2 && x.capital).max_by_key(|x| x.population).or_else(|| cities().iter().filter(|x| x.country == c.iso2).max_by_key(|x| x.population))?;
+    Some((format!("{}, {}", big.name, c.name), big.lat, big.lon, big.timezone.clone()))
+}
+
+/// Islamic prayer times (Muslim World League angles: Fajr 18°, Isha 17°;
+/// Asr by the standard Shafi'i shadow ratio).
+fn prayer_times(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:what time is |when is )?(?:the )?(?:(?:islamic |muslim |salat |salah )?prayer times?|(fajr|dhuhr|zuhr|duhr|asr|maghrib|isha)(?: prayer)?(?: time)?)\s+(?:in|for|at)\s+(.+?)(?:\s+(today|tomorrow|on .+))?$").captures(l)?;
+    let (name, lat, lon, tz) = place_coords(m[2].trim())?;
+    let tzv: chrono_tz::Tz = tz.parse().ok()?;
+    let local_today = chrono::Utc::now().with_timezone(&tzv).date_naive();
+    let date = match m.get(3).map(|g| g.as_str()) {
+        Some("tomorrow") => local_today + Duration::days(1),
+        Some(s) if s.starts_with("on ") => super::misc::parse_date(&s[3..])?,
+        _ => local_today,
+    };
+    let at = |utc_hours: f64| -> Option<chrono::DateTime<chrono_tz::Tz>> {
+        let secs = (utc_hours * 3600.0).round() as i64;
+        [-1i64, 0, 1].iter().filter_map(|off| {
+            let base = chrono::Utc.from_utc_datetime(&(date + Duration::days(*off)).and_hms_opt(0, 0, 0)?);
+            Some((base + Duration::seconds(secs)).with_timezone(&tzv))
+        }).find(|t| t.date_naive() == date)
+    };
+    let fmt = |t: chrono::DateTime<chrono_tz::Tz>| t.format("%-I:%M %p %Z").to_string();
+    let rise = at(sun_event(date, lat, lon, true).ok()?)?;
+    let set = at(sun_event(date, lat, lon, false).ok()?)?;
+    let noon = rise + Duration::minutes((set - rise).num_minutes() / 2);
+    let dec = 23.44 * (360.0 / 365.0 * (date.ordinal() as f64 - 81.0)).to_radians().sin();
+    let asr_alt = (1.0 / (1.0 + (lat - dec).abs().to_radians().tan())).atan().to_degrees();
+    let fajr = sun_event_z(date, lat, lon, true, 108.0).ok().and_then(at);
+    let isha = sun_event_z(date, lat, lon, false, 107.0).ok().and_then(at);
+    let asr = sun_event_z(date, lat, lon, false, 90.0 - asr_alt).ok().and_then(at);
+    let dhuhr = noon + Duration::minutes(1);
+    let show = |t: Option<chrono::DateTime<chrono_tz::Tz>>| t.map(fmt).unwrap_or_else(|| "— (the sun does not reach that depth)".into());
+    let rows = vec![
+        ("Fajr", show(fajr)),
+        ("sunrise", fmt(rise)),
+        ("Dhuhr", fmt(dhuhr)),
+        ("Asr", show(asr)),
+        ("Maghrib", fmt(set)),
+        ("Isha", show(isha)),
+    ];
+    let want = m.get(1).map(|x| match x.as_str() { "zuhr" | "duhr" => "dhuhr", o => o });
+    let (title, value) = match want {
+        Some(w) => {
+            let r = rows.iter().find(|(k, _)| k.to_lowercase() == w)?;
+            (r.0.to_string(), r.1.clone())
+        }
+        None => ("Prayer times".to_string(), rows.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(" | ")),
+    };
+    Some(Answer::new("prayer times", vec![
+        pod("Input", "Input interpretation", text(format!("{} | {name} | {}", if want.is_some() { title.clone() } else { "Islamic prayer times".into() }, date_long(date)))),
+        primary(pod("Result", &title, text(value))),
+        pod("Table", "Prayer times", table(None, rows.iter().map(|(k, v)| vec![text(*k), text(v.clone())]).collect())),
+        pod("Note", "Method", text("Muslim World League convention: Fajr when the sun is 18° below the horizon, Isha at 17°; Asr when an object's shadow equals its length plus its noon shadow (Shafi'i); Dhuhr just after solar noon; local mosques may use other conventions")),
+    ]))
 }
 
 fn sun(l: &str) -> Option<Answer> {
@@ -421,6 +490,18 @@ pub(crate) fn holiday_date(name: &str, y: i32) -> Option<(NaiveDate, &'static st
         "ash wednesday" => (easter(y)? - Duration::days(46), "46 days before Easter"),
         "palm sunday" => (easter(y)? - Duration::days(7), "one week before Easter"),
         "pentecost" | "whit sunday" => (easter(y)? + Duration::days(49), "49 days after Easter"),
+        "maundy thursday" | "holy thursday" => (easter(y)? - Duration::days(3), "the Thursday before Easter"),
+        "holy saturday" => (easter(y)? - Duration::days(1), "the day before Easter"),
+        "ascension" | "ascension day" | "ascension thursday" | "feast of the ascension" => (easter(y)? + Duration::days(39), "39 days after Easter (a Thursday)"),
+        "trinity sunday" => (easter(y)? + Duration::days(56), "the Sunday after Pentecost"),
+        "corpus christi" => (easter(y)? + Duration::days(60), "the Thursday after Trinity Sunday"),
+        "epiphany" | "three kings day" | "three kings' day" => (fixed(1, 6)?, "January 6"),
+        "candlemas" | "presentation of the lord" => (fixed(2, 2)?, "February 2"),
+        "annunciation" | "feast of the annunciation" => (fixed(3, 25)?, "March 25"),
+        "assumption" | "assumption of mary" | "feast of the assumption" => (fixed(8, 15)?, "August 15"),
+        "all saints' day" | "all saints day" | "all saints" => (fixed(11, 1)?, "November 1"),
+        "all souls' day" | "all souls day" => (fixed(11, 2)?, "November 2"),
+        "advent" | "first sunday of advent" | "first sunday in advent" | "start of advent" => (fixed(12, 25)? - Duration::days(fixed(12, 25)?.weekday().num_days_from_sunday() as i64 + if fixed(12, 25)?.weekday() == Weekday::Sun { 28 } else { 21 }), "the fourth Sunday before Christmas"),
         "mardi gras" | "shrove tuesday" | "pancake day" => (easter(y)? - Duration::days(47), "the day before Ash Wednesday"),
         "thanksgiving" | "us thanksgiving" | "american thanksgiving" => (nth_weekday(y, 11, Weekday::Thu, 4)?, "fourth Thursday of November (United States)"),
         "canadian thanksgiving" => (nth_weekday(y, 10, Weekday::Mon, 2)?, "second Monday of October (Canada)"),
@@ -454,7 +535,28 @@ pub(crate) fn holiday_date(name: &str, y: i32) -> Option<(NaiveDate, &'static st
     })
 }
 
+/// "Christian holidays": the main feasts in the coming twelve months.
+fn christian_holidays(l: &str) -> Option<Answer> {
+    if !re!(r"^(?:list of |major |main )?christian (?:holidays|feasts|holy days|feast days)(?: (\d{4}))?$").is_match(l) {
+        return None;
+    }
+    let y: i32 = re!(r"(\d{4})").captures(l).and_then(|m| m[1].parse().ok()).unwrap_or_else(|| super::misc::today().year());
+    let names = ["epiphany", "ash wednesday", "palm sunday", "maundy thursday", "good friday", "easter", "ascension", "pentecost", "trinity sunday", "corpus christi", "assumption", "all saints' day", "advent", "christmas"];
+    let titles = ["Epiphany", "Ash Wednesday", "Palm Sunday", "Maundy Thursday", "Good Friday", "Easter Sunday", "Ascension Day", "Pentecost", "Trinity Sunday", "Corpus Christi", "Assumption of Mary", "All Saints' Day", "First Sunday of Advent", "Christmas Day"];
+    let rows: Vec<Vec<Content>> = names.iter().zip(titles).filter_map(|(n, t)| holiday_date(n, y).map(|(d, rule)| vec![text(t), text(d.format("%A, %B %-d, %Y").to_string()), text(rule)])).collect();
+    Some(Answer::new("Christian holidays", vec![
+        pod("Input", "Input interpretation", text(format!("Christian holidays {y}"))),
+        primary(pod("Result", "Holidays", table(Some(vec!["holiday", "date", "rule"]), rows))),
+        pod("Note", "Note", text("Western (Gregorian) dates; Orthodox churches date Easter and its movable feasts by the Julian calendar")),
+    ]))
+}
+
 fn holidays(l: &str) -> Option<Answer> {
+    if let Some(a) = christian_holidays(l) {
+        return Some(a);
+    }
+    let l0 = re!(r"\s+(?:in|for) (?:the )?(?:us|usa|u\.s\.|united states|america)$").replace(l, "").to_string();
+    let l = l0.as_str();
     let m = re!(r"^(?:when is|when was|when will be|what day is|what date is|date of)?\s*(?:the\s+)?(.+?)(?:\s+(?:in\s+)?(\d{4}))?(?:\s+this year|\s+next year)?$").captures(l)?;
     let name = m[1].trim().trim_end_matches(" day of the week").trim();
     let explicit_year: Option<i32> = m.get(2).and_then(|g| g.as_str().parse().ok());
@@ -746,12 +848,14 @@ fn finance(l: &str) -> Option<Answer> {
 // ---------------------------------------------------------------------------
 
 const COLORS: &[(&str, u32)] = &[
-    ("red", 0xFF0000), ("green", 0x008000), ("lime", 0x00FF00), ("blue", 0x0000FF), ("yellow", 0xFFFF00), ("cyan", 0x00FFFF), ("magenta", 0xFF00FF), ("black", 0x000000), ("white", 0xFFFFFF),
-    ("gray", 0x808080), ("grey", 0x808080), ("silver", 0xC0C0C0), ("maroon", 0x800000), ("olive", 0x808000), ("purple", 0x800080), ("teal", 0x008080), ("navy", 0x000080), ("orange", 0xFFA500),
-    ("pink", 0xFFC0CB), ("brown", 0xA52A2A), ("gold", 0xFFD700), ("indigo", 0x4B0082), ("violet", 0xEE82EE), ("turquoise", 0x40E0D0), ("coral", 0xFF7F50), ("salmon", 0xFA8072), ("crimson", 0xDC143C),
-    ("lavender", 0xE6E6FA), ("beige", 0xF5F5DC), ("khaki", 0xF0E68C), ("chocolate", 0xD2691E), ("tomato", 0xFF6347), ("orchid", 0xDA70D6), ("plum", 0xDDA0DD), ("tan", 0xD2B48C), ("skyblue", 0x87CEEB),
-    ("sky blue", 0x87CEEB), ("forestgreen", 0x228B22), ("forest green", 0x228B22), ("hotpink", 0xFF69B4), ("hot pink", 0xFF69B4), ("steelblue", 0x4682B4), ("steel blue", 0x4682B4), ("aqua", 0x00FFFF), ("fuchsia", 0xFF00FF),
+    ("aliceblue", 0xF0F8FF), ("antiquewhite", 0xFAEBD7), ("aqua", 0x00FFFF), ("aquamarine", 0x7FFFD4), ("azure", 0xF0FFFF), ("beige", 0xF5F5DC), ("bisque", 0xFFE4C4), ("black", 0x000000), ("blanchedalmond", 0xFFEBCD), ("blue", 0x0000FF), ("blueviolet", 0x8A2BE2), ("brown", 0xA52A2A), ("burlywood", 0xDEB887), ("cadetblue", 0x5F9EA0), ("chartreuse", 0x7FFF00), ("chocolate", 0xD2691E), ("coral", 0xFF7F50), ("cornflowerblue", 0x6495ED), ("cornsilk", 0xFFF8DC), ("crimson", 0xDC143C), ("cyan", 0x00FFFF), ("darkblue", 0x00008B), ("darkcyan", 0x008B8B), ("darkgoldenrod", 0xB8860B), ("darkgray", 0xA9A9A9), ("darkgreen", 0x006400), ("darkgrey", 0xA9A9A9), ("darkkhaki", 0xBDB76B), ("darkmagenta", 0x8B008B), ("darkolivegreen", 0x556B2F), ("darkorange", 0xFF8C00), ("darkorchid", 0x9932CC), ("darkred", 0x8B0000), ("darksalmon", 0xE9967A), ("darkseagreen", 0x8FBC8F), ("darkslateblue", 0x483D8B), ("darkslategray", 0x2F4F4F), ("darkslategrey", 0x2F4F4F), ("darkturquoise", 0x00CED1), ("darkviolet", 0x9400D3), ("deeppink", 0xFF1493), ("deepskyblue", 0x00BFFF), ("dimgray", 0x696969), ("dimgrey", 0x696969), ("dodgerblue", 0x1E90FF), ("firebrick", 0xB22222), ("floralwhite", 0xFFFAF0), ("forestgreen", 0x228B22), ("fuchsia", 0xFF00FF), ("gainsboro", 0xDCDCDC), ("ghostwhite", 0xF8F8FF), ("gold", 0xFFD700), ("goldenrod", 0xDAA520), ("gray", 0x808080), ("grey", 0x808080), ("green", 0x008000), ("greenyellow", 0xADFF2F), ("honeydew", 0xF0FFF0), ("hotpink", 0xFF69B4), ("indianred", 0xCD5C5C), ("indigo", 0x4B0082), ("ivory", 0xFFFFF0), ("khaki", 0xF0E68C), ("lavender", 0xE6E6FA), ("lavenderblush", 0xFFF0F5), ("lawngreen", 0x7CFC00), ("lemonchiffon", 0xFFFACD), ("lightblue", 0xADD8E6), ("lightcoral", 0xF08080), ("lightcyan", 0xE0FFFF), ("lightgoldenrodyellow", 0xFAFAD2), ("lightgray", 0xD3D3D3), ("lightgreen", 0x90EE90), ("lightgrey", 0xD3D3D3), ("lightpink", 0xFFB6C1), ("lightsalmon", 0xFFA07A), ("lightseagreen", 0x20B2AA), ("lightskyblue", 0x87CEFA), ("lightslategray", 0x778899), ("lightslategrey", 0x778899), ("lightsteelblue", 0xB0C4DE), ("lightyellow", 0xFFFFE0), ("lime", 0x00FF00), ("limegreen", 0x32CD32), ("linen", 0xFAF0E6), ("magenta", 0xFF00FF), ("maroon", 0x800000), ("mediumaquamarine", 0x66CDAA), ("mediumblue", 0x0000CD), ("mediumorchid", 0xBA55D3), ("mediumpurple", 0x9370DB), ("mediumseagreen", 0x3CB371), ("mediumslateblue", 0x7B68EE), ("mediumspringgreen", 0x00FA9A), ("mediumturquoise", 0x48D1CC), ("mediumvioletred", 0xC71585), ("midnightblue", 0x191970), ("mintcream", 0xF5FFFA), ("mistyrose", 0xFFE4E1), ("moccasin", 0xFFE4B5), ("navajowhite", 0xFFDEAD), ("navy", 0x000080), ("oldlace", 0xFDF5E6), ("olive", 0x808000), ("olivedrab", 0x6B8E23), ("orange", 0xFFA500), ("orangered", 0xFF4500), ("orchid", 0xDA70D6), ("palegoldenrod", 0xEEE8AA), ("palegreen", 0x98FB98), ("paleturquoise", 0xAFEEEE), ("palevioletred", 0xDB7093), ("papayawhip", 0xFFEFD5), ("peachpuff", 0xFFDAB9), ("peru", 0xCD853F), ("pink", 0xFFC0CB), ("plum", 0xDDA0DD), ("powderblue", 0xB0E0E6), ("purple", 0x800080), ("rebeccapurple", 0x663399), ("red", 0xFF0000), ("rosybrown", 0xBC8F8F), ("royalblue", 0x4169E1), ("saddlebrown", 0x8B4513), ("salmon", 0xFA8072), ("sandybrown", 0xF4A460), ("seagreen", 0x2E8B57), ("seashell", 0xFFF5EE), ("sienna", 0xA0522D), ("silver", 0xC0C0C0), ("skyblue", 0x87CEEB), ("slateblue", 0x6A5ACD), ("slategray", 0x708090), ("slategrey", 0x708090), ("snow", 0xFFFAFA), ("springgreen", 0x00FF7F), ("steelblue", 0x4682B4), ("tan", 0xD2B48C), ("teal", 0x008080), ("thistle", 0xD8BFD8), ("tomato", 0xFF6347), ("turquoise", 0x40E0D0), ("violet", 0xEE82EE), ("wheat", 0xF5DEB3), ("white", 0xFFFFFF), ("whitesmoke", 0xF5F5F5), ("yellow", 0xFFFF00), ("yellowgreen", 0x9ACD32),
 ];
+
+/// CSS colour names written as separate words: "dark orange", "sky blue".
+fn color_named(s: &str) -> Option<(&'static str, u32)> {
+    let k = s.trim().replace([' ', '-'], "");
+    COLORS.iter().find(|(n, _)| *n == k).copied()
+}
 
 fn hsl(r: f64, g: f64, b: f64) -> (f64, f64, f64) {
     let (mx, mn) = (r.max(g).max(b), r.min(g).min(b));
@@ -765,19 +869,59 @@ fn hsl(r: f64, g: f64, b: f64) -> (f64, f64, f64) {
     (h * 60.0, s, l)
 }
 
+fn color_compare(l: &str) -> Option<Answer> {
+    let parts: Vec<&str> = re!(r"\s*(?:,|\bvs\.?|\bversus\b|\band\b)\s*").split(l).filter(|p| !p.is_empty()).collect();
+    if parts.len() < 2 || parts.len() > 6 {
+        return None;
+    }
+    // names that usually mean something else (fruit, metals, food) count only as "X color"
+    const AMBIGUOUS: &[&str] = &["gold", "silver", "orange", "lime", "chocolate", "salmon", "tomato", "olive", "plum", "peach", "wheat", "coral", "tan", "navy", "teal", "linen", "snow", "ivory", "bisque", "moccasin", "peru", "thistle", "orchid", "khaki", "azure", "honeydew", "seashell", "crimson", "indigo", "violet", "lavender", "turquoise", "black", "white"];
+    let ambiguous = parts.iter().filter(|p| AMBIGUOUS.contains(&p.trim())).count();
+    if ambiguous == parts.len() && !l.contains("colo") {
+        return None;
+    }
+    let cs: Option<Vec<(&str, u32)>> = parts.iter().map(|p| color_named(p.trim_end_matches(" color").trim_end_matches(" colour"))).collect();
+    let cs = cs?;
+    let rows = cs.iter().map(|(nm, v)| {
+        let (r, g, b) = ((v >> 16) & 255, (v >> 8) & 255, v & 255);
+        let (h, s, li) = hsl(r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0);
+        vec![text(*nm), text(format!("#{v:06X}")), text(format!("({r}, {g}, {b})")), text(format!("({}°, {}%, {}%)", n(h.round()), n((s * 100.0).round()), n((li * 100.0).round())))]
+    }).collect();
+    let short = cs.iter().map(|(nm, v)| format!("{nm} #{v:06X}")).collect::<Vec<_>>().join(" | ");
+    let mut pods = vec![
+        pod("Input", "Input interpretation", text(cs.iter().map(|c| c.0).collect::<Vec<_>>().join(" | "))),
+        primary(pod("Result", "Colours", text(short))),
+        pod("Table", "Representations", table(Some(vec!["colour", "hex", "RGB", "HSL"]), rows)),
+    ];
+    if cs.len() == 2 {
+        let d = |v: u32, k: u32| ((v >> k) & 255) as f64;
+        let dist = ((d(cs[0].1, 16) - d(cs[1].1, 16)).powi(2) + (d(cs[0].1, 8) - d(cs[1].1, 8)).powi(2) + (d(cs[0].1, 0) - d(cs[1].1, 0)).powi(2)).sqrt();
+        pods.push(pod("Distance", "RGB distance", text(format!("{} (of a maximum 441.7)", fmt_float((dist * 10.0).round() / 10.0, 4)))));
+    }
+    Some(Answer::new("colour comparison", pods))
+}
+
 fn color(l: &str) -> Option<Answer> {
+    if let Some(a) = color_compare(l) {
+        return Some(a);
+    }
     let rgb: u32 = if let Some(m) = re!(r"^(?:colou?r\s+|hex\s+(?:colou?r\s+)?)?#([0-9a-f]{6}|[0-9a-f]{3})(?:\s+(?:to|in)\s+(?:rgb|hsl|cmyk))?$").captures(l) {
         let h = &m[1];
         let full = if h.len() == 3 { h.chars().flat_map(|c| [c, c]).collect::<String>() } else { h.to_string() };
         u32::from_str_radix(&full, 16).ok()?
-    } else if let Some(m) = re!(r"^(?:colou?r\s+)?rgb\s*\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)(?:\s+(?:to|in)\s+(?:hex|hsl|cmyk))?$").captures(l) {
-        let c: Vec<u32> = (1..=3).filter_map(|k| m[k].parse().ok()).collect();
-        if c.iter().any(|v| *v > 255) {
+    } else if let Some(m) = re!(r"^(?:colou?r\s+)?rgb\s*(?:colou?r\s*)?\(?\s*(\d*\.?\d+)\s*,\s*(\d*\.?\d+)\s*,\s*(\d*\.?\d+)\s*\)?(?:\s+(?:to|in)\s+(?:hex|hsl|cmyk))?$").captures(l) {
+        let c: Vec<f64> = (1..=3).filter_map(|k| m[k].parse().ok()).collect();
+        // fractions (all ≤ 1, at least one written with a point) or 0–255 integers
+        let frac = c.iter().all(|v| *v <= 1.0) && (1..=3).any(|k| m[k].contains('.'));
+        let c: Vec<u32> = c.iter().map(|v| if frac { (v * 255.0).round() } else { *v }).map(|v| v as u32).collect();
+        if c.iter().any(|v| *v > 255) || (!frac && (1..=3).any(|k| m[k].contains('.'))) {
             return None;
         }
         (c[0] << 16) | (c[1] << 8) | c[2]
     } else if let Some(m) = re!(r"^(?:the\s+)?(?:colou?r\s+|hex (?:code|value) (?:of|for)\s+|rgb (?:of|for)\s+)([a-z ]+?)(?:\s+(?:colou?r|in hex|in rgb))?$").captures(l) {
-        COLORS.iter().find(|(name, _)| *name == m[1].trim())?.1
+        color_named(&m[1])?.1
+    } else if let Some(m) = re!(r"^(?:the\s+)?([a-z ]+?)\s+colou?r$").captures(l) {
+        color_named(&m[1])?.1
     } else {
         return None;
     };
@@ -1318,6 +1462,7 @@ fn polygons(l: &str) -> Option<Answer> {
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim();
     chemistry(q)
+        .or_else(|| prayer_times(l))
         .or_else(|| sun(l))
         .or_else(|| holidays(l))
         .or_else(|| facts(l))

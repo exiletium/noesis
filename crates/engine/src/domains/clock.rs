@@ -332,7 +332,8 @@ pub(crate) fn lunar_holiday(name: &str, y: i32) -> Option<NaiveDate> {
         "rosh hashanah" | "rosh hashana" | "jewish new year" => heb(hy + 1, 7, 1),
         "yom kippur" => heb(hy + 1, 7, 10),
         "sukkot" => heb(hy + 1, 7, 15),
-        "hanukkah" | "chanukah" | "hanukah" => heb(hy + 1, 9, 25),
+        "hanukkah" | "chanukah" | "hanukah" | "chanukkah" | "hannukah" | "hanukka" => heb(hy + 1, 9, 25),
+        "end of hanukkah" | "end of chanukah" | "end of chanukkah" | "end of hanukah" | "last day of hanukkah" | "last day of chanukah" => heb(hy + 1, 9, 25).map(|d| d + Duration::days(7)),
         "passover" | "pesach" => heb(hy, 1, 15),
         "shavuot" => heb(hy, 3, 6),
         "ramadan" | "start of ramadan" | "beginning of ramadan" => isl(9, 1),
@@ -346,11 +347,17 @@ pub(crate) fn lunar_holiday(name: &str, y: i32) -> Option<NaiveDate> {
 }
 
 fn lunar_holidays(l: &str) -> Option<Answer> {
-    let m = re!(r"^(?:when is |when was |date of )?(?:the )?([a-z' -]+?)(?: in)?(?: (\d{4}))?$").captures(l)?;
+    let m = re!(r"^(?:when is |when was |date of )?(?:the )?([a-z' -]+?)(?: in)?(?: (\d{4}|next year|this year))?$").captures(l)?;
     let name = m[1].trim();
     let t = today();
-    let (d, year_given) = match m.get(2) {
-        Some(y) => (lunar_holiday(name, y.as_str().parse().ok()?)?, true),
+    let year = match m.get(2).map(|x| x.as_str()) {
+        Some("next year") => Some(t.year() + 1),
+        Some("this year") => Some(t.year()),
+        Some(y) => Some(y.parse().ok()?),
+        None => None,
+    };
+    let (d, year_given) = match year {
+        Some(y) => (lunar_holiday(name, y)?, true),
         None => {
             let d = lunar_holiday(name, t.year())?;
             (if d < t { lunar_holiday(name, t.year() + 1)? } else { d }, false)

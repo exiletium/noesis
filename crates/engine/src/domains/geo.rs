@@ -125,6 +125,27 @@ pub fn us_state(s: &str) -> Option<&'static str> {
     US_STATES.iter().find(|(a, n)| a.eq_ignore_ascii_case(s) || n.eq_ignore_ascii_case(s)).map(|(a, _)| *a)
 }
 
+/// Lower-case Latin letters without diacritics ("zürich" → "zurich").
+pub fn fold_accents(s: &str) -> String {
+    s.chars().map(|c| match c {
+        'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' | 'ą' => 'a',
+        'ç' | 'ć' | 'č' => 'c',
+        'è' | 'é' | 'ê' | 'ë' | 'ē' | 'ę' | 'ě' => 'e',
+        'ì' | 'í' | 'î' | 'ï' | 'ī' => 'i',
+        'ñ' | 'ń' | 'ň' => 'n',
+        'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' | 'ő' => 'o',
+        'ù' | 'ú' | 'û' | 'ü' | 'ū' | 'ů' | 'ű' => 'u',
+        'ý' | 'ÿ' => 'y',
+        'ś' | 'š' | 'ş' => 's',
+        'ź' | 'ż' | 'ž' => 'z',
+        'ł' => 'l',
+        'ř' => 'r',
+        'ţ' | 'ť' => 't',
+        'ḩ' => 'h',
+        other => other,
+    }).collect()
+}
+
 pub fn find_city(q: &str) -> Option<&'static City> {
     let l = q.trim().to_lowercase();
     let (name, cc) = match l.split_once(',') {
@@ -152,10 +173,20 @@ pub fn find_city(q: &str) -> Option<&'static City> {
         "dc" | "washington dc" | "washington d.c." => "washington".to_string(),
         "bombay" => "mumbai".to_string(),
         "peking" => "beijing".to_string(),
+        "mecca" | "mekka" => "makkah".to_string(),
+        "kiev" => "kyiv".to_string(),
+        "cologne" => "koln".to_string(),
+        "hanover" => "hannover".to_string(),
+        "seville" => "sevilla".to_string(),
+        "quebec city" => "quebec".to_string(),
+        "saigon" => "ho chi minh city".to_string(),
         other => other.to_string(),
     };
-    // most populous match
-    cities().iter().filter(|c| c.name.to_lowercase() == name && cc.as_ref().map_or(true, |k| &c.country == k)).max_by_key(|c| c.population)
+    // most populous match (exact, then ignoring accents: "Zurich", "Sao Paulo")
+    cities().iter().filter(|c| c.name.to_lowercase() == name && cc.as_ref().map_or(true, |k| &c.country == k)).max_by_key(|c| c.population).or_else(|| {
+        let n = fold_accents(&name);
+        cities().iter().filter(|c| fold_accents(&c.name.to_lowercase()) == n && cc.as_ref().map_or(true, |k| &c.country == k)).max_by_key(|c| c.population)
+    })
 }
 
 /// Great-circle distance in km (haversine on a spherical Earth).

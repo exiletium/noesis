@@ -1374,3 +1374,18 @@ fn seismology_photography_acronyms_and_words() {
     // "ev" and "dof" are whole words only
     assert!(!noesis::query("events from November 1, 1989 to November 30, 1989").short_answer().unwrap_or_default().contains("12.9658"));
 }
+
+#[test]
+fn colours_text_length_holidays_and_prayer_times() {
+    assert!(short("RGB 0.95, 0.75, 0.00").starts_with("#F2BF00"));
+    assert_eq!(short("violet vs magenta"), "violet #EE82EE | magenta #FF00FF");
+    assert!(short("dark orange color").starts_with("#FF8C00"));
+    assert!(short("70,000 words").starts_with("140 single-spaced pages"));
+    assert_eq!(short("120 page screenplay"), "about 2 h 0 min");
+    assert!(short("1024 x 768 pixels").contains("XGA"));
+    assert!(short("39 desktop publishing points").starts_with("1.37583"));
+    assert!(pod_text(&q("Christian holidays 2027"), "Result").contains("Thursday, May 6, 2027"));
+    assert_eq!(short("advent 2026").split("  ").next().unwrap(), "Sunday, November 29, 2026");
+    assert!(pod_text(&q("prayer times in Cairo"), "Table").contains("Maghrib"));
+    assert!(short("population of Cologne").starts_with("1,024,621"));
+}
