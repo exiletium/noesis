@@ -392,7 +392,7 @@ fn probability(q: &Query) -> Option<Answer> {
         pods.extend(dist_pods(&d, Some(range)));
         return Some(Answer::new("binomial probability", pods));
     }
-    let dist = if l.contains("normal distribution") || l.contains("gaussian") && !re!(r"\b(?:image|blur|filter|photo|picture)\b").is_match(l) {
+    let dist = if l.contains("normal distribution") && !re!(r"log-?\s?normal").is_match(l) || l.contains("gaussian") && !re!(r"\b(?:image|blur|filter|photo|picture)\b").is_match(l) {
         Some(Dist::Normal(kv(l, &["mean", "mu", "μ"]).unwrap_or(0.0), kv(l, &["sd", "standard deviation", "sigma", "σ"]).unwrap_or(1.0)))
     } else if l.contains("binomial distribution") || (l.starts_with("binomial") && l.contains("p")) {
         Some(Dist::Binomial(kv(l, &["n", "trials"])? as u64, kv(l, &["p", "probability"])?))

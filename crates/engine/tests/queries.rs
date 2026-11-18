@@ -1587,3 +1587,9 @@ fn numeric_distributions_and_parametric_surfaces() {
         _ => panic!("no plot"),
     }
 }
+
+#[test]
+fn distribution_names_beat_parameter_names() {
+    assert!(short("mean of logistic distribution mu=2 beta=3").starts_with('2'));
+    assert!(short("mean of the lognormal distribution").contains("e^"));
+}

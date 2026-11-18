@@ -398,6 +398,7 @@ fn parse_dist(t: &str) -> Option<Dist> {
     let t = t.trim().trim_end_matches(['.', '?']);
     let kinds: &[(&str, Kind)] = &[
         (r"standard normal", Normal),
+        (r"log-?normal", LogNormal),
         (r"normal(?:ly distributed)?|gaussian|\bn\(", Normal),
         (r"exponential(?:ly distributed)?|\bexp\(", Exponential),
         (r"gamma", Gamma),
@@ -407,7 +408,6 @@ fn parse_dist(t: &str) -> Option<Dist> {
         (r"student'?s? ?t|\bt(?: distribution|\()", StudentT),
         (r"\bf(?: distribution|\(| dist)", F),
         (r"rayleigh", Rayleigh),
-        (r"log-?normal", LogNormal),
         (r"weibull", Weibull),
         (r"laplace", Laplace),
         (r"cauchy", Cauchy),
@@ -421,7 +421,13 @@ fn parse_dist(t: &str) -> Option<Dist> {
         (r"zipf", Zipf),
         (r"benford", Benford),
     ];
-    let kind = kinds.iter().find(|(p, _)| Regex::new(&format!("(?i){p}")).map(|r| r.is_match(t)).unwrap_or(false))?.1;
+    // the name right before "distribution" wins, so "logistic distribution mu=2 beta=3" is not a beta distribution
+    let named = |p: &str| Regex::new(&format!(r"(?i)(?:{p})\s+(?:distribution|dist)\b")).map(|r| r.is_match(t)).unwrap_or(false);
+    let kind = kinds
+        .iter()
+        .find(|(p, _)| named(p))
+        .or_else(|| kinds.iter().find(|(p, _)| Regex::new(&format!("(?i){p}")).map(|r| r.is_match(t)).unwrap_or(false)))?
+        .1;
     let (_, names, _) = kind.info();
     let mut params: Vec<Option<Expr>> = vec![None; names.len()];
     if t.contains("standard normal") {
