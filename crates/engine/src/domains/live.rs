@@ -190,6 +190,24 @@ const CURRENCIES: &[(&str, &str)] = &[
     ("krona", "SEK"),
     ("krone", "NOK"),
     ("rand", "ZAR"),
+    ("ruble", "RUB"),
+    ("rubles", "RUB"),
+    ("rouble", "RUB"),
+    ("roubles", "RUB"),
+    ("dirham", "AED"),
+    ("dirhams", "AED"),
+    ("riyal", "SAR"),
+    ("riyals", "SAR"),
+    ("shekel", "ILS"),
+    ("shekels", "ILS"),
+    ("forint", "HUF"),
+    ("koruna", "CZK"),
+    ("kronor", "SEK"),
+    ("kroner", "NOK"),
+    ("hryvnia", "UAH"),
+    ("naira", "NGN"),
+    ("dong", "VND"),
+    ("taka", "BDT"),
     ("$", "USD"),
     ("€", "EUR"),
     ("£", "GBP"),
@@ -198,8 +216,27 @@ const CURRENCIES: &[(&str, &str)] = &[
 
 const ISO: &[&str] = &["USD", "EUR", "GBP", "JPY", "CNY", "INR", "MYR", "KRW", "CHF", "BRL", "MXN", "THB", "IDR", "TRY", "PLN", "SEK", "NOK", "DKK", "ZAR", "AUD", "CAD", "NZD", "SGD", "HKD", "PHP", "CZK", "HUF", "ILS", "ISK", "RON", "BGN"];
 
+/// "Mexican pesos", "Canadian dollar", "Swiss francs"
+const NATIONAL: &[(&str, &str)] = &[
+    ("us", "USD"), ("u.s.", "USD"), ("american", "USD"), ("united states", "USD"), ("canadian", "CAD"), ("australian", "AUD"),
+    ("new zealand", "NZD"), ("hong kong", "HKD"), ("singapore", "SGD"), ("singaporean", "SGD"), ("taiwan", "TWD"), ("taiwanese", "TWD"),
+    ("mexican", "MXN"), ("argentine", "ARS"), ("argentinian", "ARS"), ("chilean", "CLP"), ("colombian", "COP"), ("philippine", "PHP"),
+    ("british", "GBP"), ("uk", "GBP"), ("swiss", "CHF"), ("japanese", "JPY"), ("chinese", "CNY"), ("indian", "INR"), ("pakistani", "PKR"),
+    ("russian", "RUB"), ("south african", "ZAR"), ("brazilian", "BRL"), ("swedish", "SEK"), ("norwegian", "NOK"), ("danish", "DKK"),
+    ("polish", "PLN"), ("turkish", "TRY"), ("korean", "KRW"), ("south korean", "KRW"), ("thai", "THB"), ("indonesian", "IDR"),
+    ("malaysian", "MYR"), ("czech", "CZK"), ("hungarian", "HUF"), ("israeli", "ILS"), ("egyptian", "EGP"), ("nigerian", "NGN"),
+    ("vietnamese", "VND"), ("ukrainian", "UAH"), ("saudi", "SAR"), ("emirati", "AED"), ("uae", "AED"), ("bangladeshi", "BDT"),
+];
+
 fn currency_code(w: &str) -> Option<&'static str> {
     let l = w.trim().to_lowercase();
+    if let Some((nat, unit)) = NATIONAL.iter().filter_map(|(n, c)| l.strip_prefix(n).filter(|u| u.starts_with(' ')).map(|u| (c, u.trim()))).next() {
+        let base = currency_code(unit)?;
+        // the unit word must name the same kind of currency ("Mexican pesos", not "Mexican dollars")
+        let kind = |c: &str| CURRENCIES.iter().filter(|(_, k)| *k == c).map(|(n, _)| n.trim_end_matches('s')).collect::<Vec<_>>();
+        let word = unit.trim_end_matches('s');
+        return if base == *nat || kind(base).contains(&word) && (["dollar", "peso", "franc", "pound", "rupee", "krona", "krone", "kroner", "kronor", "won", "yen", "yuan", "real", "rand", "ruble", "rouble", "lira", "dirham", "riyal"].contains(&word)) { Some(nat) } else { None };
+    }
     if let Some((_, c)) = CURRENCIES.iter().find(|(n, _)| *n == l) {
         return Some(c);
     }
@@ -212,7 +249,110 @@ const APPROX_PER_USD: &[(&str, f64)] = &[
     ("USD", 1.0), ("EUR", 0.86), ("GBP", 0.74), ("JPY", 147.0), ("CNY", 7.17), ("INR", 86.5), ("CAD", 1.37), ("AUD", 1.53), ("NZD", 1.68), ("CHF", 0.80),
     ("HKD", 7.85), ("SGD", 1.28), ("KRW", 1385.0), ("MXN", 18.8), ("BRL", 5.5), ("ZAR", 17.8), ("SEK", 9.5), ("NOK", 10.1), ("DKK", 6.4), ("PLN", 3.65),
     ("TRY", 40.5), ("THB", 32.5), ("IDR", 16300.0), ("MYR", 4.25), ("PHP", 57.0), ("CZK", 21.3), ("HUF", 345.0), ("ILS", 3.4), ("AED", 3.6725), ("SAR", 3.75),
+    ("RUB", 79.0), ("TWD", 29.5), ("PKR", 283.0), ("EGP", 49.5), ("NGN", 1530.0), ("VND", 26100.0), ("UAH", 41.5), ("BDT", 122.0), ("ARS", 1200.0),
+    ("CLP", 940.0), ("COP", 4050.0), ("ISK", 122.0), ("RON", 4.35), ("BGN", 1.68),
 ];
+
+/// Units of each currency per US dollar: live ECB rates when online, else the
+/// approximate table. The second value is the note on where the rates came from.
+fn per_usd(codes: &[&str]) -> Option<(Vec<f64>, String)> {
+    let others: Vec<&str> = codes.iter().copied().filter(|c| *c != "USD").collect();
+    if online() && !others.is_empty() {
+        if let Some(v) = get_json(&format!("https://api.frankfurter.dev/v1/latest?base=USD&symbols={}", others.join(","))) {
+            let rates = v.get("rates");
+            let got: Option<Vec<f64>> = codes.iter().map(|c| if *c == "USD" { Some(1.0) } else { rates?.get(*c)?.as_f64() }).collect();
+            if let Some(g) = got {
+                let date = v.get("date").and_then(|d| d.as_str()).unwrap_or("");
+                return Some((g, format!("European Central Bank reference rates via Frankfurter (rates of {date})")));
+            }
+        }
+    }
+    let per = |c: &str| APPROX_PER_USD.iter().find(|(k, _)| *k == c).map(|(_, v)| *v);
+    let got: Option<Vec<f64>> = codes.iter().map(|c| per(c)).collect();
+    Some((got?, "approximate mid-2025 exchange rates (live rates could not be fetched); actual rates differ".to_string()))
+}
+
+/// "150 USD", "€80", "1,300 Mexican pesos", "20k yen"
+fn money_term(t: &str) -> Option<(f64, &'static str)> {
+    let m = re!(r"^([$€£¥])?\s*([\d,]*\.?\d+)\s*(k|thousand|million|billion)?\s*([a-z][a-z. ]*?)?$").captures(t.trim())?;
+    let mut v: f64 = m[2].replace(',', "").parse().ok()?;
+    v *= match m.get(3).map(|x| x.as_str()) { Some("k" | "thousand") => 1e3, Some("million") => 1e6, Some("billion") => 1e9, _ => 1.0 };
+    let code = match (m.get(1), m.get(4)) {
+        (Some(sym), None) => currency_code(sym.as_str())?,
+        (None, Some(w)) => currency_code(w.as_str())?,
+        (Some(sym), Some(w)) => { let c = currency_code(w.as_str())?; if sym.as_str() == "$" && c.ends_with('D') { c } else { return None } }
+        _ => return None,
+    };
+    Some((v, code))
+}
+
+/// "2500 euros", "150 USD + 80 EUR", "1,000 yuan + 20,000 yen in dollars",
+/// "1300 Mexican pesos / 20,000 Russian rubles"
+fn currency_expr(l: &str) -> Option<Answer> {
+    let l = l.trim().trim_end_matches(['?', '.']);
+    let (body, target) = match re!(r"^(.+?)\s+(?:in|to|into)\s+([a-z$€£¥][a-z. ]*)$").captures(l) {
+        Some(m) => (m.get(1)?.as_str(), Some(currency_code(&m[2])?)),
+        None => (l, None),
+    };
+    let parts: Vec<&str> = re!(r"\s+(\+|plus|-|minus|/|divided by)\s+").split(body).collect();
+    let ops: Vec<&str> = re!(r"\s+(\+|plus|-|minus|/|divided by)\s+").captures_iter(body).map(|c| c.get(1).unwrap().as_str()).collect();
+    let terms: Option<Vec<(f64, &str)>> = parts.iter().map(|p| money_term(p)).collect();
+    let terms = terms?;
+    let ratio = ops.iter().any(|o| *o == "/" || *o == "divided by");
+    if ratio && (ops.len() != 1 || target.is_some()) {
+        return None;
+    }
+    // a single amount is a conversion to dollars (or from dollars to euros)
+    let target = target.unwrap_or(if terms[0].1 == "USD" && terms.len() == 1 { "EUR" } else if terms.len() == 1 { "USD" } else { terms[0].1 });
+    if terms.len() == 1 && terms[0].1 == target {
+        return None;
+    }
+    // "5 pounds" alone is a mass, "10 won" and "3 real" are words
+    if terms.len() == 1 && re!(r"^[\d,.]+\s*(?:pounds?|real|won|rand|dong|lira)$").is_match(body.trim()) {
+        return None;
+    }
+    let mut codes: Vec<&str> = terms.iter().map(|t| t.1).collect();
+    codes.push(target);
+    for extra in ["USD", "EUR", "GBP", "JPY", "CNY"] {
+        codes.push(extra);
+    }
+    let (rates, note) = per_usd(&codes)?;
+    let usd: Vec<f64> = terms.iter().zip(&rates).map(|((v, _), r)| v / r).collect();
+    let input = terms.iter().map(|(v, c)| format!("{} {c}", fmt_float(*v, 12))).collect::<Vec<_>>();
+    let mut joined = input[0].clone();
+    for (k, o) in ops.iter().enumerate() {
+        let sym = match *o { "+" | "plus" => "+", "-" | "minus" => "−", _ => "/" };
+        joined.push_str(&format!(" {sym} {}", input[k + 1]));
+    }
+    let money = |x: f64, c: &str| if x.abs() < 1.0 { format!("{} {c}", fmt_float(x, 3)) } else { format!("{} {c}", fmt_float((x * 100.0).round() / 100.0, 12)) };
+    if ratio {
+        let r = usd[0] / usd[1];
+        return Some(Answer::new("currency ratio", vec![
+            pod("Input", "Input interpretation", text(joined)),
+            primary(pod("Result", "Result", text(fmt_float(r, 4)))),
+            pod("Values", "Values in US dollars", text(format!("{} / {}", money(usd[0], "USD"), money(usd[1], "USD")))),
+            pod("Note", "Exchange rates", text(note)),
+        ]));
+    }
+    let mut total = usd[0];
+    for (k, o) in ops.iter().enumerate() {
+        total += if *o == "-" || *o == "minus" { -usd[k + 1] } else { usd[k + 1] };
+    }
+    let tr = rates[terms.len()];
+    let shown = if terms.len() == 1 { joined.clone() } else { format!("{joined} in {target}") };
+    let mut conv = vec![];
+    for (k, c) in codes.iter().enumerate().skip(terms.len() + 1) {
+        if *c != target && !conv.iter().any(|r: &(String, String)| r.0 == *c) {
+            conv.push((c.to_string(), money(total * rates[k], c)));
+        }
+    }
+    Some(Answer::new("currency conversion", vec![
+        pod("Input", "Input interpretation", text(format!("convert {shown}"))),
+        primary(pod("Result", "Result", text(money(total * tr, target)))),
+        pod("Table", "Other currencies", table(None, conv.into_iter().map(|(a, b)| vec![text(a), text(b)]).collect())),
+        pod("Note", "Exchange rates", text(note)),
+    ]))
+}
 
 fn offline_currency(amount: f64, from: &str, to: &str) -> Option<Answer> {
     let per = |c: &str| APPROX_PER_USD.iter().find(|(k, _)| *k == c).map(|(_, v)| *v);
@@ -235,7 +375,7 @@ fn currency(q: &Query) -> Option<Answer> {
     } else if let Some(m) = re!(r"^(?:exchange rate|rate)\s+(?:of\s+|from\s+)?([a-z]{3})\s*(?:to|/|and|-)\s*([a-z]{3})$").captures(l) {
         (1.0, currency_code(&m[1])?, currency_code(&m[2])?)
     } else {
-        return None;
+        return currency_expr(l);
     };
     if from == to {
         return None;

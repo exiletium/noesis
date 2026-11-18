@@ -495,11 +495,73 @@ fn cosmic_origins(l: &str) -> Option<Answer> {
     Some(Answer::new("cosmic origins", vec![input(format!("cosmic origins of {}", els.iter().map(|e| e.name.as_str()).collect::<Vec<_>>().join(", "))), primary(pod("Result", "Main sources", text(main))), pod("Table", "Origins", table(Some(vec!["element", "made mainly by"]), rowsv))]))
 }
 
+/// The ten WMO cloud genera: name, abbreviation, étage, typical base in
+/// temperate regions (km), appearance, composition, precipitation.
+const CLOUDS: &[(&str, &str, &str, &str, &str, &str, &str)] = &[
+    ("cirrus", "Ci", "high", "5–13 km (16,500–45,000 ft)", "detached white filaments, patches or narrow bands with a fibrous or silky look", "ice crystals", "none reaching the ground"),
+    ("cirrocumulus", "Cc", "high", "5–13 km (16,500–45,000 ft)", "thin white patches or layers of very small grains or ripples, without shading", "ice crystals (supercooled droplets at times)", "none reaching the ground (virga at times)"),
+    ("cirrostratus", "Cs", "high", "5–13 km (16,500–45,000 ft)", "transparent whitish veil, smooth or fibrous, often producing a halo around the Sun or Moon", "ice crystals", "none"),
+    ("altocumulus", "Ac", "middle", "2–7 km (6,500–23,000 ft)", "white or grey patches, sheets or layers of rounded masses or rolls, partly shaded", "mostly water droplets, ice when very cold", "virga, rarely light rain or snow"),
+    ("altostratus", "As", "middle", "2–7 km (6,500–23,000 ft), often thicker upward", "greyish or bluish sheet that may hide the Sun or show it as through ground glass, no halo", "water droplets and ice crystals", "light continuous rain or snow"),
+    ("nimbostratus", "Ns", "middle (base usually low)", "base usually 0.5–3 km (1,500–10,000 ft); several kilometres thick", "dark grey layer, diffuse by continuous rain or snow, thick enough to blot out the Sun", "water droplets, raindrops, ice crystals and snowflakes", "continuous moderate or heavy rain or snow"),
+    ("stratocumulus", "Sc", "low", "0.5–2 km (1,500–6,500 ft)", "grey or whitish patches, sheets or layers with dark parts, rounded masses or rolls", "water droplets", "drizzle, light rain or snow"),
+    ("stratus", "St", "low", "surface–0.5 km (0–1,500 ft)", "uniform grey layer with a fairly even base; fog when it touches the ground", "water droplets (ice when very cold)", "drizzle, snow grains"),
+    ("cumulus", "Cu", "low (vertical development)", "base 0.5–2 km (1,500–6,500 ft); tops up to about 6 km", "detached dense clouds with sharp outlines rising as mounds or towers, bright white tops and flat dark bases", "water droplets", "none for fair-weather cumulus; showers from cumulus congestus"),
+    ("cumulonimbus", "Cb", "low (spanning all étages)", "base 0.5–2 km (1,500–6,500 ft); tops at 10–16 km (33,000–52,000 ft)", "heavy, dense towering cloud, often with a flattened anvil-shaped top", "water droplets below, ice crystals in the upper part", "heavy showers, hail, thunder and lightning"),
+];
+
+/// "cumulus", "nimbostratus, cumulus", "altocumulus, cumulus cloud height", "cirrus clouds"
+fn clouds(l: &str) -> Option<Answer> {
+    let height = re!(r"\s+(?:cloud )?(?:height|altitude|base|base height|heights|altitudes)$").is_match(l) || re!(r"^(?:height|altitude) of ").is_match(l);
+    let body = re!(r"\s+(?:cloud )?(?:height|altitude|base|base height|heights|altitudes)$").replace(l, "");
+    let body = re!(r"^(?:(?:height|altitude) of |what (?:is|are) )?(?:an? |the )?").replace(&body, "");
+    let parts: Vec<&str> = re!(r"\s*(?:,|\bvs\.?|\bversus\b|\band\b)\s*").split(body.trim()).filter(|x| !x.is_empty()).collect();
+    let found: Option<Vec<_>> = parts
+        .iter()
+        .map(|p| {
+            let w = re!(r"\s+clouds?$").replace(p.trim(), "");
+            let w = w.trim_end_matches('s');
+            CLOUDS.iter().find(|c| c.0 == w || c.0 == format!("{w}s") || c.1.eq_ignore_ascii_case(w) && p.trim().ends_with("cloud"))
+        })
+        .collect();
+    let found = found?;
+    if found.is_empty() {
+        return None;
+    }
+    let cap = |s: &str| s[..1].to_uppercase() + &s[1..];
+    let src = pod("Source", "Source", text("WMO International Cloud Atlas; heights are typical of temperate regions (lower near the poles, higher in the tropics)"));
+    if found.len() == 1 {
+        let c = found[0];
+        let (title, value) = if height { ("Typical altitude", c.3.to_string()) } else { ("Description", format!("{} ({}): {} cloud — {}", cap(c.0), c.1, c.2, c.4)) };
+        return Some(Answer::new("cloud type", vec![
+            pod("Input", "Input interpretation", text(format!("{} cloud{}", c.0, if height { " | altitude" } else { "" }))),
+            primary(pod("Result", title, text(value))),
+            pod("Table", "Properties", table(None, vec![
+                vec![text("abbreviation"), text(c.1)],
+                vec![text("étage"), text(c.2)],
+                vec![text("typical altitude"), text(c.3)],
+                vec![text("appearance"), text(c.4)],
+                vec![text("composition"), text(c.5)],
+                vec![text("precipitation"), text(c.6)],
+            ])),
+            src,
+        ]));
+    }
+    let rows = found.iter().map(|c| vec![text(c.0), text(c.1), text(c.2), text(c.3), text(c.6)]).collect();
+    Some(Answer::new("cloud types", vec![
+        pod("Input", "Input interpretation", text(found.iter().map(|c| c.0).collect::<Vec<_>>().join(" | "))),
+        primary(pod("Result", if height { "Typical altitudes" } else { "Cloud types" }, text(found.iter().map(|c| format!("{}: {}", c.0, if height { c.3 } else { c.2 })).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Properties", table(Some(vec!["genus", "abbr.", "étage", "typical altitude", "precipitation"]), rows)),
+        src,
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
-    seawater(l)
+    clouds(l)
+        .or_else(|| seawater(l))
         .or_else(|| altitude_table(l))
         .or_else(|| codes(l))
         .or_else(|| bonds(l))

@@ -1170,3 +1170,24 @@ fn airports() {
     assert!(!short("CAT").contains("Airport"));
     assert!(noesis::query("SIN").short_answer().unwrap_or_default().find("Airport").is_none());
 }
+
+#[test]
+fn money_defaults_banknotes_and_clouds() {
+    // currency arithmetic (offline, approximate rates)
+    assert!(short("150 USD + 80 EUR").ends_with(" USD"));
+    assert!(short("2500 euros").ends_with(" USD"));
+    assert!(short("1300 Mexican pesos / 20,000 Russian rubles").parse::<f64>().is_ok());
+    assert!(short("5 pounds").contains("kg"));
+    // loans with typical terms assumed
+    assert_eq!(short("mortgage $300,000 30 years 6%"), "$1,798.65");
+    assert_eq!(short("car loan $20,000"), "$396.02");
+    assert!(pod_text(&q("mortgage"), "Assumptions").contains("30-year fixed mortgage"));
+    assert_eq!(short("time to pay $1200 credit card"), "25 months (2.1 years)");
+    assert!(short("student loan 30000").starts_with('$'));
+    // US banknotes
+    assert_eq!(short("width of a dollar bill"), "2.61 in (66.3 mm)");
+    assert_eq!(short("who is on the $50 bill"), "Ulysses S. Grant");
+    // clouds
+    assert!(short("nimbostratus, cumulus").starts_with("nimbostratus: middle"));
+    assert!(short("cumulus cloud height").starts_with("base 0.5–2 km"));
+}

@@ -404,7 +404,7 @@ fn probability(q: &Query) -> Option<Answer> {
         let a = kv(l, &["a", "min", "from"]).unwrap_or(0.0);
         let b = kv(l, &["b", "max", "to"]).unwrap_or(1.0);
         Some(Dist::Uniform(a, b))
-    } else if l.contains("t distribution") || l.contains("student") {
+    } else if l.contains("t distribution") || (l.contains("student") && !l.contains("loan")) {
         Some(Dist::StudentT(kv(l, &["df", "degrees of freedom", "nu", "ν"]).unwrap_or(10.0)))
     } else if l.contains("chi squared") || l.contains("chi-squared") || l.contains("χ²") {
         Some(Dist::ChiSquared(kv(l, &["df", "degrees of freedom", "k"]).unwrap_or(2.0)))

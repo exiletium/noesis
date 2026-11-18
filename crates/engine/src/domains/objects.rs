@@ -280,6 +280,53 @@ fn object_units(q: &Query) -> Option<Answer> {
     ]))
 }
 
+/// US banknotes in circulation: value, portrait, back design, year of the current design.
+const BILLS: &[(u32, &str, &str, &str)] = &[
+    (1, "George Washington", "the Great Seal of the United States", "1963 (small-size note design of 1935)"),
+    (2, "Thomas Jefferson", "John Trumbull's painting Declaration of Independence", "1976"),
+    (5, "Abraham Lincoln", "the Lincoln Memorial", "2008"),
+    (10, "Alexander Hamilton", "the US Treasury Building", "2006"),
+    (20, "Andrew Jackson", "the White House", "2003"),
+    (50, "Ulysses S. Grant", "the US Capitol", "2004"),
+    (100, "Benjamin Franklin", "Independence Hall", "2013"),
+];
+
+/// "width of a dollar bill", "what does a US $2 bill look like", "who is on the $50 bill", "$100 bill"
+fn banknote(q: &Query) -> Option<Answer> {
+    let l = q.lower.trim().trim_end_matches(['?', '.']);
+    let m = re!(r"^(?:(?:what is |what's )?(?:the )?(width|length|thickness|size|dimensions|weight|mass|height) of (?:an? |the |one )?|what does (?:an? |the )?|who(?:'s| is) on (?:an? |the )?)?(?:us |u\.s\. |american )?(?:\$(\d+)|(one|two|five|ten|twenty|fifty|hundred|one hundred|\d+)[- ]dollar|dollar)( bill| banknote| note)(?: look like)?$").captures(l)?;
+    let v: u32 = match (m.get(2), m.get(3)) {
+        (Some(d), _) => d.as_str().parse().ok()?,
+        (None, Some(w)) => match w.as_str() { "one" => 1, "two" => 2, "five" => 5, "ten" => 10, "twenty" => 20, "fifty" => 50, "hundred" | "one hundred" => 100, d => d.parse().ok()? },
+        _ => 1,
+    };
+    let &(_, portrait, back, design) = BILLS.iter().find(|b| b.0 == v)?;
+    let prop = m.get(1).map(|x| x.as_str());
+    let result = match prop {
+        Some("width" | "height") => ("Width", "2.61 in (66.3 mm)".to_string()),
+        Some("length") => ("Length", "6.14 in (156 mm)".to_string()),
+        Some("thickness") => ("Thickness", "0.0043 in (0.11 mm)".to_string()),
+        Some("weight" | "mass") => ("Mass", "about 1 g (0.035 oz)".to_string()),
+        Some(_) => ("Dimensions", "6.14 in × 2.61 in (156 mm × 66.3 mm), 0.0043 in (0.11 mm) thick".to_string()),
+        None if l.starts_with("who") => ("Portrait", portrait.to_string()),
+        None => ("Design", format!("front: portrait of {portrait}; back: {back}")),
+    };
+    Some(Answer::new("US banknote", vec![
+        input(format!("US ${v} bill{}", prop.map(|p| format!(" | {p}")).unwrap_or_default())),
+        primary(pod("Result", result.0, text(result.1))),
+        pod("Table", "Basic information", table(None, vec![
+            vec![text("face value"), text(format!("${v}"))],
+            vec![text("portrait (front)"), text(portrait)],
+            vec![text("back"), text(back)],
+            vec![text("current design series"), text(design)],
+            vec![text("dimensions"), text("6.14 in × 2.61 in (156 mm × 66.3 mm)")],
+            vec![text("thickness"), text("0.0043 in (0.11 mm)")],
+            vec![text("mass"), text("about 1 g")],
+            vec![text("material"), text("75% cotton, 25% linen")],
+        ])),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
-    fermi(q).or_else(|| compare(q)).or_else(|| counts(q)).or_else(|| object_units(q)).or_else(|| property(q))
+    banknote(q).or_else(|| fermi(q)).or_else(|| compare(q)).or_else(|| counts(q)).or_else(|| object_units(q)).or_else(|| property(q))
 }

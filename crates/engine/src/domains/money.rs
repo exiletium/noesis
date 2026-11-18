@@ -165,11 +165,61 @@ fn payment(p: f64, r: f64, k: f64, balloon: f64) -> f64 {
 
 fn loans(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']);
-    let m = re!(r"^(adjustable(?:[- ]rate)? |arm |fixed(?:[- ]rate)? |balloon )?(?:home |car |auto |student )?(?:loan|mortgage)(?: of| for)? \$?([\d,.]+k?),? (?:at )?([\d.]+) ?(?:%|percent)(?: apr| interest)?,? (?:for |over )?([\d.]+) ?(years?|months?)(?:,? (?:with )?(?:an? )?\$?([\d,.]+k?) balloon(?: payment)?)?$").captures(l)?;
+    let Some(m) = re!(r"^(adjustable(?:[- ]rate)? |arm |fixed(?:[- ]rate)? |balloon )?(?:home |car |auto |student )?(?:loan|mortgage)(?: of| for)? \$?([\d,.]+k?),? (?:at )?([\d.]+) ?(?:%|percent)(?: apr| interest)?,? (?:for |over )?([\d.]+) ?(years?|months?)(?:,? (?:with )?(?:an? )?\$?([\d,.]+k?) balloon(?: payment)?)?$").captures(l) else {
+        return loan_defaults(l);
+    };
     let principal = num(&m[2])?;
     let apr = num(&m[3])? / 100.0;
     let months = if m[5].starts_with('y') { num(&m[4])? * 12.0 } else { num(&m[4])? };
     let balloon = m.get(6).and_then(|b| num(b.as_str())).unwrap_or(0.0);
+    let adjustable = m.get(1).is_some_and(|a| a.as_str().starts_with("adj") || a.as_str().starts_with("arm"));
+    loan_answer(principal, apr, months, balloon, adjustable, None)
+}
+
+/// "mortgage", "car loan $20,000", "how much would I spend on a car with loan
+/// amount $20,000", "student loan 30000": typical rates and terms are assumed.
+fn loan_defaults(l: &str) -> Option<Answer> {
+    let kind = if l.contains("mortgage") || l.contains("home loan") || l.contains("house") {
+        "mortgage"
+    } else if re!(r"\b(?:car|auto|vehicle)\b").is_match(l) {
+        "car"
+    } else if l.contains("student loan") {
+        "student"
+    } else {
+        "loan"
+    };
+    if !re!(r"\b(?:loan|mortgage)\b").is_match(l) {
+        return None;
+    }
+    let amount = field(l, re!(r"\$\s*([\d,.]+k?)")).or_else(|| field(l, re!(r"(?:loan amount|loan of|loan|mortgage(?: of)?|borrow(?:ing)?)\s*\$?([\d,.]+k?)\b")));
+    let rate = field(l, re!(r"([\d.]+)\s*(?:%|percent)"));
+    let term = re!(r"([\d.]+)[- ]?(years?|yr|months?)").captures(l).and_then(|c| Some(num(&c[1])? * if c[2].starts_with('m') { 1.0 } else { 12.0 }));
+    // only the loan word and an amount, rate or term: "mortgage", "car loan $20,000"
+    let rest = re!(r"\$?\s*[\d,.]+k?\s*(?:%|percent|[- ]?years?|[- ]?yr|[- ]?months?)?|\b(?:how much (?:would|will|do) i (?:spend|pay)|on an?|for an?|with an?|with|loan amount|amount|monthly payments?|payments? (?:on|for)|calculator|calculate|the|a|of|at|over|for|loan|mortgage|car|auto|vehicle|new|used|student|home|house|fixed|rate|interest|apr|term|borrow(?:ing)?)\b").replace_all(l, "");
+    if !rest.trim().is_empty() {
+        return None;
+    }
+    let (p0, r0, k0) = match kind {
+        "mortgage" => (300_000.0, 6.5, 360.0),
+        "car" => (30_000.0, 7.0, 60.0),
+        "student" => (30_000.0, 6.5, 120.0),
+        _ => (10_000.0, 10.0, 36.0),
+    };
+    let mut assumed = vec![];
+    if amount.is_none() {
+        assumed.push(format!("amount {}", money(p0)));
+    }
+    if rate.is_none() {
+        assumed.push(format!("{}% APR", n(r0)));
+    }
+    if term.is_none() {
+        assumed.push(format!("{} years", n(k0 / 12.0)));
+    }
+    let note = (!assumed.is_empty()).then(|| format!("Assumed typical values for a {}: {}. Give them in the query to change them, as in \"{} $250,000 at 6% for 15 years\".", if kind == "loan" { "personal loan".to_string() } else if kind == "mortgage" { "30-year fixed mortgage".to_string() } else { format!("{kind} loan") }, assumed.join(", "), if kind == "mortgage" { "mortgage" } else { "loan" }));
+    loan_answer(amount.unwrap_or(p0), rate.unwrap_or(r0) / 100.0, term.unwrap_or(k0), 0.0, false, note)
+}
+
+fn loan_answer(principal: f64, apr: f64, months: f64, balloon: f64, adjustable: bool, note: Option<String>) -> Option<Answer> {
     let r = apr / 12.0;
     let pay = payment(principal, r, months, balloon);
     let total = pay * months + balloon;
@@ -197,7 +247,10 @@ fn loans(q: &Query) -> Option<Answer> {
         }
     }
     pods.push(pod("Amortization", "Amortization by year", table(Some(vec!["year", "principal", "interest", "balance"]), am)));
-    if m.get(1).is_some_and(|a| a.as_str().starts_with("adj") || a.as_str().starts_with("arm")) {
+    if let Some(nt) = note {
+        pods.push(pod("Assumptions", "Assumptions", text(nt)));
+    }
+    if adjustable {
         // 5/1 ARM scenarios: rate resets after five years
         let after = |rate: f64| {
             let mut b = principal;
@@ -242,7 +295,21 @@ fn credit_card(q: &Query) -> Option<Answer> {
             pod("Totals", "Totals", rows(vec![("total paid", money(total)), ("total interest", money(total - bal)), ("first month's interest", money(bal * r))])),
         ]));
     }
-    let k = over?;
+    let Some(k) = over else {
+        // no payment given: payoff times for a range of fixed monthly payments
+        let step = if bal < 2000.0 { 10.0 } else if bal < 20000.0 { 50.0 } else { 100.0 };
+        let pays: Vec<f64> = [0.03, 0.05, 0.1, 0.2].iter().map(|f| ((bal * f / step).ceil() * step).max(bal * r + step)).collect();
+        let months_for = |p: f64| -(1.0 - r * bal / p).ln() / (1.0 + r).ln();
+        let p = pays[1];
+        let k = months_for(p);
+        let rows_t: Vec<Vec<Content>> = pays.iter().map(|p| { let k = months_for(*p); vec![text(format!("{}/month", money(*p))), text(format!("{} months", n(k.ceil()))), text(money(p * k - bal))] }).collect();
+        return Some(Answer::new("credit card payoff", vec![
+            input(format!("credit card | balance {} | APR {}%{assumed} | payment {}/month (assumed, 5% of the balance)", money(bal), n(apr * 100.0), money(p))),
+            primary(pod("Result", "Time to pay off", text(format!("{} months ({} years)", n(k.ceil()), n((k / 12.0 * 10.0).round() / 10.0))))),
+            pod("Totals", "Totals", rows(vec![("total paid", money(p * k)), ("total interest", money(p * k - bal))])),
+            pod("Table", "By monthly payment", table(Some(vec!["payment", "time to pay off", "total interest"]), rows_t)),
+        ]));
+    };
     let p = payment(bal, r, k, 0.0);
     Some(Answer::new("credit card payoff", vec![
         input(format!("credit card | balance {} | APR {}%{assumed} | pay off in {} months", money(bal), n(apr * 100.0), n(k))),
