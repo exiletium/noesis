@@ -1155,3 +1155,18 @@ fn country_statistics() {
     // GDP per capita stays nominal, from the existing data
     assert_eq!(short("GDP per capita Norway / United States"), "1.155");
 }
+
+#[test]
+fn airports() {
+    assert_eq!(short("LAX"), "Los Angeles International Airport (LAX) — Los Angeles, CA, United States");
+    assert!(short("JFK, LGA, EWR").contains("LaGuardia Airport (LGA)"));
+    assert!(pod_text(&q("JFK, LGA, EWR"), "Distances").contains("JFK – LGA"));
+    assert_eq!(short("ICAO code of Heathrow airport"), "EGLL");
+    assert_eq!(short("elevation of Denver airport"), "5431 ft (1655 m)");
+    assert_eq!(short("distance from JFK to LAX"), "3974 km (2469 miles, 2146 nmi)");
+    assert_eq!(short("flight time from LAX to NYC"), "5 h 23 min");
+    assert!(short("airports near Chicago").contains("(ORD)"));
+    // codes that read first as something else are not taken as airports
+    assert!(!short("CAT").contains("Airport"));
+    assert!(noesis::query("SIN").short_answer().unwrap_or_default().find("Airport").is_none());
+}
