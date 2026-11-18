@@ -1199,3 +1199,14 @@ fn moons_and_minor_bodies() {
     assert!(short("Ceres, Pallas, Juno, Vesta").contains("Vesta | asteroid"));
     assert!(pod_text(&q("Triton moon"), "Properties").contains("(retrograde)"));
 }
+
+#[test]
+fn measuring_instruments() {
+    assert_eq!(short("what does a ruler measure?"), "length");
+    assert_eq!(short("alternative names for an hourglass"), "sandglass | sand timer | sand clock | egg timer");
+    assert!(short("device used to measure time").contains("hourglass"));
+    assert!(short("instances of a particle detector").contains("bubble chamber"));
+    assert!(short("thermometer types").starts_with("mercury thermometer"));
+    assert!(short("hydrometer").starts_with("Hydrometer — measures density"));
+    assert!(short("how do you measure charges?").contains("electrometer"));
+}
