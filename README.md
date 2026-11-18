@@ -131,7 +131,7 @@ Noesis reproduces WolframAlpha's style of answer, pods with exact and approximat
 
 It is also more limited, and these limits are real (the plan for closing them, topic by topic, is in [docs/PLAN.md](docs/PLAN.md)):
 
-* **Less curated data.** WolframAlpha draws on a vast, continuously updated, curated knowledge base. Noesis ships a small offline dataset (118 elements, about 250 countries, about 6,000 cities, physical constants, the solar system, common substances, isotopes, landmarks and world records, approximate GDP). Some of these figures, such as populations and GDP, change over time and are only as current as the bundled tables; offline currency conversion uses approximate mid-2025 rates and says so. When online it also fetches weather (Open-Meteo), exchange rates (European Central Bank) and encyclopedia summaries (Wikipedia), but it does not have WolframAlpha's structured data on nutrition, sports, films, companies and so on.
+* **Less curated data.** WolframAlpha draws on a vast, continuously updated, curated knowledge base. Noesis ships a small offline dataset (118 elements, about 250 countries, about 6,000 cities, physical constants, the solar system, common substances, isotopes, landmarks and world records, approximate GDP). Some of these figures, such as populations and GDP, change over time and are only as current as the bundled tables; offline currency conversion uses approximate mid-2025 rates and says so. When online it also fetches weather (Open-Meteo), exchange rates (European Central Bank) and encyclopedia summaries (Wikipedia), Its tables on nutrition, sports, people and history are small curated sets (about 100 foods, a few hundred people, battles and eras), and it has no structured data on films, companies, economic time series or demographics.
 * **Narrower language understanding without a model.** Out of the box, Noesis uses hand-written grammar rules. It understands ordinary mathematical notation and a wide set of English phrasings: the test suite contains seven corpora of 755 WolframAlpha-style questions (`crates/engine/tests/data/`), the tests require every one to be understood and assert the exact answers of about a hundred of them. Phrasings outside those rules may still not be understood unless you connect a language model (see above), and a model can misread a question, which is why the rewritten query is always shown.
 * **A smaller computer algebra system.** Integration is heuristic: tables, substitution, parts, rational functions, Euler and Weierstrass substitutions and special functions (erf, Si, Ei, Fresnel). It is not a complete Risch implementation, so some elementary integrals that Mathematica finds will be missed. Every antiderivative is checked numerically before it is shown, so wrong answers are rejected rather than displayed. Rational functions are integrated over the exact real and complex roots of the denominator, so ∫ 1/(x⁴ + 1) dx and similar integrals succeed. When a definite integral, sum or product can only be computed numerically, Noesis looks for a closed form q·c (c among π, π², √2, √3, ln 2, π ln 2, ζ(3), e, …) that matches to ten digits and shows it labelled as identified numerically. Factoring is over ℚ only, and high-degree polynomials fall back to numeric roots.
 * **Step-by-step solutions** cover derivatives, integrals (substitution, integration by parts, partial fractions, trigonometric identities and so on), limits (factoring, L'Hôpital, conjugates, logarithms), sums (power sums, geometric and telescoping series), equations (linear, quadratic, factoring, radical equations with extraneous-root checks), completing the square and implicit differentiation. Other operations show results without working.
@@ -274,6 +274,23 @@ The suite covers parsing, simplification, factoring, calculus, solving, number t
 cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/data/corpus2.txt
 ```
  Set `NOESIS_DEBUG=1` to see panic messages from failing tests. The engine silences panics by default because it uses them for timeouts.
+
+## Measured against WolframAlpha
+
+Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
+
+**Understood:** Noesis gives an answer to **64.7%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+
+**Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 175 that could be checked (WolframAlpha answered and the run finished), the answers agree on **60%** (105). On the rest, Noesis gives a different answer on 6% and does not understand 34%. The automatic checker alone reports 31% agreement; the difference is answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. The figure includes seven answers corrected after the comparison (sum-to-product factoring, anagrams, Galois fields, geodetic datums, the stellar mass–luminosity relation and substitution-system initial conditions).
+
+| Area | Understood (all examples) | Agree with WolframAlpha (sample) |
+|---|---|---|
+| Mathematics | 93.9% (1,317 / 1,403) | 81% (51 / 63) |
+| Science and technology | 61.5% (824 / 1,340) | 59% (36 / 61) |
+| Everyday life | 44.0% (353 / 803) | 29% (10 / 34) |
+| Society and culture | 38.6% (295 / 765) | 47% (8 / 17) |
+
+Strongest topics (share understood): number theory, logic, trigonometry, differential equations and applied mathematics (100%), Common Core mathematics (99%), algebra and linear algebra (97%), food and nutrition (100% of 18), history (83%), physics (80%). Weakest: economic data, institutions and organisations (0%), today's world and other live data (5%), points of interest (10%), weather (14%), demographics (16%), personal finance (22%), transportation (24%). Most of the weak topics depend on large, frequently updated datasets that an offline program does not carry.
 
 ## Benchmark against WolframAlpha
 

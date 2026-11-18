@@ -646,7 +646,8 @@ fn substitution(q: &Query) -> Option<Answer> {
         return None;
     }
     let steps: usize = m.get(2).and_then(|x| x.as_str().parse().ok()).unwrap_or(8).min(40);
-    let init = rules[0].0.clone();
+    // like WolframAlpha, start from the shortest left-hand side (alphabetically first among equals)
+    let init = rules.iter().map(|r| r.0.clone()).min_by(|a, b| a.len().cmp(&b.len()).then(a.cmp(b)))?;
     let apply = |s: &str| -> String {
         let b = s.as_bytes();
         let mut out = String::new();

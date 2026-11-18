@@ -1133,3 +1133,13 @@ fn combined_lookups() {
     // ordinary maths is untouched
     assert_eq!(short("sin x / cos x"), "tan(x)");
 }
+
+#[test]
+fn fixes_from_wolframalpha_comparison() {
+    assert_eq!(short("factor sin x + sin y"), "2 cos((x - y)/2) sin((x + y)/2)");
+    assert!(short("anagrams listen").contains("silent"));
+    assert!(short("luminosity 10 solar masses").starts_with("4427 L☉"));
+    assert!(short("GF(8)").starts_with(" | 0 | 1 | a | b"));
+    assert_eq!(short("GRS80"), "Geodetic Reference System of 1980");
+    assert_eq!(short("GDA94"), "Geodetic Reference System of 1980");
+}

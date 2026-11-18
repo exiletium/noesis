@@ -148,7 +148,7 @@ fn synonyms(l: &str) -> Option<Answer> {
 }
 
 fn anagram_query(l: &str) -> Option<Answer> {
-    let m = re!(r"^(?:anagrams?|word anagrams?)\s+(?:of|for)\s+(?:the word\s+)?([a-z]+)$|^([a-z]+)\s+anagrams?$|^(?:unscramble|descramble|rearrange the letters(?: of| in)?)\s+([a-z]+)$").captures(l)?;
+    let m = re!(r"^(?:anagrams?|word anagrams?)\s+(?:(?:of|for)\s+)?(?:the word\s+)?([a-z]+)$|^([a-z]+)\s+anagrams?$|^(?:unscramble|descramble|rearrange the letters(?: of| in)?)\s+([a-z]+)$").captures(l)?;
     let w = m.get(1).or(m.get(2)).or(m.get(3))?.as_str();
     if w.len() < 2 || w.len() > 30 {
         return None;

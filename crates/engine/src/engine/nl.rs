@@ -682,7 +682,7 @@ fn numbers(q: &Query, l: &str, c: &str) -> Option<Answer> {
         let label = format!("permutations of {n} objects");
         return answer(label.clone(), label, vec![primary(pod("Result", "Result", math(&eq(raw_fn("factorial", vec![int(n as i64)]), big(nt::factorial(n))))))]);
     }
-    if let Some(m) = cap(re!(r"^(?:the\s+)?(?:number of\s+)?(?:(?:distinct\s+)?(?:permutations|arrangements|anagrams)|ways to arrange)\s+(?:of\s+)?(?:the\s+)?(?:letters\s+(?:of|in)\s+)?(?:the word\s+)?([a-z]+)$")) {
+    if let Some(m) = cap(re!(r"^(?:the\s+)?(?:number of\s+)?(?:(?:distinct\s+)?(?:permutations|arrangements)|(?:distinct\s+)anagrams|ways to arrange)\s+(?:of\s+)?(?:the\s+)?(?:letters\s+(?:of|in)\s+)?(?:the word\s+)?([a-z]+)$")) {
         let w = g(&m, 1).to_lowercase();
         if w.len() < 2 || w.len() > 60 {
             return None;

@@ -275,6 +275,26 @@ pub fn handle(q: &Query) -> Option<Answer> {
             }
         }
         let x = var_or_default(&e, None);
+        // sum-to-product: "factor sin x + sin y"
+        if cmd.starts_with("factor") {
+            let src = m[2].as_deref()?.to_lowercase();
+            if let Some(t) = re!(r"^\s*(sin|cos)\s*\(?\s*([a-z0-9*]+)\s*\)?\s*([+-])\s*(sin|cos)\s*\(?\s*([a-z0-9*]+)\s*\)?\s*$").captures(&src) {
+                let (f, a, op, g, b) = (&t[1], &t[2], &t[3], &t[4], &t[5]);
+                if f == g && a != b {
+                    let (h, k) = (format!("(({a}) + ({b}))/2"), format!("(({a}) - ({b}))/2"));
+                    let out = match (f, op) {
+                        ("sin", "+") => format!("2 sin({h}) cos({k})"),
+                        ("sin", _) => format!("2 cos({h}) sin({k})"),
+                        ("cos", "+") => format!("2 cos({h}) cos({k})"),
+                        _ => format!("-2 sin({h}) sin({k})"),
+                    };
+                    if let Some(r) = parse_e(&out) {
+                        let pods = vec![input_pod(&p.d), primary(pod("Result", "Factored form", math(&r.expr))), pod("Identity", "Identity used", text("sum-to-product formula"))];
+                        return Some(Answer::new(format!("factor {}", ptext(&e)), pods));
+                    }
+                }
+            }
+        }
         let r = match cmd.as_str() {
             c if c.starts_with("factor") => s::factor(&e),
             "expand" => s::expand(&e),

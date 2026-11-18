@@ -430,6 +430,17 @@ fn mass_answer(m: f64, stage: &str) -> Answer {
 }
 
 fn star_of_mass(l: &str) -> Option<Answer> {
+    // "luminosity 10 solar masses": the piecewise main-sequence mass–luminosity relation
+    if let Some(c) = re!(r"^(?:the )?(?:main[ -]sequence )?luminosity (?:of |for )?(?:an? )?([\d.]+)[\s-]*(?:solar[\s-]mass(?:es)?|m☉|msun|m_sun)(?: star)?$").captures(l) {
+        let m = num(&c[1]).filter(|m| (0.01..=1000.0).contains(m))?;
+        let lum = ms_lum(m);
+        let band = if m < 0.43 { "0.23 M^2.3 (M < 0.43 M☉)" } else if m < 2.0 { "M^4 (0.43–2 M☉)" } else if m < 55.0 { "1.4 M^3.5 (2–55 M☉)" } else { "32000 M (M > 55 M☉)" };
+        return Some(Answer::new("stellar luminosity", vec![
+            input(format!("main-sequence luminosity | {} M☉", n(m))),
+            primary(pod("Result", "Stellar luminosity", text(format!("{} L☉ ({} W)", n((lum * 10.0).round() / 10.0), fmt_float(lum * 3.828e26, 4))))),
+            pod("Relation", "Mass–luminosity relation", text(format!("L/L☉ ≈ {band}"))),
+        ]));
+    }
     let c = re!(r"^(?:an? )?([\d.]+)[\s-]*(?:solar[\s-]mass(?:es)?|m☉|msun|m_sun)\s+((?:main[ -]sequence|red supergiant|blue supergiant|yellow supergiant|supergiant|red giant|giant)\s+)?star$")
         .captures(l)
         .or_else(|| re!(r"^(?:an? )?(?:((?:main[ -]sequence|supergiant|giant)\s+)?star (?:of |with (?:an? )?mass (?:of )?))([\d.]+)\s*(?:solar masses|solar mass|m☉|msun)$").captures(l))?;
