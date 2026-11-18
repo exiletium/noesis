@@ -717,6 +717,9 @@ fn element_question(q: &Query) -> Option<Answer> {
     if let Some(a) = element_ranking(l) {
         return Some(a);
     }
+    if let Some(a) = group_comparison(l) {
+        return Some(a);
+    }
     if re!(r"^(?:how many|number of) (?:chemical )?elements (?:are )?(?:there )?(?:in the periodic table|are there|exist|known)?$").is_match(l) || l == "elements in the periodic table" {
         let pods = vec![pod("Input", "Input interpretation", text("number of chemical elements")), primary(pod("Result", "Result", text("118 known elements (hydrogen, Z = 1, to oganesson, Z = 118)"))), pod("Natural", "Occurring naturally", text("94 occur in nature; the rest have only been made artificially"))];
         return Some(Answer::new("number of chemical elements", pods));
@@ -732,6 +735,11 @@ fn element_question(q: &Query) -> Option<Answer> {
 fn element_group(t: &str) -> Option<(&'static str, Vec<&'static Element>)> {
     let t = t.trim().trim_start_matches("the ").trim_end_matches(" elements").trim();
     let by_group = |g: u32| -> Vec<&'static Element> { elements().iter().filter(|e| e.group == Some(g) && e.z <= 118).collect() };
+    if matches!(t, "metals" | "metal" | "metallic elements") {
+        const METAL_SERIES: [&str; 6] = ["Alkali metals", "Alkaline earth metals", "Transition metals", "Lanthanides", "Actinides", "Poor metals"];
+        let list: Vec<&Element> = elements().iter().filter(|e| e.z <= 103 && e.series.as_deref().is_some_and(|s| METAL_SERIES.contains(&s))).collect();
+        return (!list.is_empty()).then_some(("Metals", list));
+    }
     if t == "coinage metals" || t == "coinage metal" {
         return Some(("Coinage metals", by_group(11).into_iter().filter(|e| e.z < 100).collect()));
     }
@@ -742,6 +750,37 @@ fn element_group(t: &str) -> Option<(&'static str, Vec<&'static Element>)> {
     let (_, series) = super::knowledge::GROUPS.iter().find(|(names, _)| names.contains(&t))?;
     let list: Vec<&Element> = elements().iter().filter(|e| e.series.as_deref() == Some(*series)).collect();
     (!list.is_empty()).then_some((*series, list))
+}
+
+/// "nonmetals vs alkali metals": members and the median of each property.
+fn group_comparison(l: &str) -> Option<Answer> {
+    let l = l.trim_start_matches("compare ");
+    let m = re!(r"^(.+?)\s+(?:vs\.?|versus|compared (?:to|with)|and)\s+(.+)$").captures(l)?;
+    let (a, b) = (element_group(&m[1])?, element_group(&m[2])?);
+    let median = |list: &[&'static Element], prop: &str| -> Option<f64> {
+        let mut v: Vec<f64> = list.iter().filter(|e| e.z <= 103).filter_map(|e| rank_value(e, prop)).collect();
+        if v.is_empty() {
+            return None;
+        }
+        v.sort_by(|x, y| x.total_cmp(y));
+        let n = v.len();
+        Some(if n % 2 == 1 { v[n / 2] } else { 0.5 * (v[n / 2 - 1] + v[n / 2]) })
+    };
+    let props = [("melting point", "K"), ("boiling point", "K"), ("density", "g/cm³"), ("electronegativity", ""), ("atomic radius", "pm"), ("ionization energy", "eV"), ("atomic mass", "u")];
+    let f = |v: Option<f64>, u: &str| v.map_or("—".to_string(), |x| format!("{}{}{u}", crate::print::fmt_float(x, 4), if u.is_empty() { "" } else { " " }));
+    let mut rows = vec![vec![text("number of elements"), text(a.1.len().to_string()), text(b.1.len().to_string())]];
+    for (p, u) in props {
+        rows.push(vec![text(format!("median {p}")), text(f(median(&a.1, p), u)), text(f(median(&b.1, p), u))]);
+    }
+    let members = |list: &[&'static Element]| list.iter().map(|e| e.name.clone()).collect::<Vec<_>>().join(", ");
+    let (na, nb) = (a.0.to_lowercase(), b.0.to_lowercase());
+    let pods = vec![
+        pod("Input", "Input interpretation", text(format!("{na} | {nb}"))),
+        primary(pod("Result", "Comparison (medians over the members)", table(Some(vec!["property", a.0, b.0]), rows))),
+        pod("MembersA", a.0, text(members(&a.1))),
+        pod("MembersB", b.0, text(members(&b.1))),
+    ];
+    Some(Answer::new(format!("{na} vs {nb}"), pods))
 }
 
 fn group_table(series: &str, list: &[&'static Element], prop: &str) -> Answer {

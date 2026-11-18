@@ -1698,3 +1698,11 @@ fn chinese_calendar() {
     assert_eq!(short("17 jiuyue 4706"), "Tuesday, November 3, 2009");
     assert!(short("today in the chinese calendar").contains("year of the"));
 }
+
+#[test]
+fn element_group_comparisons_and_apostrophe_names() {
+    let r = q("nonmetals vs Alkali metals");
+    assert!(pod_text(&r, "Result").contains("324.5 K"));
+    assert!(pod_text(&q("metal melting point"), "Result").contains("Lithium"));
+    assert!(short("Ma'at").starts_with("Egyptian goddess"));
+}

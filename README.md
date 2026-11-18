@@ -119,6 +119,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | ISBNs, paper sizes, compressed Turing machines | `ISBN 1-5795-5008-8`, `paper size A4`, `nearest paper sizes for a 5"x7" photo`, `TM 2506 with left-right compression`, `left-compressed evolution of Wolfram 2,3` |
 | Trigonometric inequalities, fraction diagrams | `solve sin(x) > 1/2`, `number line csc(x)<=2/sqrt(3)`, `pie chart 5/7`, `tape diagram of 3/6`, `1/3 - 4/5 pie charts` |
 | Chinese calendar | `today in the chinese calendar`, `convert 17 jiuyue, 4706 Chinese lunar calendar to the Islamic calendar`, `chinese new year 2027` |
+| Element group comparisons | `nonmetals vs Alkali metals`, `metal melting point`, `Ma'at` |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |

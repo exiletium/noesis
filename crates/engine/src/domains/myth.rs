@@ -148,16 +148,21 @@ fn figures() -> &'static Vec<Figure> {
     })
 }
 
+/// Lower case without apostrophes, so "Ma'at" finds Maat.
+fn fold_name(s: &str) -> String {
+    s.to_lowercase().chars().filter(|c| !matches!(c, '\'' | '’' | 'ʼ' | '‘')).collect()
+}
+
 fn find(s: &str) -> Option<&'static Figure> {
     let s = s.trim().trim_end_matches("'s").trim();
-    let low = s.to_lowercase();
-    if let Some(f) = figures().iter().find(|f| f.names.iter().any(|n| n.to_lowercase() == low)) {
+    let low = fold_name(s);
+    if let Some(f) = figures().iter().find(|f| f.names.iter().any(|n| fold_name(n) == low)) {
         return Some(f);
     }
     let s = re!(r"^(?:the )?(?:(greek|roman|egyptian|hindu|norse) )?(?:god(?:dess)? |hero |deity |titan )?").replace(s, "").to_string();
     let s = s.trim().trim_end_matches("'s").trim();
-    let low = s.to_lowercase();
-    figures().iter().find(|f| f.names.iter().any(|n| n.to_lowercase() == low))
+    let low = fold_name(s);
+    figures().iter().find(|f| f.names.iter().any(|n| fold_name(n) == low))
 }
 
 fn field(f: &Figure, what: &str) -> Option<(&'static str, String)> {
