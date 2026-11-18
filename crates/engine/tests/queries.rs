@@ -1323,3 +1323,11 @@ fn periodic_table_radioactive_elements_and_uk_nations() {
     assert_eq!(short("capital of Northern Ireland"), "Belfast");
     assert!(short("Scotland").contains("capital Edinburgh"));
 }
+
+#[test]
+fn tool_examples_and_named_cubic_graphs() {
+    assert_eq!(short("linear fit"), "2.08 x - 0.15");
+    assert!(pod_text(&q("Z-transform calculator"), "Example").contains("Z transform of 2^n"));
+    let pappus = pod_text(&q("Pappus graph"), "Properties");
+    assert!(pappus.contains("girth | 6") && pappus.contains("diameter | 4"));
+}

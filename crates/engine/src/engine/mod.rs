@@ -38,6 +38,7 @@ pub mod math5;
 pub mod math6;
 pub mod math7;
 pub mod mathfacts;
+pub mod examples;
 pub mod prob2;
 
 use crate::budget;
@@ -267,6 +268,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("intseq", intseq::handle));
     v.push(("math", math::handle));
     v.push(("rephrase", llm::handle));
+    v.push(("examples", examples::handle));
     v.push(("titles", crate::domains::facts::bare));
     v.push(("encyclopedia", crate::domains::live::fallback));
     v

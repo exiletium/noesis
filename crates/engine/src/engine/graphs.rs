@@ -143,6 +143,35 @@ fn petersen() -> Graph {
     g
 }
 
+/// A cubic Hamiltonian graph from LCF notation: the cycle 0..n plus i ~ i + s_i.
+fn lcf(shifts: &[i64], repeat: usize) -> Graph {
+    let n = shifts.len() * repeat;
+    let mut g = Graph::new(n);
+    for i in 0..n {
+        g.add(i.min((i + 1) % n), i.max((i + 1) % n));
+        let j = (i as i64 + shifts[i % shifts.len()]).rem_euclid(n as i64) as usize;
+        if !g.edges.contains(&(i.min(j), i.max(j))) {
+            g.add(i.min(j), i.max(j));
+        }
+    }
+    g
+}
+
+/// Named cubic graphs: names, LCF shifts, repeats, notes.
+const LCF_GRAPHS: &[(&[&str], &[i64], usize, &str)] = &[
+    (&["pappus graph"], &[5, 7, -7, 7, -7, -5], 3, "bipartite, distance-regular; the Levi graph of the Pappus configuration; LCF [5,7,−7,7,−7,−5]³"),
+    (&["heawood graph"], &[5, -5], 7, "the (3,6)-cage; the Levi graph of the Fano plane; LCF [5,−5]⁷"),
+    (&["mobius-kantor graph", "möbius-kantor graph", "mobius kantor graph", "möbius–kantor graph"], &[5, -5], 8, "generalized Petersen graph GP(8,3); LCF [5,−5]⁸"),
+    (&["desargues graph"], &[5, -5, 9, -9], 5, "generalized Petersen graph GP(10,3); the Levi graph of the Desargues configuration; LCF [5,−5,9,−9]⁵"),
+    (&["franklin graph"], &[5, -5], 6, "a 3-regular graph on 12 vertices that is bipartite; LCF [5,−5]⁶"),
+    (&["frucht graph"], &[-5, -2, -4, 2, 5, -2, 2, 5, -2, -5, 4, 2], 1, "the smallest cubic graph with no nontrivial automorphism (Frucht, 1939)"),
+    (&["nauru graph"], &[5, -9, 7, -7, 9, -5], 4, "generalized Petersen graph GP(12,5); LCF [5,−9,7,−7,9,−5]⁴"),
+    (&["mcgee graph"], &[12, 7, -7], 8, "the (3,7)-cage; LCF [12,7,−7]⁸"),
+    (&["tutte-coxeter graph", "tutte–coxeter graph", "tutte coxeter graph", "tutte 8-cage"], &[-13, -9, 7, -7, 9, 13], 5, "the (3,8)-cage; LCF [−13,−9,7,−7,9,13]⁵"),
+    (&["dodecahedral graph", "dodecahedron graph"], &[10, 7, 4, -4, -7, 10, -4, 7, -7, 4], 2, "the skeleton of the regular dodecahedron; LCF [10,7,4,−4,−7,10,−4,7,−7,4]²"),
+    (&["cubical graph", "cube graph"], &[3, -3], 4, "the skeleton of the cube, the hypercube Q₃; LCF [3,−3]⁴"),
+];
+
 fn kary_tree(k: usize, levels: usize) -> Option<Graph> {
     // levels counts the rows of vertices, root included
     let mut n: u128 = 0;
@@ -575,6 +604,10 @@ fn named(l: &str) -> Option<(Graph, String, Vec<(&'static str, String)>)> {
     if let Some(m) = re!(r"^(?:the\s+)?(?:(\d+)[- ]?(?:dimensional\s+)?(?:hypercube|cube) graph|hypercube graph\s+q_?\s*(\d+))$").captures(l) {
         let d = num(m.get(1).or(m.get(2))?.as_str()).filter(|d| *d <= 10)?;
         return Some((hypercube(d), format!("{d}-dimensional hypercube graph Q_{d}"), vec![]));
+    }
+    if let Some((names, sh, r, note)) = LCF_GRAPHS.iter().find(|(names, ..)| names.contains(&l.trim_start_matches("the "))) {
+        let name = names[0].split(' ').map(|w| w[..1].to_uppercase() + &w[1..]).collect::<Vec<_>>().join(" ").replace(" Graph", " graph");
+        return Some((lcf(sh, *r), name, vec![("note", note.to_string())]));
     }
     if l == "petersen graph" || l == "the petersen graph" {
         return Some((petersen(), "Petersen graph".into(), vec![("automorphisms", "120 (the symmetric group S₅)".into()), ("note", "the (3,5)-cage; not Hamiltonian, but every vertex-deleted subgraph is".into())]));
