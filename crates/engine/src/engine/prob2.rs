@@ -551,6 +551,33 @@ fn dist_properties(l: &str) -> Option<Answer> {
         };
         return Some(Answer::new("distribution property", vec![input(format!("{what} of the {}", d.name())), primary(pod("Result", &what[..1].to_uppercase().to_string().chars().chain(what[1..].chars()).collect::<String>(), text(show_val(&v))))]));
     }
+    // a distribution with numeric parameters, maybe followed by a property:
+    // "moyal distribution mu=2.3 sigma=12 skewness"
+    if let Some(m) = re!(r"^(?:the |a )?(.+? (?:distribution|dist)\b.*?=.*?)(?:,? (mean|variance|standard deviation|skewness|kurtosis|excess kurtosis))?$").captures(l) {
+        if let Some(p) = m.get(2) {
+            return dist_properties(&format!("{} of {}", p.as_str(), &m[1]));
+        }
+        if let Some(d) = parse_dist(&m[1]).filter(|d| d.params.iter().all(|p| p.free_symbols().is_empty())) {
+            let mut rows = Vec::new();
+            for (name, v) in [
+                ("mean", d.raw(1)),
+                ("variance", d.central(2)),
+                ("standard deviation", d.central(2).map(sqrt)),
+                ("skewness", d.cumulant(3).zip(d.cumulant(2)).map(|(k3, k2)| div(k3, pos_pow(&s::simplify(&k2), 3, 2)))),
+                ("excess kurtosis", d.cumulant(4).zip(d.cumulant(2)).map(|(k4, k2)| div(k4, square(k2)))),
+            ] {
+                let shown = v.map(|e| show_val(&e)).unwrap_or_else(|| "undefined".into());
+                rows.push(vec![text(name), text(shown)]);
+            }
+            let (density, support) = formula(d.kind);
+            let params: Vec<String> = d.kind.info().1.iter().zip(&d.params).map(|(n, p)| format!("{n} = {}", ptext(p))).collect();
+            return Some(Answer::new("distribution", vec![
+                input(format!("{} | {}", d.kind.info().0, params.join(", "))),
+                primary(pod("Result", "Properties", table(None, rows))),
+                pod("Formula", if d.discrete() { "Probability mass function" } else { "Probability density function" }, text(format!("{density} for {support}"))),
+            ]));
+        }
+    }
     // a bare distribution name: formulas
     let m = re!(r"^(?:the )?([a-z' -]+?) (?:distribution|dist)$").captures(l)?;
     let d = parse_dist(&format!("{} distribution", &m[1]))?;

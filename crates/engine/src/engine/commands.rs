@@ -368,6 +368,43 @@ pub fn handle(q: &Query) -> Option<Answer> {
         let pl = pl::polar(&r, &t, (a, b))?;
         return Some(Answer::new(format!("polar plot r = {}", ptext(&r)), vec![pod("Input", "Input", text(format!("polar plot r(θ) = {}", ptext(&r).replace('t', "θ")))), primary(pod("Plot", "Polar plot", plot(pl)))]));
     }
+    // a parametric surface in u and v: "3d parametric plot (cos u, sin u + cos v, sin v), u=0 to 2pi, v=0 to 2pi"
+    if let Some(m) = cap(re!(r"^(?:parametric plot|plot parametric|3d parametric plot|parametric 3d plot|parametric surface|plot parametric surface)\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)(?:\s*,?\s+(?:for\s+)?u\s*=\s*(.+?)\s+to\s+(.+?))?(?:\s*,?\s+(?:and\s+)?v\s*=\s*(.+?)\s+to\s+(.+?))?$")) {
+        let body = m[1].as_deref()?;
+        let mut parts = Vec::new();
+        let (mut depth, mut start) = (0i32, 0usize);
+        for (i, ch) in body.char_indices() {
+            match ch {
+                '(' => depth += 1,
+                ')' => depth -= 1,
+                ',' if depth == 0 => {
+                    parts.push(&body[start..i]);
+                    start = i + 1;
+                }
+                _ => {}
+            }
+        }
+        parts.push(&body[start..]);
+        if parts.len() == 3 {
+            let fs: Option<Vec<Expr>> = parts.iter().map(|p| ex(p.trim())).collect();
+            let fs = fs?;
+            let (u, v) = (sym("u"), sym("v"));
+            let vars: std::collections::BTreeSet<Name> = fs.iter().flat_map(|f| f.free_symbols()).collect();
+            if vars.contains("u") && vars.contains("v") && vars.len() == 2 {
+                let two_pi = mul(vec![int(2), pi()]);
+                let lim = |a: Option<&str>, b: Option<&str>| -> Option<(Expr, Expr)> {
+                    Some((a.and_then(bound).unwrap_or_else(zero), b.and_then(bound).unwrap_or_else(|| two_pi.clone())))
+                };
+                let (ua, ub) = lim(m[2].as_deref(), m[3].as_deref())?;
+                let (va, vb) = lim(m[4].as_deref(), m[5].as_deref())?;
+                let pl = pl::parametric_surface([&fs[0], &fs[1], &fs[2]], &u, &v, (ua.to_f64_const()?, ub.to_f64_const()?), (va.to_f64_const()?, vb.to_f64_const()?))?;
+                return Some(Answer::new("parametric surface", vec![
+                    pod("Input", "Input", text(format!("parametric plot ({}, {}, {}) for u from {} to {}, v from {} to {}", ptext(&fs[0]), ptext(&fs[1]), ptext(&fs[2]), ptext(&ua), ptext(&ub), ptext(&va), ptext(&vb)))),
+                    primary(pod("Plot", "Parametric surface (wireframe)", plot(pl))),
+                ]));
+            }
+        }
+    }
     if let Some(m) = cap(re!(r"^(?:parametric plot|plot parametric|space curve|3d parametric plot|parametric 3d plot)\s*\(?([^,]+),([^,]+),([^,()]+(?:\([^()]*\))?[^,()]*?)\)?(?:\s+(?:from\s+|for\s+)?t\s*=\s*(.+?)\s+to\s+(.+))?$")) {
         let fx = ex(m[1].as_deref()?)?;
         let fy = ex(m[2].as_deref()?)?;

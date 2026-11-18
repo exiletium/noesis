@@ -350,6 +350,47 @@ pub fn parametric3(fx: &Expr, fy: &Expr, fz: &Expr, t: &Expr, range: (f64, f64))
     Some(plot)
 }
 
+/// A parametric surface (x(u,v), y(u,v), z(u,v)) as a wireframe of u- and v-lines.
+pub fn parametric_surface(f: [&Expr; 3], u: &Expr, v: &Expr, ur: (f64, f64), vr: (f64, f64)) -> Option<Plot> {
+    let (un, vn) = (name_of(u), name_of(v));
+    let progs: Option<Vec<Program>> = f.iter().map(|e| Program::compile(e, &[&un, &vn]).map(|p| p.with_real_roots())).collect();
+    let progs = progs?;
+    let (lines, n) = (24usize, 120usize);
+    let at = |r: (f64, f64), k: usize, m: usize| r.0 + (r.1 - r.0) * k as f64 / (m - 1) as f64;
+    let mut segs: Vec<Vec<[f64; 3]>> = Vec::new();
+    for dir in 0..2 {
+        for i in 0..lines {
+            let mut cur = Vec::new();
+            for k in 0..n {
+                let (uu, vv) = if dir == 0 { (at(ur, i, lines), at(vr, k, n)) } else { (at(ur, k, n), at(vr, i, lines)) };
+                let p: Vec<f64> = progs.iter().map(|g| g.eval(&[uu, vv])).collect();
+                if p.iter().all(|x| x.is_finite()) {
+                    cur.push([p[0], p[1], p[2]]);
+                } else if !cur.is_empty() {
+                    segs.push(std::mem::take(&mut cur));
+                }
+            }
+            if cur.len() > 1 {
+                segs.push(cur);
+            }
+        }
+    }
+    if segs.is_empty() {
+        return None;
+    }
+    let mut plot = Plot::new(PlotKind::Curve3d);
+    let all: Vec<&[f64; 3]> = segs.iter().flatten().collect();
+    let range_of = |k: usize| all.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| (lo.min(p[k]), hi.max(p[k])));
+    plot.x_range = range_of(0);
+    plot.y_range = range_of(1);
+    plot.curve3d = segs;
+    plot.x_label = "x".into();
+    plot.y_label = "y".into();
+    plot.exprs = f.iter().map(|e| text(e)).collect();
+    plot.vars = vec![un, vn];
+    Some(plot)
+}
+
 /// Project a space curve onto the plane at a fixed viewing angle (for SVG).
 pub fn project_curve3d(plot: &Plot, yaw: f64, pitch: f64) -> Plot {
     let all: Vec<&[f64; 3]> = plot.curve3d.iter().flatten().collect();

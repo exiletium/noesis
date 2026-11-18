@@ -1576,3 +1576,14 @@ fn office_holders_at_events() {
     assert!(short("President of the US 87 years after the Gettysburg Address").starts_with("Harry S. Truman"));
     assert!(short("Leader of Sudan on South Sudan's independence date").starts_with("Omar al-Bashir"));
 }
+
+#[test]
+fn numeric_distributions_and_parametric_surfaces() {
+    assert!(short("moyal distribution mu=2.3 sigma=12 skewness").contains("1.5351"));
+    let r = q("3d parametric plot (cos u, sin u + cos v, sin v), u=0 to 2pi, v=0 to 2pi");
+    let p = r.pods.iter().find(|p| p.id == "Plot").unwrap();
+    match &p.subpods[0].content {
+        noesis::engine::Content::Plot { plot: pl } => assert!(pl.curve3d.len() >= 40),
+        _ => panic!("no plot"),
+    }
+}

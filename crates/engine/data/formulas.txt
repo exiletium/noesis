@@ -296,7 +296,7 @@ var T; temperature; K; ; 288.15
 var Mair; molar mass of air; kg/mol; ; 0.0289644
 var g; gravitational acceleration; m/s^2; gravity; 9.80665
 
-== Archimedes' principle | buoyant force | buoyancy
+== Archimedes' principle | Archimedes principle | buoyant force | buoyancy
 eq Fb = rho * V * g
 var Fb; buoyant force; N; force
 var rho; fluid density; kg/m^3; density; 1000
