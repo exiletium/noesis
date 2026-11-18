@@ -1221,3 +1221,10 @@ fn pronunciation_and_rhymes() {
     assert!(short("word plinth").contains("architectural support"));
     assert!(pod_text(&q("define plinth"), "Pronunciation").contains("/plɪnθ/"));
 }
+
+#[test]
+fn broader_and_narrower_terms() {
+    assert!(short("broader terms wine").starts_with("alcohol"));
+    assert!(short("narrower terms green").contains("sea green"));
+    assert!(pod_text(&q("define dog"), "Broader").contains("canine"));
+}

@@ -20,6 +20,41 @@ macro_rules! re {
 static WORDS_Z: &[u8] = include_bytes!("../../data/words.z");
 static DICT_Z: &[u8] = include_bytes!("../../data/dictionary.z");
 static CMU_Z: &[u8] = include_bytes!("../../data/cmudict.z");
+static REL_Z: &[u8] = include_bytes!("../../data/relations.z");
+
+/// word → (broader terms "a;b", narrower terms "c;d") from WordNet
+fn relations() -> &'static HashMap<&'static str, (&'static str, &'static str)> {
+    static D: OnceLock<HashMap<&'static str, (&'static str, &'static str)>> = OnceLock::new();
+    D.get_or_init(|| {
+        inflate(REL_Z)
+            .lines()
+            .filter_map(|line| {
+                let c: Vec<&'static str> = line.splitn(4, '\t').collect();
+                (c.len() == 4).then(|| (c[0], (c[2], c[3])))
+            })
+            .collect()
+    })
+}
+
+/// "broader terms wine", "narrower terms green", "hypernyms of dog"
+fn related(l: &str) -> Option<Answer> {
+    let m = re!(r"^(broader|narrower|more general|more specific) (?:terms?|words?)(?: for| of| than)? (?:the word )?([a-z]+)$|^(hypernyms?|hyponyms?) (?:of |for )?(?:the word )?([a-z]+)$|^([a-z]+) (broader|narrower) terms$").captures(l)?;
+    let kind = m.get(1).or(m.get(3)).or(m.get(6))?.as_str();
+    let w = m.get(2).or(m.get(4)).or(m.get(5))?.as_str();
+    let up = kind.starts_with("broader") || kind == "more general" || kind.starts_with("hyper");
+    let (base, (b, n)) = stems(w).into_iter().find_map(|s| relations().get(s.as_str()).map(|r| (s.clone(), *r)))?;
+    let list = if up { b } else { n };
+    if list.is_empty() {
+        return None;
+    }
+    let label = if up { "Broader terms" } else { "Narrower terms" };
+    let items: Vec<&str> = list.split(';').collect();
+    Some(Answer::new(format!("{} for {base}", label.to_lowercase()), vec![
+        pod("Input", "Input interpretation", text(format!("{base} (English word) | {}", label.to_lowercase()))),
+        primary(pod("Result", label, text(word_list(&items)))),
+        pod("Source", "Source", text("WordNet 3.1, Princeton University (the two most common senses)")),
+    ]))
+}
 
 /// word → ARPAbet pronunciations (CMU Pronouncing Dictionary)
 fn cmudict() -> &'static HashMap<&'static str, Vec<&'static str>> {
@@ -310,6 +345,14 @@ fn define(l: &str) -> Option<Answer> {
     if !others.is_empty() {
         pods.push(pod("Anagrams", "Anagrams", text(word_list(&others))));
     }
+    if let Some((b, n)) = relations().get(base.as_str()) {
+        if !b.is_empty() {
+            pods.push(pod("Broader", "Broader terms", text(b.replace(';', "  |  "))));
+        }
+        if !n.is_empty() {
+            pods.push(pod("Narrower", "Narrower terms", text(n.split(';').take(15).collect::<Vec<_>>().join("  |  "))));
+        }
+    }
     if let Some(rows) = pron_rows(&base) {
         pods.insert(2, pod("Pronunciation", "Pronunciation", table(None, rows.into_iter().map(|(a, b)| vec![text(a), text(b)]).collect())));
     }
@@ -486,5 +529,5 @@ fn soundex_query(l: &str) -> Option<Answer> {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches('?').trim();
-    soundex_query(l).or_else(|| sounds(l)).or_else(|| anagram_query(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
+    soundex_query(l).or_else(|| sounds(l)).or_else(|| related(l)).or_else(|| anagram_query(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
 }
