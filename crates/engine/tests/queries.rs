@@ -1552,3 +1552,12 @@ fn planet_positions_moon_periods_and_synonyms() {
     assert!(short("next waning gibbous moon").starts_with("waning gibbous: "));
     assert!(short("synonyms granular").contains("grainy"));
 }
+
+#[test]
+fn carbon_footprints_dated_positions_and_can_volumes() {
+    assert_eq!(short("carbon footprint coal 100W"), "104.3 g per hour | 914.29 kg per year");
+    assert_eq!(short("carbon footprint driving 536 miles at 32mpg"), "148.86 kg");
+    assert!(short("carbon footprint natural gas").starts_with("0.44 kg CO₂ per kWh of electricity"));
+    assert!(short("mars on 2020-10-13").ends_with("in Pisces"));
+    assert_eq!(short("2 cans of coke in ml."), "710 ml");
+}

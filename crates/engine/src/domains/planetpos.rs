@@ -45,6 +45,11 @@ fn dms(deg: f64) -> String {
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
+    // "Venus 14 Jan 2001", "mars on 2020-10-13": the position on that date
+    let l = match re!(r"^(sun|mercury|venus|mars|jupiter|saturn|uranus|neptune) (?:on )?(.+)$").captures(&l) {
+        Some(d) if super::misc::parse_date(&d[2]).is_some() => format!("{} position on {}", &d[1], &d[2]),
+        _ => l,
+    };
     let m = re!(r"^(?:what is |what's )?(?:the )?(?:(right ascension and declination|ra and dec|right ascension|declination|position|coordinates|celestial coordinates|sky position|location) of (?:the )?(sun|mercury|venus|mars|jupiter|saturn|uranus|neptune)|(sun|mercury|venus|mars|jupiter|saturn|uranus|neptune)(?:'s)? (right ascension and declination|right ascension|declination|ra and dec|position|coordinates|celestial coordinates|sky position|position in the sky)|where is (?:the )?(sun|mercury|venus|mars|jupiter|saturn|uranus|neptune) in the sky(?: now| tonight| right now)?)(?: (?:now|today|right now|on (.+)))?$").captures(&l)?;
     let body = m.get(2).or(m.get(3)).or(m.get(5))?.as_str();
     let what = m.get(1).or(m.get(4)).map(|x| x.as_str()).unwrap_or("position");

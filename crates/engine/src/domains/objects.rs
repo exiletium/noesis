@@ -259,11 +259,17 @@ fn counts(q: &Query) -> Option<Answer> {
 /// "how many liters in 6 cans of coke"
 fn object_units(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']);
-    let m = re!(r"^(?:how many )?([a-z ]+?) (?:are )?in (\d+(?:\.\d+)?) (.+)$").captures(l)?;
-    let o = find_obj(&m[3])?;
-    let k: f64 = m[2].parse().ok()?;
-    let (_, u, _) = crate::domains::units::parse_quantity(&format!("1 {}", m[1].trim()))?;
-    let label = m[1].trim().to_string();
+    // "how many liters in 6 cans of coke" or "2 cans of coke in ml"
+    let (unit, k, obj) = if let Some(m) = re!(r"^(?:how many )?([a-z ]+?) (?:are )?in (\d+(?:\.\d+)?) (.+)$").captures(l) {
+        (m[1].to_string(), m[2].to_string(), m[3].to_string())
+    } else {
+        let m = re!(r"^(\d+(?:\.\d+)?) (.+?) (?:in|to|into|in terms of) ([a-z ]+)$").captures(l)?;
+        (m[3].to_string(), m[1].to_string(), m[2].to_string())
+    };
+    let o = find_obj(&obj)?;
+    let k: f64 = k.parse().ok()?;
+    let (_, u, _) = crate::domains::units::parse_quantity(&format!("1 {}", unit.trim()))?;
+    let label = unit.trim().to_string();
     let total = match u.dim {
         d if d[0] == 3 && d[1..].iter().all(|x| *x == 0) => k * o.volume,
         d if d[0] == 1 && d[1..].iter().all(|x| *x == 0) => k * o.length,
