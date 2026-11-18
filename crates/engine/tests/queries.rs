@@ -1508,3 +1508,10 @@ fn character_creators_and_comparisons() {
     assert!(short("Edward Cullen, Isabella Cullen").contains("Bella Swan"));
     assert_eq!(short("who created the Mona Lisa"), "Leonardo da Vinci");
 }
+
+#[test]
+fn arithmetic_on_looked_up_quantities() {
+    assert_eq!(short("(mass Phobos+Deimos) / (mass Mars)"), "1.89107×10^-8");
+    assert_eq!(short("(mass Saturn+Uranus+Neptune) / (mass Jupiter)"), "0.399098");
+    assert_eq!(short("(surface area Ceres) / (area India)"), "0.843283");
+}

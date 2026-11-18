@@ -138,6 +138,12 @@ pub fn handle(q: &Query) -> Option<Answer> {
     if let Some(a) = log_plot(q).or_else(|| complete_reaction(q)) {
         return Some(a);
     }
+    DEPTH.with(|d| d.set(1));
+    let qa = quantity_arith(q);
+    DEPTH.with(|d| d.set(0));
+    if qa.is_some() {
+        return qa;
+    }
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = l.trim_end_matches(" calculator").trim_end_matches(" solver").trim_end_matches(" tool").trim();
     let (_, example) = EXAMPLES.iter().find(|(names, _)| names.contains(&l))?;
@@ -150,4 +156,172 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let mut pods = vec![pod("Example", "Example", text(format!("no input was given, so here is an example: {example}")))];
     pods.extend(r.pods);
     Some(Answer::new(format!("{l} (example)"), pods))
+}
+
+/// Arithmetic on looked-up quantities: "(mass Phobos+Deimos) / (mass Mars)",
+/// "Sudbury Crater diameter / Denali height", "(surface area Ceres) / (area India)".
+/// Each operand is answered by the other handlers and read back as a number with a unit.
+fn quantity_arith(q: &Query) -> Option<Answer> {
+    use crate::domains::units::{parse_quantity, si_name, to_si, Dim};
+    let s = q.clean.trim().trim_end_matches(['?', '.']).trim();
+    if !s.contains(['/', '+', '*']) || s.len() > 120 {
+        return None;
+    }
+    // tokens: operands (text) and operators/parentheses
+    #[derive(Clone, Debug)]
+    enum Tok {
+        Atom(String),
+        Op(char),
+    }
+    let mut toks = Vec::new();
+    let mut cur = String::new();
+    for ch in s.chars() {
+        if matches!(ch, '/' | '+' | '*' | '(' | ')') {
+            if !cur.trim().is_empty() {
+                toks.push(Tok::Atom(cur.trim().to_string()));
+            }
+            cur.clear();
+            toks.push(Tok::Op(ch));
+        } else {
+            cur.push(ch);
+        }
+    }
+    if !cur.trim().is_empty() {
+        toks.push(Tok::Atom(cur.trim().to_string()));
+    }
+    // a single "a / b" is left to the combine fallback, which formats ratios
+    let ops = toks.iter().filter(|t| matches!(t, Tok::Op('/' | '+' | '*'))).count();
+    if ops < 2 && !s.contains('(') {
+        return None;
+    }
+    let atoms: Vec<String> = toks.iter().filter_map(|t| if let Tok::Atom(a) = t { Some(a.clone()) } else { None }).collect();
+    // every operand must be words (an entity), not a formula
+    let wordy = regex::Regex::new(r"^[A-Za-z][A-Za-z .'\-]*[A-Za-z]$").ok()?;
+    if atoms.len() < 2 || atoms.iter().any(|a| !wordy.is_match(a)) {
+        return None;
+    }
+    const PROPS: &[&str] = &["surface area", "mass", "diameter", "radius", "height", "area", "population", "length", "volume", "density", "elevation", "depth", "distance", "width", "gdp", "age", "weight", "orbital period", "gravity", "surface gravity", "temperature", "speed", "circumference"];
+    let prop_of = |a: &str| -> Option<(&'static str, String, bool)> {
+        let la = a.to_lowercase();
+        for p in PROPS {
+            if let Some(rest) = la.strip_prefix(&format!("{p} ")) {
+                return Some((p, rest.trim_start_matches("of ").to_string(), true));
+            }
+            if let Some(rest) = la.strip_suffix(&format!(" {p}")) {
+                return Some((p, rest.to_string(), false));
+            }
+        }
+        None
+    };
+    let num_re = regex::Regex::new(r"^(?:[^:|]{1,60}:\s*)?([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*×\s*10\^([-+−]?\d+))?\s*([^\s(|][^(|]*?)?\s*(?:\(|\||$)").ok()?;
+    let read = |query: &str| -> Option<(f64, Dim, String)> {
+        let r = run_handlers(query, q.opts);
+        if !r.success {
+            return None;
+        }
+        let t = r.short_answer()?;
+        let t = t.lines().next()?.replace('²', "^2").replace('³', "^3");
+        let m = num_re.captures(t.trim())?;
+        let mut v: f64 = m[1].replace(',', "").parse().ok()?;
+        if let Some(e) = m.get(2) {
+            v *= 10f64.powi(e.as_str().replace('−', "-").parse().ok()?);
+        }
+        let unit = m.get(3).map(|u| u.as_str().trim()).unwrap_or("");
+        // "people", "inhabitants" and the like are counts
+        if unit.is_empty() || matches!(unit, "people" | "inhabitants" | "persons" | "residents") {
+            return Some((v, [0; 8], t.trim().to_string()));
+        }
+        let (n, u, _) = parse_quantity(&format!("{} {unit}", m[1].replace(',', "")))?;
+        let si = to_si(n, &u) * v / n;
+        Some((si, u.dim, t.trim().to_string()))
+    };
+    // resolve operands, carrying a property across "+" inside a group: "mass Phobos+Deimos"
+    let mut values = Vec::new();
+    let mut last_prop: Option<(&str, bool)> = None;
+    for a in &atoms {
+        let mut tries = Vec::new();
+        if let Some((p, ent, _)) = prop_of(a) {
+            tries.push(format!("{p} of {ent}"));
+            tries.push(a.clone());
+            last_prop = Some((p, true));
+        } else if let Some((p, _)) = last_prop {
+            tries.push(format!("{p} of {a}"));
+        } else {
+            tries.push(a.clone());
+        }
+        let got = tries.iter().find_map(|t| read(t).map(|v| (t.clone(), v)))?;
+        values.push(got);
+    }
+    // evaluate with precedence: * and / bind tighter than +
+    let mut idx = 0usize;
+    let mut pos = 0usize;
+    fn add_dim(a: &Dim, b: &Dim, sign: i8) -> Dim {
+        let mut d = *a;
+        for k in 0..8 {
+            d[k] += sign * b[k];
+        }
+        d
+    }
+    fn expr(t: &[Tok], pos: &mut usize, idx: &mut usize, vals: &[(f64, Dim)]) -> Option<(f64, Dim)> {
+        let mut acc = term(t, pos, idx, vals)?;
+        while let Some(Tok::Op('+')) = t.get(*pos) {
+            *pos += 1;
+            let r = term(t, pos, idx, vals)?;
+            if r.1 != acc.1 {
+                return None;
+            }
+            acc.0 += r.0;
+        }
+        Some(acc)
+    }
+    fn term(t: &[Tok], pos: &mut usize, idx: &mut usize, vals: &[(f64, Dim)]) -> Option<(f64, Dim)> {
+        let mut acc = factor(t, pos, idx, vals)?;
+        while let Some(Tok::Op(c @ ('*' | '/'))) = t.get(*pos) {
+            let c = *c;
+            *pos += 1;
+            let r = factor(t, pos, idx, vals)?;
+            if c == '*' {
+                acc = (acc.0 * r.0, add_dim(&acc.1, &r.1, 1));
+            } else {
+                if r.0 == 0.0 {
+                    return None;
+                }
+                acc = (acc.0 / r.0, add_dim(&acc.1, &r.1, -1));
+            }
+        }
+        Some(acc)
+    }
+    fn factor(t: &[Tok], pos: &mut usize, idx: &mut usize, vals: &[(f64, Dim)]) -> Option<(f64, Dim)> {
+        match t.get(*pos)? {
+            Tok::Op('(') => {
+                *pos += 1;
+                let v = expr(t, pos, idx, vals)?;
+                if !matches!(t.get(*pos), Some(Tok::Op(')'))) {
+                    return None;
+                }
+                *pos += 1;
+                Some(v)
+            }
+            Tok::Atom(_) => {
+                *pos += 1;
+                let v = vals.get(*idx).copied();
+                *idx += 1;
+                v
+            }
+            _ => None,
+        }
+    }
+    let vals: Vec<(f64, Dim)> = values.iter().map(|(_, (v, d, _))| (*v, *d)).collect();
+    let (v, d) = expr(&toks, &mut pos, &mut idx, &vals)?;
+    if pos != toks.len() || !v.is_finite() {
+        return None;
+    }
+    let unit = si_name(&d);
+    let shown = format!("{}{}", crate::print::fmt_float(v, 6), if unit.is_empty() { String::new() } else { format!(" {unit}") });
+    let rows = values.iter().map(|(t, (_, _, raw))| vec![text(t.clone()), text(raw.clone())]).collect();
+    Some(Answer::new(s.to_string(), vec![
+        pod("Input", "Input interpretation", text(s.to_string())),
+        primary(pod("Result", "Result", text(shown))),
+        pod("Table", "Values used", table(Some(vec!["quantity", "value"]), rows)),
+    ]))
 }

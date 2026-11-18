@@ -103,6 +103,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Element conductivity and magnetism | `conductivity sulfur, silicon, copper`, `elements sorted by conductivity`, `iron magnetism`, `is gold magnetic` |
 | Artworks, names and gardening | `The Kiss by Rodin`, `which museum exhibits Pieta by Michelangelo?`, `name William`, `5 most popular girl's names`, `germination time for garden peas` |
 | Fictional characters | `Who created Spiderman?`, `who created Bugs Bunny and Daffy Duck?`, `Captain America vs. Iron Man`, `Edward Cullen, Isabella Cullen` |
+| Arithmetic on looked-up values | `(mass Phobos+Deimos) / (mass Mars)`, `(mass Saturn+Uranus+Neptune) / (mass Jupiter)`, `(surface area Ceres) / (area India)` |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
@@ -299,7 +300,7 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 
 Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
 
-**Understood:** Noesis gives an answer to **70.9%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+**Understood:** Noesis gives an answer to **71.0%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
 **Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 189 that could be checked (WolframAlpha answered and the run finished), the answers agree on **53%** (100). On the rest, Noesis gives a different answer on 14% (27) and does not understand 33% (62). The automatic checker alone reports 35% agreement (66); the difference is 34 answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. Most of the questions Noesis does not understand need live or very large datasets: current economic indicators, US state, county and school-district statistics, elected officials, recent earthquakes, fuel prices.
 
