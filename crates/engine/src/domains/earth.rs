@@ -554,6 +554,21 @@ fn layers(l: &str) -> Option<Answer> {
             pod("Table", "Properties", table(None, vec![vec![text("description"), text(x.4)], vec![text("temperature"), text(x.5)]])),
         ]));
     }
+    // the layers listed or compared: "layers of the earth", "crust, mantle", "inner core vs outer core"
+    let list: Option<Vec<&(&str, &str, f64, f64, &str, &str, &str)>> = if re!(r"^(?:the )?(?:layers|structure|interior|internal structure) of (?:the )?earth$|^earth(?:'s)? (?:layers|interior|internal structure)$").is_match(l) {
+        Some(["crust", "mantle", "outer core", "inner core"].iter().filter_map(|n| EARTH_LAYERS.iter().find(|x| x.1 == *n)).collect())
+    } else {
+        let parts: Vec<&str> = re!(r"\s*(?:,|\bvs\.?|\bversus\b|\band\b)\s*").split(l).map(|p| p.trim().trim_start_matches("the ").trim_start_matches("earth's ")).filter(|p| !p.is_empty()).collect();
+        if parts.len() >= 2 { parts.iter().map(|p| EARTH_LAYERS.iter().find(|x| x.0.split(';').any(|a| a == *p))).collect() } else { None }
+    };
+    if let Some(xs) = list {
+        let rows = xs.iter().map(|x| vec![text(x.1), text(format!("{}–{} km", fmt_km(x.2), fmt_km(x.3))), text(x.4), text(x.5), text(x.6)]).collect();
+        return Some(Answer::new("Earth layers", vec![
+            pod("Input", "Input interpretation", text(format!("Earth | {}", xs.iter().map(|x| x.1).collect::<Vec<_>>().join(" | ")))),
+            primary(pod("Result", "Depths", text(xs.iter().map(|x| format!("{}: {}–{} km", x.1, fmt_km(x.2), fmt_km(x.3))).collect::<Vec<_>>().join(" | ")))),
+            pod("Table", "Properties", table(Some(vec!["layer", "depth", "state", "composition", "temperature"]), rows)),
+        ]));
+    }
     // a named layer: "asthenosphere", "radiative zone of the sun", "earth's outer core"
     let sun = l.contains("sun") || l.contains("solar");
     let name = re!(r"^(?:the )?(?:earth'?s |sun'?s |solar )?(.+?)(?: (?:of|in) (?:the )?(?:earth|sun))?$").captures(l)?;
@@ -578,6 +593,45 @@ fn layers(l: &str) -> Option<Answer> {
         pod("Input", "Input interpretation", text(format!("Earth | {}", x.1))),
         primary(pod("Result", "Depth", text(format!("{}–{} km below the surface", fmt_km(x.2), fmt_km(x.3))))),
         pod("Table", "Properties", table(None, vec![vec![text("state"), text(x.4)], vec![text("composition"), text(x.5)], vec![text("temperature"), text(x.6)], vec![text("thickness"), text(format!("about {} km", fmt_km(x.3 - x.2)))]])),
+    ]))
+}
+
+/// Composition of dry air near the surface, by volume.
+const AIR: &[(&str, &str, &str)] = &[
+    ("nitrogen", "N₂", "78.084%"),
+    ("oxygen", "O₂", "20.946%"),
+    ("argon", "Ar", "0.934%"),
+    ("carbon dioxide", "CO₂", "about 0.042% (420 ppm, 2023–2024; rising about 2.5 ppm a year)"),
+    ("neon", "Ne", "18.18 ppm"),
+    ("helium", "He", "5.24 ppm"),
+    ("methane", "CH₄", "about 1.9 ppm"),
+    ("krypton", "Kr", "1.14 ppm"),
+    ("hydrogen", "H₂", "0.55 ppm"),
+    ("nitrous oxide", "N₂O", "about 0.34 ppm"),
+    ("carbon monoxide", "CO", "about 0.1 ppm"),
+    ("xenon", "Xe", "0.087 ppm"),
+    ("ozone", "O₃", "0–0.07 ppm near the ground (up to about 10 ppm in the ozone layer)"),
+];
+
+/// "atmosphere of Earth", "composition of air", "what is air made of"
+fn atmosphere(l: &str) -> Option<Answer> {
+    if !re!(r"^(?:the )?(?:(?:composition|gases) of (?:the )?(?:air|atmosphere|earth'?s atmosphere|atmosphere of (?:the )?earth)|(?:the )?atmosphere of (?:the )?earth|earth'?s atmosphere|air composition|atmospheric composition|composition of the earth'?s atmosphere|what is (?:the )?air made of|what gases (?:are|make up) (?:in )?(?:the )?air)$").is_match(l) {
+        return None;
+    }
+    let rows = AIR.iter().map(|(n, f, v)| vec![text(*n), text(*f), text(*v)]).collect();
+    Some(Answer::new("Earth's atmosphere", vec![
+        pod("Input", "Input interpretation", text("Earth | atmosphere")),
+        primary(pod("Result", "Composition (dry air, by volume)", text("nitrogen 78.08% | oxygen 20.95% | argon 0.93% | carbon dioxide 0.042% | trace gases"))),
+        pod("Table", "Constituents", table(Some(vec!["gas", "formula", "fraction by volume"]), rows)),
+        pod("Properties", "Properties", table(None, vec![
+            vec![text("water vapour"), text("0–4% by volume, about 0.25% averaged over the whole atmosphere")],
+            vec![text("mean molar mass of dry air"), text("28.96 g/mol")],
+            vec![text("total mass"), text("5.15×10¹⁸ kg")],
+            vec![text("mean surface pressure"), text("101.325 kPa (1 atm) at sea level")],
+            vec![text("density at sea level, 15 °C"), text("1.225 kg/m³")],
+            vec![text("scale height"), text("about 8.5 km")],
+            vec![text("layers"), text("troposphere, stratosphere, mesosphere, thermosphere, exosphere")],
+        ])),
     ]))
 }
 
@@ -672,6 +726,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = l.as_str();
     compass_point(&q.raw, l)
         .or_else(|| layers(l))
+        .or_else(|| atmosphere(l))
         .or_else(|| clouds(l))
         .or_else(|| seawater(l))
         .or_else(|| altitude_table(l))

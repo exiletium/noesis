@@ -111,6 +111,59 @@ spinel|mineral|f=MgAl2O4;sys=cubic;mohs=7.5-8;d=3.58-3.61;col=red, pink, blue
 zircon|mineral|f=ZrSiO4;sys=tetragonal;mohs=7.5;d=4.6-4.7;col=colourless, brown, blue
 cinnabar|mineral|f=HgS;sys=trigonal;mohs=2-2.5;d=8.1;col=scarlet red
 barite,baryte|mineral|f=BaSO4;sys=orthorhombic;mohs=3-3.5;d=4.3-4.5;col=colourless, white
+chromite|mineral|f=FeCr2O4;sys=cubic;mohs=5.5;d=4.5-4.8;col=black, metallic to submetallic; brown streak;note=the only ore of chromium
+celestine,celestite|mineral|f=SrSO4;sys=orthorhombic;mohs=3-3.5;d=3.95-3.97;col=pale blue, colourless;note=the main source of strontium
+rutile|mineral|f=TiO2;sys=tetragonal;mohs=6-6.5;d=4.23;col=reddish brown to black
+cassiterite,tinstone|mineral|f=SnO2;sys=tetragonal;mohs=6-7;d=6.98-7.01;col=brown to black;note=the main ore of tin
+ilmenite|mineral|f=FeTiO3;sys=trigonal;mohs=5-6;d=4.70-4.79;col=iron black;note=the main ore of titanium
+goethite|mineral|f=FeO(OH);sys=orthorhombic;mohs=5-5.5;d=3.3-4.3;col=yellow-brown to dark brown
+siderite|mineral|f=FeCO3;sys=trigonal;mohs=3.75-4.25;d=3.96;col=yellow-brown, brown
+cuprite|mineral|f=Cu2O;sys=cubic;mohs=3.5-4;d=6.14;col=dark red
+bornite,peacock ore|mineral|f=Cu5FeS4;sys=orthorhombic;mohs=3;d=5.06-5.08;col=copper red with an iridescent purple-blue tarnish
+chalcocite|mineral|f=Cu2S;sys=monoclinic;mohs=2.5-3;d=5.5-5.8;col=dark grey to black
+aragonite|mineral|f=CaCO3;sys=orthorhombic;mohs=3.5-4;d=2.95;col=colourless, white;note=the same composition as calcite in a different crystal structure; makes up most mollusc shells and pearls
+anhydrite|mineral|f=CaSO4;sys=orthorhombic;mohs=3.5;d=2.97;col=colourless, white, bluish
+kyanite|mineral|f=Al2SiO5;sys=triclinic;mohs=4.5-7;d=3.53-3.65;col=blue;note=hardness depends on direction: about 4.5-5 along the crystal length, 6.5-7 across it
+andalusite|mineral|f=Al2SiO5;sys=orthorhombic;mohs=6.5-7.5;d=3.15;col=pink, brown, green
+sillimanite|mineral|f=Al2SiO5;sys=orthorhombic;mohs=6.5-7.5;d=3.23;col=white, grey
+staurolite|mineral|f=Fe2Al9Si4O23(OH);sys=monoclinic;mohs=7-7.5;d=3.74-3.83;col=brown;note=often twinned as a cross (fairy crosses)
+epidote|mineral|f=Ca2(Al,Fe)3(SiO4)3(OH);sys=monoclinic;mohs=6-7;d=3.38-3.49;col=pistachio green
+hornblende|mineral|f=Ca2(Mg,Fe,Al)5(Al,Si)8O22(OH)2;sys=monoclinic;mohs=5-6;d=2.9-3.4;col=black, dark green
+augite|mineral|f=(Ca,Na)(Mg,Fe,Al,Ti)(Si,Al)2O6;sys=monoclinic;mohs=5.5-6;d=3.19-3.56;col=black, dark green
+diopside|mineral|f=CaMgSi2O6;sys=monoclinic;mohs=5.5-6.5;d=3.25-3.55;col=green
+microcline,amazonite|mineral|f=KAlSi3O8;sys=triclinic;mohs=6-6.5;d=2.54-2.57;col=white, pink, blue-green (amazonite)
+albite|mineral|f=NaAlSi3O8;sys=triclinic;mohs=6-6.5;d=2.60-2.65;col=white
+labradorite|mineral|f=(Ca,Na)(Al,Si)4O8;sys=triclinic;mohs=6-6.5;d=2.68-2.72;col=grey with blue-green play of colour (labradorescence)
+lazurite,lapis lazuli|mineral|f=(Na,Ca)8(AlSiO4)6(S,SO4,Cl)2;sys=cubic;mohs=5-5.5;d=2.38-2.45;col=deep blue
+rhodochrosite|mineral|f=MnCO3;sys=trigonal;mohs=3.5-4;d=3.7;col=rose pink
+molybdenite|mineral|f=MoS2;sys=hexagonal;mohs=1-1.5;d=4.62-4.73;col=lead grey, metallic
+stibnite|mineral|f=Sb2S3;sys=orthorhombic;mohs=2;d=4.63;col=lead grey, metallic
+arsenopyrite|mineral|f=FeAsS;sys=monoclinic;mohs=5.5-6;d=6.07;col=silver white to steel grey
+realgar|mineral|f=As4S4;sys=monoclinic;mohs=1.5-2;d=3.56;col=red to orange
+orpiment|mineral|f=As2S3;sys=monoclinic;mohs=1.5-2;d=3.49;col=lemon yellow
+graphite|mineral|f=C;sys=hexagonal;mohs=1-2;d=2.09-2.23;col=black, metallic
+diamond|mineral|f=C;sys=cubic;mohs=10;d=3.51;col=colourless, yellow, brown and rarer colours
+uraninite,pitchblende|mineral|f=UO2;sys=cubic;mohs=5-6;d=10.6-10.95;col=black;note=the main ore of uranium; strongly radioactive
+scheelite|mineral|f=CaWO4;sys=tetragonal;mohs=4.5-5;d=5.9-6.1;col=white, yellow; fluoresces bright blue under short-wave UV
+wolframite|mineral|f=(Fe,Mn)WO4;sys=monoclinic;mohs=4-4.5;d=7.0-7.5;col=black
+spodumene,kunzite|mineral|f=LiAlSi2O6;sys=monoclinic;mohs=6.5-7;d=3.03-3.23;col=colourless, pink (kunzite), green (hiddenite)
+lepidolite|mineral|f=K(Li,Al)3(Al,Si)4O10(F,OH)2;sys=monoclinic;mohs=2.5-3;d=2.8-2.9;col=lilac, pink
+chrysoberyl,alexandrite|mineral|f=BeAl2O4;sys=orthorhombic;mohs=8.5;d=3.5-3.84;col=yellow-green; alexandrite changes from green to red
+magnesite|mineral|f=MgCO3;sys=trigonal;mohs=3.5-4.5;d=3.0;col=white
+borax|mineral|f=Na2B4O7·10H2O;sys=monoclinic;mohs=2-2.5;d=1.71;col=colourless, white
+pyrolusite|mineral|f=MnO2;sys=tetragonal;mohs=6-6.5;d=4.4-5.06;col=black;note=the main ore of manganese
+gibbsite|mineral|f=Al(OH)3;sys=monoclinic;mohs=2.5-3;d=2.3-2.4;col=white;note=a main component of bauxite
+wollastonite|mineral|f=CaSiO3;sys=triclinic;mohs=4.5-5;d=2.86-3.09;col=white
+cordierite,iolite|mineral|f=(Mg,Fe)2Al4Si5O18;sys=orthorhombic;mohs=7-7.5;d=2.57-2.66;col=blue to violet (iolite)
+titanite,sphene|mineral|f=CaTiSiO5;sys=monoclinic;mohs=5-5.5;d=3.48-3.6;col=yellow, brown, green
+perovskite|mineral|f=CaTiO3;sys=orthorhombic;mohs=5-5.5;d=3.98-4.26;col=black, brown
+cerussite|mineral|f=PbCO3;sys=orthorhombic;mohs=3-3.5;d=6.53-6.57;col=colourless, white, grey
+anglesite|mineral|f=PbSO4;sys=orthorhombic;mohs=2.5-3;d=6.3;col=colourless, white
+wulfenite|mineral|f=PbMoO4;sys=tetragonal;mohs=2.75-3;d=6.5-7.5;col=orange-yellow
+vanadinite|mineral|f=Pb5(VO4)3Cl;sys=hexagonal;mohs=3-4;d=6.88;col=bright red to orange
+smithsonite|mineral|f=ZnCO3;sys=trigonal;mohs=4-4.5;d=4.4-4.5;col=white, blue-green
+witherite|mineral|f=BaCO3;sys=orthorhombic;mohs=3-3.5;d=4.29;col=colourless, white
+strontianite|mineral|f=SrCO3;sys=orthorhombic;mohs=3.5;d=3.74-3.78;col=colourless, pale green
 hope diamond|famous gem|ct=45.52;col=deep greyish blue;note=Smithsonian National Museum of Natural History, Washington, since 1958; type IIb diamond (boron gives the blue colour and red phosphorescence)
 cullinan diamond|famous gem|ct=3106.75;note=the largest gem-quality rough diamond ever found (Premier Mine, South Africa, 1905); cut into nine major stones
 great star of africa,cullinan i|famous gem|ct=530.2;col=colourless;note=the largest stone cut from the Cullinan diamond; set in the Sovereign's Sceptre with Cross (British Crown Jewels)

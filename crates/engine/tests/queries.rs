@@ -1337,3 +1337,40 @@ fn log_plots_and_conway_constant() {
     assert!(pod_text(&q("log plot e^x-x"), "Scale").contains("log₁₀"));
     assert!(short("Conway's constant").starts_with("1.30357726903429639125"));
 }
+
+#[test]
+fn complexity_classes_crystals_and_earth_layers() {
+    assert!(short("Is BPL in QP?").starts_with("Yes: BPL ⊆ QP"));
+    assert!(short("NC vs NLINSPACE").starts_with("NC ⊊ NLINSPACE"));
+    assert!(short("P vs NP").contains("open problem"));
+    assert!(short("non-deterministic polynomial time").contains("certificates"));
+    assert_eq!(short("ditetragonal pyramidal point group"), "Hermann–Mauguin 4mm | Schoenflies C4v");
+    assert!(short("trigonal crystal system").contains("α = β = γ ≠ 90°"));
+    assert!(short("crystal structure of iron").starts_with("body-centred cubic"));
+    assert!(pod_text(&q("hematite, magnetite, chromite"), "Result").contains("FeCr₂O₄"));
+    assert_eq!(short("crust, mantle"), "crust: 0–35 km | mantle: 35–2,891 km");
+    assert!(short("atmosphere of Earth").starts_with("nitrogen 78.08%"));
+    assert_eq!(short("SHA \"Wolfram Alpha\""), "a362a5fb22cb6fa4c981811457149e11fc3e5f3b");
+    assert_eq!(short("Morse code hello"), ".... . .-.. .-.. ---");
+    assert_eq!(short("morse code ... --- ..."), "SOS");
+}
+
+#[test]
+fn seismology_photography_acronyms_and_words() {
+    assert!(short("Richter scale 6").starts_with("strong earthquake"));
+    assert!(pod_text(&q("Mercalli scale"), "Levels").contains("VIII"));
+    assert!(short("define body wave magnitude").starts_with("m_b = log₁₀(A/T)"));
+    assert_eq!(short("angle of view 50mm"), "46.793°");
+    assert_eq!(short("exposure value f/8 1/125"), "12.9658");
+    assert!(pod_text(&q("depth of field f=1m"), "Assumptions").contains("f-number 8"));
+    assert_eq!(short("acronym USSS"), "United States Secret Service");
+    assert_eq!(short("abbreviation NATO"), "North Atlantic Treaty Organization");
+    assert!(short("word subsets recycle").contains("cycle"));
+    assert!(short("letter bank tale").contains("latte"));
+    assert_eq!(short("primary incisors"), "8 (of 20 primary teeth)");
+    assert!(short("OEIS A000219").starts_with("1, 1, 3, 6, 13, 24, 48, 86, 160"));
+    assert!(short("recurrences Laguerre polynomials").starts_with("(n + 1) Lₙ₊₁(x)"));
+    assert!(short("Petersen graph, icosahedral graph").contains("icosahedral graph: 12 vertices, 30 edges"));
+    // "ev" and "dof" are whole words only
+    assert!(!noesis::query("events from November 1, 1989 to November 30, 1989").short_answer().unwrap_or_default().contains("12.9658"));
+}

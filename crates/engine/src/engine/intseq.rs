@@ -45,7 +45,7 @@ const OEIS: &[(&str, &str)] = &[
     ("A001110", "sqtri"), ("A000217", "triangular"), ("A000292", "tetrahedral"), ("A000330", "sqpyr"), ("A000332", "pentatope"),
     ("A000326", "pentagonal"), ("A000384", "hexagonal"), ("A002378", "pronic"), ("A003154", "star"), ("A000290", "square"), ("A000578", "cube"),
     ("A000045", "fibonacci"), ("A000032", "lucas"), ("A000129", "pell"), ("A001045", "jacobsthal"), ("A000108", "catalan"), ("A000110", "bell"),
-    ("A000142", "factorial"), ("A005843", "even"), ("A005408", "odd"),
+    ("A000142", "factorial"), ("A000219", "planepartitions"), ("A005843", "even"), ("A005408", "odd"),
 ];
 
 struct Seq {
@@ -187,6 +187,22 @@ fn bell(k: u64) -> BigInt {
     row[0].clone()
 }
 
+/// Plane partitions of n: n a(n) = Σ_{k=1..n} σ₂(k) a(n − k) (MacMahon).
+fn plane_partitions(n: u64) -> BigInt {
+    if n > 2000 {
+        return BigInt::from(-1);
+    }
+    let n = n as usize;
+    let sig2 = |k: usize| -> BigInt { (1..=k).filter(|d| k % d == 0).map(|d| b((d * d) as u64)).fold(BigInt::from(0), |a, x| a + x) };
+    let s2: Vec<BigInt> = (0..=n).map(|k| if k == 0 { BigInt::from(0) } else { sig2(k) }).collect();
+    let mut a = vec![BigInt::one()];
+    for m in 1..=n {
+        let t = (1..=m).fold(BigInt::from(0), |acc, k| acc + &s2[k] * &a[m - k]);
+        a.push(t / b(m as u64));
+    }
+    a[n].clone()
+}
+
 fn seqs() -> &'static [Seq] {
     static S: OnceLock<Vec<Seq>> = OnceLock::new();
     S.get_or_init(|| {
@@ -228,6 +244,7 @@ fn seqs() -> &'static [Seq] {
             Seq { key: "lucas", name: "Lucas numbers", alias: r"lucas(?: numbers?)?", def: "L(0) = 2, L(1) = 1, L(n) = L(n−1) + L(n−2); listed here from L(1)", kind: Formula(nt::lucas, 1) },
             Seq { key: "pell", name: "Pell numbers", alias: r"pell(?: numbers?)?", def: "P(0) = 0, P(1) = 1, P(n) = 2P(n−1) + P(n−2)", kind: Formula(pell, 1) },
             Seq { key: "jacobsthal", name: "Jacobsthal numbers", alias: r"jacobsthal(?: numbers?)?", def: "J(n) = (2^n − (−1)^n)/3", kind: Formula(|k| ((BigInt::one() << k as usize) - if k % 2 == 0 { 1 } else { -1 }) / 3, 1) },
+            Seq { key: "planepartitions", name: "plane partitions", alias: r"(?:plane|planar) partitions?(?: numbers?)?", def: "a(n): plane partitions of n; generating function Π 1/(1 − xᵏ)ᵏ (MacMahon), n ≥ 0", kind: Formula(plane_partitions, 0) },
             Seq { key: "catalan", name: "Catalan numbers", alias: r"catalan(?: numbers?)?", def: "C(n) = binomial(2n, n)/(n + 1), n ≥ 0", kind: Formula(|k| nt::binomial(&b(2 * k), k) / b(k + 1), 0) },
             Seq { key: "bell", name: "Bell numbers", alias: r"bell(?: numbers?)?", def: "B(n): partitions of an n-element set, n ≥ 0", kind: Formula(bell, 0) },
             Seq { key: "factorial", name: "factorials", alias: r"factorials?(?: numbers?)?", def: "n! for n ≥ 1", kind: Formula(nt::factorial, 1) },

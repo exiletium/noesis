@@ -406,6 +406,47 @@ fn anagram_query(l: &str) -> Option<Answer> {
     Some(Answer::new(format!("anagrams of {w}"), pods))
 }
 
+/// "word subsets recycle" (words spelled from some of the letters, each used
+/// at most as often as it appears) and "letter bank tale" (words using every
+/// letter of the bank and no others, repeats allowed).
+fn subwords(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:(word subsets?|subwords?|sub-words?)\s+(?:of\s+)?([a-z]+)|words?\s+(?:that\s+)?(?:can\s+be\s+)?(?:made|formed|spelled)\s+(?:from|with|using)\s+(?:the\s+letters?\s+(?:of|in)\s+)?([a-z]+)|(letter bank)\s+([a-z]+))$").captures(l)?;
+    let bank = m.get(4).is_some();
+    let w = m.get(2).or(m.get(3)).or(m.get(5))?.as_str();
+    if w.len() < 2 || w.len() > 20 {
+        return None;
+    }
+    let count = |x: &str| {
+        let mut c = [0u8; 26];
+        for b in x.bytes().filter(u8::is_ascii_lowercase) {
+            c[(b - b'a') as usize] += 1;
+        }
+        c
+    };
+    let have = count(w);
+    let mut found: Vec<&str> = words()
+        .iter()
+        .copied()
+        .filter(|x| x.len() >= 3 && x.bytes().all(|b| b.is_ascii_lowercase()))
+        .filter(|x| {
+            let c = count(x);
+            if bank {
+                (0..26).all(|i| (c[i] > 0) == (have[i] > 0))
+            } else {
+                (0..26).all(|i| c[i] <= have[i])
+            }
+        })
+        .collect();
+    found.sort_by(|a, b| b.len().cmp(&a.len()).then(a.cmp(b)));
+    let what = if bank { "letter bank" } else { "word subsets" };
+    Some(Answer::new(format!("{what} of {w}"), vec![
+        pod("Input", "Input interpretation", text(format!("{what} | {w}"))),
+        primary(pod("Result", "Result", text(if found.is_empty() { "no words found".to_string() } else { word_list(&found) }))),
+        pod("Count", "Number of words", text(found.len().to_string())),
+        pod("Note", "Note", text(if bank { "words of 3 or more letters using every letter of the bank and no others; letters may repeat" } else { "words of 3 or more letters using each letter no more often than it appears" })),
+    ]))
+}
+
 fn patterns(l: &str) -> Option<Answer> {
     // crossword patterns: letters with _ or ? for unknowns
     if let Some(m) = re!(r"^(?:words?\s+(?:matching|like|of the form|that match(?:es)?|fitting)\s+|crossword\s+)?([a-z]*[_?][a-z_?]*)$").captures(l) {
@@ -529,5 +570,5 @@ fn soundex_query(l: &str) -> Option<Answer> {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches('?').trim();
-    soundex_query(l).or_else(|| sounds(l)).or_else(|| related(l)).or_else(|| anagram_query(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
+    soundex_query(l).or_else(|| sounds(l)).or_else(|| related(l)).or_else(|| anagram_query(l)).or_else(|| subwords(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
 }

@@ -143,6 +143,34 @@ fn petersen() -> Graph {
     g
 }
 
+/// Skeleton of the octahedron: K(2,2,2), every vertex joined to all but its opposite.
+fn octahedral() -> Graph {
+    let mut g = Graph::new(6);
+    for a in 0..6 {
+        for b in a + 1..6 {
+            if b != a + 3 {
+                g.add(a, b);
+            }
+        }
+    }
+    g
+}
+
+/// Skeleton of the icosahedron: apex, two staggered pentagons, nadir.
+fn icosahedral() -> Graph {
+    let mut g = Graph::new(12);
+    for i in 0..5 {
+        let (u, u2, w, w2) = (1 + i, 1 + (i + 1) % 5, 6 + i, 6 + (i + 1) % 5);
+        g.add(0, u);
+        g.add(u.min(u2), u.max(u2));
+        g.add(w.min(w2), w.max(w2));
+        g.add(w, 11);
+        g.add(u, w);
+        g.add(u2.min(w), u2.max(w));
+    }
+    g
+}
+
 /// A cubic Hamiltonian graph from LCF notation: the cycle 0..n plus i ~ i + s_i.
 fn lcf(shifts: &[i64], repeat: usize) -> Graph {
     let n = shifts.len() * repeat;
@@ -609,6 +637,12 @@ fn named(l: &str) -> Option<(Graph, String, Vec<(&'static str, String)>)> {
         let name = names[0].split(' ').map(|w| w[..1].to_uppercase() + &w[1..]).collect::<Vec<_>>().join(" ").replace(" Graph", " graph");
         return Some((lcf(sh, *r), name, vec![("note", note.to_string())]));
     }
+    match l.trim_start_matches("the ") {
+        "tetrahedral graph" | "tetrahedron graph" => return Some((complete(4), "tetrahedral graph".into(), vec![("note", "the skeleton of the tetrahedron, the complete graph K₄".into())])),
+        "octahedral graph" | "octahedron graph" => return Some((octahedral(), "octahedral graph".into(), vec![("note", "the skeleton of the octahedron, the complete tripartite graph K(2,2,2)".into())])),
+        "icosahedral graph" | "icosahedron graph" => return Some((icosahedral(), "icosahedral graph".into(), vec![("note", "the skeleton of the icosahedron; 5-regular, planar, distance-regular; automorphism group of order 120".into())])),
+        _ => {}
+    }
     if l == "petersen graph" || l == "the petersen graph" {
         return Some((petersen(), "Petersen graph".into(), vec![("automorphisms", "120 (the symmetric group S₅)".into()), ("note", "the (3,5)-cage; not Hamiltonian, but every vertex-deleted subgraph is".into())]));
     }
@@ -741,6 +775,44 @@ pub fn handle(q: &Query) -> Option<Answer> {
     if re!(r"^\(n\s*,\s*k\)[- ]?turan graph").is_match(&body) {
         return Some(Answer::new("Turán graph", vec![pod("Input", "Input interpretation", text("Turán graph T(n, k)")), primary(pod("Result", "Edge count", text("(1 − 1/k) n²/2 when k divides n; in general (n² − r²)(k − 1)/(2k) + C(r, 2), with r = n mod k"))), pod("Def", "Definition", text("the complete k-partite graph with parts as equal as possible; the extremal graph with no K_(k+1) (Turán's theorem)"))]));
     }
+    // several named graphs compared: "Petersen graph, icosahedral graph"
+    let parts: Vec<&str> = re!(r"\s*(?:,|\bvs\.?|\bversus\b|\band\b)\s*").split(&body).filter(|s| !s.is_empty()).collect();
+    if parts.len() >= 2 && parts.len() <= 6 {
+        let gs: Option<Vec<(Graph, String, Vec<(&'static str, String)>)>> = parts.iter().map(|p| named(p).filter(|g| g.0.n > 0 && g.0.n <= 60)).collect();
+        if let Some(gs) = gs {
+            let opt = |v: Option<usize>| v.map(|x| x.to_string()).unwrap_or_else(|| "∞".into());
+            let degs = |g: &Graph| {
+                let mut d = vec![0usize; g.n];
+                for (a, b) in &g.edges {
+                    d[*a] += 1;
+                    d[*b] += 1;
+                }
+                let (lo, hi) = (*d.iter().min().unwrap_or(&0), *d.iter().max().unwrap_or(&0));
+                if lo == hi { format!("{lo}-regular") } else { format!("{lo}–{hi}") }
+            };
+            let mut head = vec!["property".to_string()];
+            head.extend(gs.iter().map(|g| g.1.clone()));
+            let props: Vec<(&str, Box<dyn Fn(&Graph) -> String>)> = vec![
+                ("vertices", Box::new(|g: &Graph| g.n.to_string())),
+                ("edges", Box::new(|g: &Graph| g.edges.len().to_string())),
+                ("degree", Box::new(degs)),
+                ("diameter", Box::new(move |g: &Graph| opt(diameter(g)))),
+                ("girth", Box::new(move |g: &Graph| opt(girth(g)))),
+                ("chromatic number", Box::new(move |g: &Graph| opt(chromatic_number(g)))),
+            ];
+            let rows: Vec<Vec<Content>> = props.iter().map(|(k, f)| {
+                let mut r = vec![text(*k)];
+                r.extend(gs.iter().map(|g| text(f(&g.0))));
+                r
+            }).collect();
+            let short = gs.iter().map(|g| format!("{}: {} vertices, {} edges", g.1, g.0.n, g.0.edges.len())).collect::<Vec<_>>().join(" | ");
+            return Some(Answer::new("graph comparison", vec![
+                pod("Input", "Input interpretation", text(gs.iter().map(|g| g.1.clone()).collect::<Vec<_>>().join(" | "))),
+                primary(pod("Result", "Comparison", text(short))),
+                pod("Table", "Properties", table(Some(head.iter().map(String::as_str).collect()), rows)),
+            ]));
+        }
+    }
     if let Some((g, name, rows)) = named(&body) {
         if g.n == 0 {
             return Some(Answer::new("tree", vec![pod("Input", "Input interpretation", text(name)), primary(pod("Result", "Properties", table(None, rows.into_iter().map(|(a, b)| vec![text(a), text(b)]).collect())))]));
@@ -768,6 +840,9 @@ mod tests {
         assert_eq!((p.edges.len(), girth(&p), diameter(&p), chromatic_number(&p)), (15, Some(5), Some(2), Some(3)));
         assert_eq!(matching_counts(&p).unwrap(), vec![1, 15, 75, 145, 90, 6]);
         assert_eq!(wheel(12).edges.len(), 22);
+        let ico = icosahedral();
+        assert_eq!((ico.edges.len(), girth(&ico), diameter(&ico), chromatic_number(&ico)), (30, Some(3), Some(3), Some(4)));
+        assert_eq!(octahedral().edges.len(), 12);
         assert_eq!(turan(10, 3).edges.len(), 33);
         let mut g = edge_list("1->2, 2->3, 3->1").unwrap();
         assert_eq!(eulerian(&g).map(|c| c.len()), Some(4));

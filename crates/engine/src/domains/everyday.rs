@@ -626,8 +626,8 @@ fn words(q: &Query) -> Option<Answer> {
         return Some(Answer::new(m[1].to_string(), pods));
     }
     // Morse code
-    if let Some(m) = re!(r"^(?:(.+?)\s+(?:in|to|into|as)\s+morse(?:\s+code)?|morse(?:\s+code)?\s+(?:for|of)\s+(.+))$").captures(l) {
-        let w = unquote(m.get(1).or(m.get(2))?.as_str()).trim_start_matches("translate ").trim_start_matches("convert ").to_string();
+    if let Some(m) = re!(r"^(?:(.+?)\s+(?:in|to|into|as)\s+morse(?:\s+code)?|morse(?:\s+code)?\s+(?:for|of)\s+(.+)|morse(?:\s+code)?:?\s+([^.\-_·•]*[a-z0-9][^.\-_·•]*))$").captures(l) {
+        let w = unquote(m.get(1).or(m.get(2)).or(m.get(3))?.as_str()).trim_start_matches("translate ").trim_start_matches("convert ").to_string();
         let code: Option<Vec<String>> = w.split_whitespace().map(|word| word.chars().map(|c| MORSE.iter().find(|(k, _)| *k == c).map(|(_, v)| *v)).collect::<Option<Vec<_>>>().map(|v| v.join(" "))).collect();
         let code = code?.join("  /  ");
         let rows: Vec<Vec<Content>> = w.chars().filter(|c| !c.is_whitespace()).filter_map(|c| MORSE.iter().find(|(k, _)| *k == c).map(|(_, v)| vec![text(c.to_ascii_uppercase().to_string()), text(*v)])).collect();
