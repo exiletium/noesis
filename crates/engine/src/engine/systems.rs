@@ -72,15 +72,16 @@ fn hash_pos(p: i64, seed: u64) -> u64 {
 
 struct Ca {
     k: u8,
-    r: usize,
+    /// twice the range: the neighbourhood is r2 + 1 cells, ⌊r2/2⌋ of them to the left
+    r2: usize,
     /// new colour for each neighbourhood value (or each total, when totalistic)
     table: Vec<u8>,
     totalistic: bool,
 }
 
 impl Ca {
-    fn from_number(n: &BigUint, k: u8, r: usize, totalistic: bool) -> Option<Ca> {
-        let size = if totalistic { (2 * r + 1) * (k as usize - 1) + 1 } else { (k as usize).checked_pow(2 * r as u32 + 1)? };
+    fn from_number(n: &BigUint, k: u8, r2: usize, totalistic: bool) -> Option<Ca> {
+        let size = if totalistic { (r2 + 1) * (k as usize - 1) + 1 } else { (k as usize).checked_pow(r2 as u32 + 1)? };
         if size > 1 << 16 {
             return None;
         }
@@ -94,12 +95,12 @@ impl Ca {
         if !m.is_zero() {
             return None;
         }
-        Some(Ca { k, r, table, totalistic })
+        Some(Ca { k, r2, table, totalistic })
     }
 
     /// The colour the uniform background takes after one step.
     fn next_bg(&self, bg: u8) -> u8 {
-        let w = 2 * self.r + 1;
+        let w = self.r2 + 1;
         let mut v = 0usize;
         for _ in 0..w {
             v = if self.totalistic { v + bg as usize } else { v * self.k as usize + bg as usize };
@@ -109,11 +110,11 @@ impl Ca {
 
     fn step(&self, row: &[u8], bg: u8) -> Vec<u8> {
         let n = row.len() as i64;
-        let w = 2 * self.r as i64 + 1;
+        let w = self.r2 as i64 + 1;
         (0..n).map(|i| {
             let mut v = 0usize;
             for d in 0..w {
-                let j = i - self.r as i64 + d;
+                let j = i - (self.r2 / 2) as i64 + d;
                 let c = if j < 0 || j >= n { bg } else { row[j as usize] } as usize;
                 v = if self.totalistic { v + c } else { v * self.k as usize + c };
             }
@@ -175,6 +176,22 @@ fn cellular(q: &Query) -> Option<Answer> {
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
     let steps = re!(r"(?:,\s*|\s+)(?:for\s+)?(\d+)\s+(?:steps|generations)$").captures(&l).and_then(|m| m[1].parse::<usize>().ok());
     let l = re!(r"(?:,\s*|\s+)(?:for\s+)?\d+\s+(?:steps|generations)$").replace(&l, "").to_string();
+    // "random ic", "from random initial conditions"
+    let random_re = re!(r",?\s*(?:with\s+|from\s+)?(?:an?\s+)?random\s+(?:ic|initial conditions?|initial states?|init)\b");
+    let random = random_re.is_match(&l);
+    let l = random_re.replace(&l, "").trim().to_string();
+    // "7,110,222,193,934" is one number
+    let l = re!(r"\b(\d{1,3}(?:,\d{3})+)\b").replace_all(&l, |c: &regex::Captures| c[1].replace(',', "")).to_string();
+    let l = re!(r"^(?:eca|elementary ca)\s+(rule\s+\d+)(?:\s+(?:transition diagrams?|rule (?:table|icon)s?))?$").replace(&l, "elementary $1").to_string();
+    let init_row = |width: usize, k: u8| -> Vec<u8> {
+        if random {
+            let mut g = Rng::new(time_seed());
+            (0..width).map(|_| (g.next() % k as u64) as u8).collect()
+        } else {
+            single_cell(width)
+        }
+    };
+    let start = if random { "random initial conditions" } else { "a single black cell" };
     // elementary
     if let Some(m) = re!(r"^(?:(?:elementary|1-?d)\s+)?(?:(?:cellular automaton|ca)\s+)?rule\s+(\d{1,3})(?:\s+(?:elementary\s+)?(?:cellular automaton|ca|automaton))?$").captures(&l) {
         let explicit = l.contains("automat") || l.contains("ca ") || l.ends_with(" ca") || l.contains("elementary");
@@ -183,14 +200,14 @@ fn cellular(q: &Query) -> Option<Answer> {
             return None;
         }
         let steps = steps.unwrap_or(30).clamp(1, 300);
-        let ca = Ca::from_number(&BigUint::from(n), 2, 1, false)?;
-        let rows = ca.evolve(steps, single_cell(2 * steps + 1));
+        let ca = Ca::from_number(&BigUint::from(n), 2, 2, false)?;
+        let rows = ca.evolve(steps, init_row(2 * steps + 1, 2));
         let rule_rows: Vec<Vec<Content>> = (0..8u32).rev().map(|x| {
             let pat: String = (0..3).rev().map(|b| shade(((x >> b) & 1) as u8, 2)).collect();
             vec![text(format!("{pat} ({:03b})", x)), text(format!("{} ({})", shade(((n >> x) & 1) as u8, 2), (n >> x) & 1))]
         }).collect();
         return Some(Answer::new("cellular automaton", vec![
-            pod("Input", "Input interpretation", text(format!("rule {n} elementary cellular automaton, {steps} steps from a single black cell"))),
+            pod("Input", "Input interpretation", text(format!("rule {n} elementary cellular automaton, {steps} steps from {start}"))),
             primary(pod("Evolution", "Evolution", text(picture(&rows, 2)))),
             pod("Rule", "Rule (neighbourhood → new cell)", table(Some(vec!["neighbourhood", "new cell"]), rule_rows)),
             pod("Properties", "Properties", table(None, elementary_props(n))),
@@ -198,20 +215,33 @@ fn cellular(q: &Query) -> Option<Answer> {
         ]));
     }
     // general k-colour, range-r, or totalistic codes
+    // "k=3", "r=2", "radius 3/2" may come anywhere
+    let kp = re!(r"(?:^|[\s,])k\s*=\s*(\d+)\b").captures(&l).map(|c| c[1].to_string());
+    let rp = re!(r"(?:^|[\s,])(?:r\s*=|radius)\s*(\d+(?:\.5|/2)?)").captures(&l).map(|c| c[1].to_string());
+    let l = re!(r"(?:^|[\s,])(?:k\s*=\s*\d+|(?:r\s*=|radius)\s*\d+(?:\.5|/2)?)\b").replace_all(&l, " ").trim().trim_matches(',').trim().to_string();
     let m = re!(r"^(?:ca|cellular automaton)?\s*,?\s*(?:(\d+)-?\s*colou?rs?)?\s*,?\s*(?:range\s*(\d+(?:\.5|/2)?))?\s*,?\s*(?:(?:totalistic\s+)?(?:rule|code)\s+(\d+))(?:\s+(?:totalistic\s+)?(?:cellular automaton|ca))?$").captures(&l)?;
-    if !(l.contains("color") || l.contains("colour") || l.contains("range") || l.contains("code") || l.contains("ca") || l.contains("automaton")) {
+    if !(kp.is_some() || rp.is_some() || l.contains("color") || l.contains("colour") || l.contains("range") || l.contains("code") || l.contains("ca") || l.contains("automaton")) {
         return None;
     }
-    let k: u8 = m.get(1).and_then(|x| x.as_str().parse().ok()).unwrap_or(2);
-    let r: usize = m.get(2).and_then(|x| x.as_str().parse().ok()).unwrap_or(1);
-    if !(2..=5).contains(&k) || r == 0 || r > 4 {
+    let k: u8 = kp.as_deref().or(m.get(1).map(|x| x.as_str())).and_then(|x| x.parse().ok()).unwrap_or(2);
+    let r_text = rp.as_deref().or(m.get(2).map(|x| x.as_str())).unwrap_or("1").to_string();
+    let r2: usize = if let Some(h) = r_text.strip_suffix("/2") {
+        h.parse().ok()?
+    } else if let Some(h) = r_text.strip_suffix(".5") {
+        2 * h.parse::<usize>().ok()? + 1
+    } else {
+        2 * r_text.parse::<usize>().ok()?
+    };
+    if !(2..=5).contains(&k) || r2 == 0 || r2 > 8 {
         return None;
     }
+    let r = r2.div_ceil(2);
+    let r_show = if r2 % 2 == 1 { format!("{r2}/2") } else { (r2 / 2).to_string() };
     let totalistic = l.contains("code") || l.contains("totalistic");
     let n: BigUint = m[3].parse().ok()?;
-    let ca = Ca::from_number(&n, k, r, totalistic)?;
+    let ca = Ca::from_number(&n, k, r2, totalistic)?;
     let steps = steps.unwrap_or(40).clamp(1, 300);
-    let rows = ca.evolve(steps, single_cell(2 * r * steps + 1));
+    let rows = ca.evolve(steps, init_row(2 * r * steps + 1, k));
     let kind = if totalistic { "totalistic code" } else { "rule" };
     let rule_rows: Vec<Vec<Content>> = if totalistic {
         (0..ca.table.len()).rev().map(|i| vec![text(format!("total {i}")), text(format!("{} ({})", shade(ca.table[i], k), ca.table[i]))]).collect()
@@ -219,7 +249,7 @@ fn cellular(q: &Query) -> Option<Answer> {
         (0..ca.table.len()).rev().map(|i| {
             let mut digits = Vec::new();
             let mut x = i;
-            for _ in 0..2 * r + 1 {
+            for _ in 0..r2 + 1 {
                 digits.push((x % k as usize) as u8);
                 x /= k as usize;
             }
@@ -230,7 +260,7 @@ fn cellular(q: &Query) -> Option<Answer> {
         vec![]
     };
     let mut pods = vec![
-        pod("Input", "Input interpretation", text(format!("{k}-colour, range-{r} cellular automaton, {kind} {n}, {steps} steps from a single cell of colour 1"))),
+        pod("Input", "Input interpretation", text(format!("{k}-colour, range-{r_show} cellular automaton, {kind} {n}, {steps} steps from {}", if random { "random initial conditions" } else { "a single cell of colour 1" }))),
         primary(pod("Evolution", "Evolution", text(picture(&rows, k)))),
     ];
     if !rule_rows.is_empty() {
@@ -871,7 +901,7 @@ mod tests {
 
     #[test]
     fn rule_30_center_column() {
-        let ca = Ca::from_number(&BigUint::from(30u32), 2, 1, false).unwrap();
+        let ca = Ca::from_number(&BigUint::from(30u32), 2, 2, false).unwrap();
         let rows = ca.evolve(10, single_cell(21));
         let centre: String = rows.iter().map(|r| (b'0' + r[10]) as char).collect();
         assert_eq!(centre, "11011100110");

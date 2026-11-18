@@ -1530,13 +1530,22 @@ fn rms(q: &Query) -> Option<Answer> {
         Some(p) if p > 0.0 => (p, true),
         _ => (2000.0, false),
     };
-    let steps = if exact_period { 20000 } else { 400000 };
+    // jumps (sign, floor) defeat Simpson's rule: use the midpoint rule on a fine grid, whose cells meet at the jumps
+    let jumps = e.has(&|t| matches!(t, Expr::Func(n, _) if matches!(&**n, "sign" | "floor" | "ceil" | "round")));
+    let steps = if jumps { 240000 } else if exact_period { 20000 } else { 400000 };
     let h = len / steps as f64;
     let mut acc = 0.0;
     let mut mean = 0.0;
     for k in 0..=steps {
-        let w = if k == 0 || k == steps { 1.0 } else if k % 2 == 1 { 4.0 } else { 2.0 };
-        let v = f.at(k as f64 * h);
+        let (w, t) = if jumps {
+            if k == steps {
+                continue;
+            }
+            (3.0, (k as f64 + 0.5) * h)
+        } else {
+            (if k == 0 || k == steps { 1.0 } else if k % 2 == 1 { 4.0 } else { 2.0 }, k as f64 * h)
+        };
+        let v = f.at(t);
         if !v.is_finite() {
             return None;
         }

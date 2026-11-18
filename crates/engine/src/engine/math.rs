@@ -885,11 +885,13 @@ fn range_text(prog: &crate::eval::Program) -> Option<String> {
 
 pub(crate) fn period(f: &Expr, x: &Expr) -> Option<Expr> {
     // trigonometric functions with linear arguments
-    let mut periods: Vec<Rat> = Vec::new();
+    // each period as (r, whether it is r·π): sin(k x) has period 2π/k, or 2/q when k = qπ
+    let mut periods: Vec<(Rat, bool)> = Vec::new();
     let mut ok = true;
-    f.has(&|_| false);
-    fn walk(e: &Expr, x: &Expr, out: &mut Vec<Rat>, ok: &mut bool) {
+    fn walk(e: &Expr, x: &Expr, out: &mut Vec<(Rat, bool)>, ok: &mut bool) {
         match e {
+            // a function of a periodic function shares its period: sign(sin x), asin(sin x)
+            Func(n, a) if a.len() == 1 && matches!(&**n, "sign" | "abs" | "asin" | "acos" | "atan" | "exp" | "sqrt" | "floor" | "ceil" | "round") => walk(&a[0], x, out, ok),
             Func(n, a) if a.len() == 1 && a[0].has_sym(x) => {
                 let base = match &**n {
                     "sin" | "cos" => Some(Rat::from_integer(Int::from(2))),
@@ -900,8 +902,11 @@ pub(crate) fn period(f: &Expr, x: &Expr) -> Option<Expr> {
                     (Some(b), Some(cs)) if cs.len() == 2 => {
                         // period = b π / |k| with k = q π? keep only rational k
                         match cs[1].as_rat() {
-                            Some(k) if !k.is_zero() => out.push(b / k.abs()),
-                            _ => *ok = false,
+                            Some(k) if !k.is_zero() => out.push((b / k.abs(), true)),
+                            _ => match s::simplify(&(cs[1].clone() / pi())).as_rat() {
+                                Some(q) if !q.is_zero() => out.push((b / q.abs(), false)),
+                                _ => *ok = false,
+                            },
                         }
                     }
                     _ => *ok = false,
@@ -925,14 +930,19 @@ pub(crate) fn period(f: &Expr, x: &Expr) -> Option<Expr> {
     if !ok || periods.is_empty() {
         return None;
     }
+    // periods in π and plain periods are incommensurate
+    let with_pi = periods[0].1;
+    if periods.iter().any(|p| p.1 != with_pi) {
+        return None;
+    }
     // lcm of rationals p_i: lcm(numerators)/gcd(denominators)
     let mut num = Int::one();
     let mut den = Int::zero();
-    for p in &periods {
+    for (p, _) in &periods {
         num = num_integer::Integer::lcm(&num, p.numer());
         den = num_integer::Integer::gcd(&den, p.denom());
     }
-    let per = mul(vec![Num(Rat::new(num, den)), pi()]);
+    let per = if with_pi { mul(vec![Num(Rat::new(num, den)), pi()]) } else { Num(Rat::new(num, den)) };
     // verify numerically
     let Sym(name) = x else { return None };
     let prog = crate::eval::Program::compile(f, &[name])?;

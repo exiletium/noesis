@@ -115,6 +115,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Heun, Coulomb wave and spherical Bessel functions | `compute HeunG derivative [4.3 + 0.1 I, -0.2, 1.3, 0.12, -0.14, 4.32, 0.12]`, `series confluent heun function (4, -0.6, -0.7, -0.18, 0.3, x)`, `integrate spherical Bessel j3(x)`, `incoming irregular Coulomb wave 2, .2, 3` |
 | Oxidation numbers and bubble formulas | `oxidation numbers of bicarbonate anion`, `oxidation number of S in H2SO4`, `critical radius for bubble creation, supersaturating ratio 5`, `diffusion distance, diffusion constant 9*10^-10 m^2/s, 2 hours` |
 | Particle reactions, more hashes, phrase anagrams | `pi^- + p -> p + pi^- 3 GeV`, `lambda -> p + pi-`, `MD2 "Pack my box with five dozen liquor jugs."`, `ripemd160 hello`, `anagrams pepsi cola` |
+| General cellular automata, wave functions, periods | `code 506119 k=4`, `radius 3/2 rule 1235`, `rule 30, random ic`, `root mean square squarewave(t/3) + sin(pi t)`, `period of sin(pi x) + cos(2 pi x/3)` |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
@@ -311,7 +312,7 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 
 Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
 
-**Understood:** Noesis gives an answer to **72.4%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+**Understood:** Noesis gives an answer to **72.6%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
 **Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 189 that could be checked (WolframAlpha answered and the run finished), the answers agree on **53%** (100). On the rest, Noesis gives a different answer on 14% (27) and does not understand 33% (62). The automatic checker alone reports 35% agreement (66); the difference is 34 answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. Most of the questions Noesis does not understand need live or very large datasets: current economic indicators, US state, county and school-district statistics, elected officials, recent earthquakes, fuel prices.
 

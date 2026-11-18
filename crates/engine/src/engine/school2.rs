@@ -531,14 +531,15 @@ fn trig_periods(e: &Expr, x: &Expr, out: &mut Vec<Expr>) -> bool {
 fn period_of(f: &Expr, x: &Expr) -> Option<Expr> {
     let mut ps = Vec::new();
     if !trig_periods(f, x, &mut ps) || ps.is_empty() {
-        return None;
+        // sign(sin(2πx/3)) + sin(πx): periods that are not multiples of π
+        return super::math::period(f, x);
     }
     // all periods p = (a/b) π: lcm of the rationals
     let pi = Const(K::Pi);
     let mut rats = Vec::new();
     for p in &ps {
         let r = simp(div(p.clone(), pi.clone()));
-        let Num(q) = r else { return None };
+        let Num(q) = r else { return super::math::period(f, x) };
         rats.push(q);
     }
     let lcm = rats.iter().skip(1).fold(rats[0].clone(), |acc, q| {
@@ -549,6 +550,18 @@ fn period_of(f: &Expr, x: &Expr) -> Option<Expr> {
     // a smaller true period (e.g. sin² has period π)
     let Sym(xn) = x else { return None };
     let pv = num(&per)?;
+    // the candidate must be a period at all (x + sin x is not periodic)
+    let holds = (0..12).all(|i| {
+        let t = 0.37 + i as f64 * 0.91;
+        match (crate::eval::eval_f64(f, &[(&**xn, t)]), crate::eval::eval_f64(f, &[(&**xn, t + pv)])) {
+            (Some(a), Some(b)) => (a - b).abs() < 1e-7 * (1.0 + a.abs()),
+            (None, None) => true,
+            _ => false,
+        }
+    });
+    if !holds {
+        return None;
+    }
     for k in [6, 4, 3, 2] {
         let cand = pv / k as f64;
         let ok = (0..12).all(|i| {

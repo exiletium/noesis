@@ -1652,3 +1652,17 @@ fn particle_reactions_hashes_and_phrase_anagrams() {
     assert_eq!(short("ripemd160 hello"), "108f07b8382412612c048d07d13f814118445acd");
     assert_eq!(short("anagrams pepsi cola"), "episcopal");
 }
+
+#[test]
+fn general_cellular_automata_waves_and_periods() {
+    assert!(pod_text(&q("code 506119 k=4"), "Input").contains("4-colour, range-1 cellular automaton, totalistic code 506119"));
+    assert!(pod_text(&q("rule 7,110,222,193,934 k=3"), "Input").contains("rule 7110222193934"));
+    assert!(pod_text(&q("radius 3/2 rule 1235"), "Input").contains("range-3/2"));
+    assert!(pod_text(&q("rule 30, random ic"), "Input").contains("random initial conditions"));
+    assert!(short("root mean square squarewave(t/3) + sin(pi t)").starts_with("√(3/2)"));
+    assert_eq!(short("period of sin(pi x) + cos(2 pi x/3)"), "6");
+    assert_eq!(short("trianglewave(0.25)"), "1");
+    assert_eq!(short("sawtoothwave(2.3)"), "0.3");
+    noesis::domains::live::set_online(false);
+    assert!(!noesis::query("period of x + sin(x)").success);
+}

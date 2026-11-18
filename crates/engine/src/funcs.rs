@@ -1087,6 +1087,10 @@ fn evaluate(name: &str, args: &[Expr]) -> Option<Expr> {
         ("acsch", 1) => return Some(func("asinh", vec![pow(args[0].clone(), int(-1))])),
         ("acoth", 1) => return Some(func("atanh", vec![pow(args[0].clone(), int(-1))])),
         ("sgn", 1) => return Some(func("sign", args.to_vec())),
+        // Wolfram's unit-period waves: SquareWave is ±1, TriangleWave peaks at x = 1/4, SawtoothWave is frac(x)
+        ("squarewave", 1) => return Some(func("sign", vec![func("sin", vec![int(2) * pi() * args[0].clone()])])),
+        ("trianglewave", 1) => return Some(int(2) / pi() * func("asin", vec![func("sin", vec![int(2) * pi() * args[0].clone()])])),
+        ("sawtoothwave", 1) => return Some(args[0].clone() - func("floor", args.to_vec())),
         ("erfc", 1) => return Some(one() - func("erf", args.to_vec())),
         ("sinc", 1) => {
             if args[0].is_zero() {
