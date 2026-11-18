@@ -1475,3 +1475,13 @@ fn geodetic_lists_and_solvent_miscibility() {
     assert_eq!(short("is hexane miscible with methanol"), "no: immiscible (two layers)");
     assert!(short("What solvents are miscible in acetone?").starts_with("water | methanol"));
 }
+
+#[test]
+fn element_conductivity_and_magnetism() {
+    assert_eq!(short("conductivity sulfur, silicon, copper"), "Sulfur: 1×10^-15 S/m | Silicon: 4.35×10^-4 S/m | Copper: 5.95×10^7 S/m");
+    assert!(short("elements sorted by conductivity").starts_with("Silver (6.29×10^7 S/m) | Copper"));
+    assert_eq!(short("iron magnetism"), "ferromagnetic");
+    assert!(short("is gold magnetic").contains("diamagnetic"));
+    assert_eq!(short("resistivity of copper"), "1.68×10^-8 Ω m");
+    assert_eq!(short("thermal conductivity of copper"), "401 W/(m K)");
+}
