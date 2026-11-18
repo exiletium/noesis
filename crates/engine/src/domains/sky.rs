@@ -349,6 +349,48 @@ fn moon_phase(l: &str) -> Option<Answer> {
     ))
 }
 
+/// "next waning gibbous moon", "crescent moon": when the Moon is next in an intermediate phase.
+fn intermediate_phase(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:when is |when's )?(?:the\s+)?(?:(next|upcoming)\s+)?(waxing|waning)?\s*(crescent|gibbous)(?:\s+moon)?$").captures(l)?;
+    let kinds: Vec<(&str, f64, f64)> = match (m.get(2).map(|x| x.as_str()), &m[3]) {
+        (Some("waxing"), "crescent") => vec![("waxing crescent", 0.0, 90.0)],
+        (Some("waxing"), _) => vec![("waxing gibbous", 90.0, 180.0)],
+        (Some(_), "crescent") => vec![("waning crescent", 270.0, 360.0)],
+        (Some(_), _) => vec![("waning gibbous", 180.0, 270.0)],
+        (None, "crescent") => vec![("waxing crescent", 0.0, 90.0), ("waning crescent", 270.0, 360.0)],
+        (None, _) => vec![("waxing gibbous", 90.0, 180.0), ("waning gibbous", 180.0, 270.0)],
+    };
+    // a bare "gibbous" with no "moon" or "next" is a shape word, not a question
+    if m.get(1).is_none() && m.get(2).is_none() && !l.contains("moon") {
+        return None;
+    }
+    let now = jd_now();
+    let e = elongation(now);
+    let mut rows = Vec::new();
+    let mut first: Option<(f64, String)> = None;
+    for (name, a, b) in kinds {
+        let inside = if b >= 360.0 { e >= a } else { e >= a && e < b };
+        let (start, end) = if inside {
+            (now, next_phase(now, b % 360.0))
+        } else {
+            let st = next_phase(now, a);
+            (st, next_phase(st + 1.0, b % 360.0))
+        };
+        let span = if inside { format!("now, until {}", when(end)) } else { format!("{} to {}", when(start), when(end)) };
+        if first.as_ref().is_none_or(|f| start < f.0) {
+            first = Some((start, format!("{name}: {span}")));
+        }
+        rows.push(vec![text(name), text(span)]);
+    }
+    let (_, result) = first?;
+    Some(Answer::new("moon phase", vec![
+        input(format!("next {} moon", &m[3])),
+        primary(pod("Result", "Next period", text(result))),
+        pod("Table", "Periods", table(Some(vec!["phase", "period"]), rows)),
+        pod("Note", "Note", text(format!("currently {} ({}% illuminated)", phase_name(e), fmt_float((1.0 - cos(e)) / 2.0 * 100.0, 3)))),
+    ]))
+}
+
 fn next_moon(l: &str) -> Option<Answer> {
     let m = re!(r"^(?:when is |when's )?(?:the\s+)?(next|last|previous)\s+(full moon|new moon|first quarter(?: moon)?|last quarter(?: moon)?|third quarter(?: moon)?|half moon)$").captures(l)?;
     let target = match &m[2] {
@@ -1081,6 +1123,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     eclipses(l)
         .or_else(|| minor_bodies(l))
         .or_else(|| next_moon(l))
+        .or_else(|| intermediate_phase(l))
         .or_else(|| moon_phase(l))
         .or_else(|| meteor_showers(l))
         .or_else(|| sky_coordinates(l))

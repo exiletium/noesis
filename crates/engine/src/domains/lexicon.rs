@@ -362,8 +362,8 @@ fn define(l: &str) -> Option<Answer> {
 }
 
 fn synonyms(l: &str) -> Option<Answer> {
-    let m = re!(r"^(?:synonyms?|another word|other words?|thesaurus)\s+(?:of|for)\s+(?:the word\s+)?([a-z]+)$|^([a-z]+)\s+synonyms?$").captures(l)?;
-    let w = m.get(1).or(m.get(2))?.as_str();
+    let m = re!(r"^(?:synonyms?|another word|other words?|thesaurus)\s+(?:of|for)\s+(?:the word\s+)?([a-z]+)$|^([a-z]+)\s+synonyms?$|^(?:synonyms?|thesaurus)\s+([a-z]+)$").captures(l)?;
+    let w = m.get(1).or(m.get(2)).or(m.get(3))?.as_str();
     let (base, glosses, syns) = lookup(w)?;
     if syns.is_empty() {
         return None;

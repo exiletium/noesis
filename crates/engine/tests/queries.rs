@@ -1544,3 +1544,11 @@ fn equinoxes_solstices_and_lagrange_points() {
     assert!(short("Lagrange points Earth and Moon").starts_with("L1: 58,020 km from Moon | L2: 64,510 km from Moon"));
     assert_eq!(short("Sun-Earth L2"), "1.51 million km from Earth (away from Sun)");
 }
+
+#[test]
+fn planet_positions_moon_periods_and_synonyms() {
+    assert!(short("sun position on 2025-06-21").starts_with("RA 5h 58m"));
+    assert!(short("sun position on 2025-06-21").contains("Dec +23° 26′"));
+    assert!(short("next waning gibbous moon").starts_with("waning gibbous: "));
+    assert!(short("synonyms granular").contains("grainy"));
+}
