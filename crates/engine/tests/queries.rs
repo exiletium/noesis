@@ -1243,3 +1243,12 @@ fn continents_compass_and_aggregates() {
     assert_eq!(short("1 1/3 quarts times two in fluid ounces"), "85.333333 US fluid ounces");
     assert_eq!(short("mass Proxima Centauri / Sun"), "0.1222 (12.22%)");
 }
+
+#[test]
+fn layers_and_buildings() {
+    assert_eq!(short("asthenosphere"), "100–350 km below the surface");
+    assert!(short("50,000km beneath the surface of the sun").starts_with("convection zone"));
+    assert!(short("radiative zone of the sun").starts_with("energy moves outward as radiation"));
+    assert!(short("Empire State Building, Chrysler Building").contains("Chrysler Building: height 318.9 m"));
+    assert_eq!(short("UHF"), "300 MHz–3 GHz");
+}

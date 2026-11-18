@@ -48,6 +48,27 @@ Petronas Towers;petronas twin towers|skyscraper|Kuala Lumpur|Malaysia|1998|heigh
 Taipei 101|skyscraper|Taipei|Taiwan|2004|height=508;floors=101|
 Shanghai Tower|skyscraper|Shanghai|China|2015|height=632;floors=128|
 Willis Tower;sears tower|skyscraper|Chicago|United States|1973|height=442;floors=108|
+Chrysler Building|skyscraper|New York City|United States|1930|height=318.9;floors=77|Art Deco; briefly the tallest building in the world (1930–1931)
+Woolworth Building|skyscraper|New York City|United States|1913|height=241.4;floors=57|the tallest building in the world from 1913 to 1930
+Flatiron Building|skyscraper|New York City|United States|1902|height=87;floors=22|
+Central Park Tower|skyscraper|New York City|United States|2020|height=472.4;floors=98|the tallest residential building in the world
+432 Park Avenue|skyscraper|New York City|United States|2015|height=425.7;floors=85|
+John Hancock Center;875 north michigan avenue|skyscraper|Chicago|United States|1969|height=343.7;floors=100|
+Trump International Hotel and Tower;trump tower chicago|skyscraper|Chicago|United States|2009|height=423.2;floors=98|
+Transamerica Pyramid|skyscraper|San Francisco|United States|1972|height=260;floors=48|
+Salesforce Tower|skyscraper|San Francisco|United States|2018|height=326;floors=61|
+Lotte World Tower|skyscraper|Seoul|South Korea|2017|height=554.5;floors=123|
+Ping An Finance Center;ping an finance centre|skyscraper|Shenzhen|China|2017|height=599.1;floors=115|
+Abraj Al-Bait Clock Tower;makkah royal clock tower;abraj al bait|skyscraper|Mecca|Saudi Arabia|2012|height=601;floors=120|
+Merdeka 118|skyscraper|Kuala Lumpur|Malaysia|2023|height=678.9;floors=118|the second-tallest building in the world
+International Commerce Centre|skyscraper|Hong Kong|China|2010|height=484;floors=108|
+The Shard;shard;shard london bridge|skyscraper|London|United Kingdom|2012|height=309.6|
+30 St Mary Axe;the gherkin;gherkin|skyscraper|London|United Kingdom|2004|height=180;floors=41|
+Washington Monument|obelisk|Washington, D.C.|United States|1884|height=169.3|the tallest stone structure and the tallest obelisk in the world
+Gateway Arch|monument|St. Louis|United States|1965|height=192|stainless-steel catenary arch, 192 m tall and 192 m wide
+Canton Tower|tower|Guangzhou|China|2010|height=600|
+Ostankino Tower|tower|Moscow|Russia|1967|height=540.1|
+Berlin TV Tower;fernsehturm berlin;berliner fernsehturm|tower|Berlin|Germany|1969|height=368|
 One World Trade Center;freedom tower|skyscraper|New York City|United States|2014|height=541.3;floors=94|1,776 ft tall
 Great Pyramid of Giza;great pyramid|pyramid|Giza|Egypt|c. 2560 BC|height=138.5|originally about 146.6 m; base 230.3 m on a side
 Hoover Dam|dam|Black Canyon of the Colorado River, Nevada–Arizona|United States|1936|height=221;length=379;power=2080|impounds Lake Mead; concrete arch-gravity dam

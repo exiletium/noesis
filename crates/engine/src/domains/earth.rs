@@ -495,6 +495,92 @@ fn cosmic_origins(l: &str) -> Option<Answer> {
     Some(Answer::new("cosmic origins", vec![input(format!("cosmic origins of {}", els.iter().map(|e| e.name.as_str()).collect::<Vec<_>>().join(", "))), primary(pod("Result", "Main sources", text(main))), pod("Table", "Origins", table(Some(vec!["element", "made mainly by"]), rowsv))]))
 }
 
+/// Layers of the Earth by depth below the surface (km) and of the Sun by
+/// distance from its centre (km): names, range, state, composition, temperature.
+const EARTH_LAYERS: &[(&str, &str, f64, f64, &str, &str, &str)] = &[
+    ("crust", "crust", 0.0, 35.0, "solid", "silicate rocks: granitic continental crust (average 35 km thick, up to 70 km under mountains) and basaltic oceanic crust (5–10 km)", "up to about 500–1,000 °C at its base"),
+    ("lithosphere", "lithosphere", 0.0, 100.0, "solid, rigid", "the crust and the uppermost mantle, broken into tectonic plates; 50–200 km thick", "up to about 1,300 °C at its base"),
+    ("asthenosphere", "asthenosphere", 100.0, 350.0, "solid but ductile, slightly molten in places", "upper-mantle peridotite that flows slowly, letting the plates above move", "about 1,300–1,600 °C"),
+    ("upper mantle", "upper mantle", 35.0, 410.0, "solid (ductile below the lithosphere)", "peridotite: olivine, pyroxene and garnet", "about 500–1,900 °C"),
+    ("transition zone;mantle transition zone", "mantle transition zone", 410.0, 660.0, "solid", "high-pressure forms of olivine (wadsleyite, ringwoodite) and garnet; holds much water", "about 1,500–1,900 °C"),
+    ("lower mantle", "lower mantle", 660.0, 2891.0, "solid", "bridgmanite and ferropericlase", "about 1,900–3,700 °C"),
+    ("mantle;earth's mantle", "mantle", 35.0, 2891.0, "solid, flowing slowly over geological time", "silicate rocks rich in magnesium and iron; about 84% of Earth's volume and 67% of its mass", "about 500 °C near the crust to about 3,700 °C at the core boundary"),
+    ("outer core", "outer core", 2891.0, 5150.0, "liquid", "iron and nickel with lighter elements; its convection generates Earth's magnetic field", "about 4,000–5,400 °C"),
+    ("inner core", "inner core", 5150.0, 6371.0, "solid", "iron–nickel alloy, solid because of the enormous pressure (about 330–360 GPa)", "about 5,200–5,400 °C"),
+    ("core;earth's core", "core", 2891.0, 6371.0, "liquid outer core and solid inner core", "iron and nickel; about 32% of Earth's mass", "about 4,000–5,400 °C"),
+];
+
+const SUN_LAYERS: &[(&str, &str, f64, f64, &str, &str)] = &[
+    ("core;solar core;sun's core", "core", 0.0, 174_000.0, "nuclear fusion of hydrogen into helium releases the Sun's energy", "about 15.7 million K at the centre"),
+    ("radiative zone;radiation zone", "radiative zone", 174_000.0, 487_000.0, "energy moves outward as radiation, absorbed and re-emitted countless times (taking 100,000 years or more)", "about 7 million K falling to about 2 million K"),
+    ("tachocline", "tachocline", 480_000.0, 495_000.0, "thin shear layer between the rigidly rotating radiative zone and the convection zone; thought to drive the solar dynamo", "about 2 million K"),
+    ("convection zone;convective zone", "convection zone", 487_000.0, 695_700.0, "hot plasma rises and cooler plasma sinks, carrying energy to the surface", "about 2 million K falling to about 5,800 K"),
+    ("photosphere", "photosphere", 695_700.0, 696_200.0, "the visible surface, about 500 km thick, where light escapes into space; shows granulation and sunspots", "about 5,772 K (effective temperature)"),
+    ("chromosphere", "chromosphere", 696_200.0, 698_200.0, "thin reddish layer about 2,000 km thick above the photosphere, seen during total eclipses", "about 4,000 K rising to about 20,000 K"),
+    ("corona;solar corona", "corona", 698_200.0, 0.0, "the outer atmosphere, extending millions of kilometres and flowing out as the solar wind", "about 1–3 million K"),
+];
+
+/// "asthenosphere", "radiative zone of the sun", "50,000 km beneath the surface of the sun",
+/// "100 km below the surface of the Earth"
+fn layers(l: &str) -> Option<Answer> {
+    let fmt_km = |v: f64| super::geo::fmt_int(v.round() as u64);
+    // depth below the surface
+    if let Some(m) = re!(r"^([\d,.]+) ?(km|kilometers|kilometres|miles|mi) (?:beneath|below|under|deep (?:in|into)|into) (?:the )?(?:surface (?:of|on) )?(?:the )?(earth|sun)(?:'s surface)?$").captures(l) {
+        let mut d: f64 = m[1].replace(',', "").parse().ok()?;
+        if m[2].starts_with('m') {
+            d *= 1.609344;
+        }
+        if &m[3] == "earth" {
+            let fine = ["crust", "asthenosphere", "upper mantle", "mantle transition zone", "lower mantle", "outer core", "inner core"];
+            let layer = if d < 35.0 { "crust" } else if d < 100.0 { "upper mantle" } else { fine.iter().copied().find(|n| EARTH_LAYERS.iter().any(|x| x.1 == *n && d >= x.2 && d < x.3)).unwrap_or("inner core") };
+            let x = EARTH_LAYERS.iter().find(|x| x.1 == layer)?;
+            if d > 6371.0 {
+                return None;
+            }
+            return Some(Answer::new("Earth layer", vec![
+                pod("Input", "Input interpretation", text(format!("{} km below Earth's surface", fmt_km(d)))),
+                primary(pod("Result", "Layer", text(format!("{} ({}–{} km deep)", x.1, fmt_km(x.2), fmt_km(x.3))))),
+                pod("Table", "Properties", table(None, vec![vec![text("state"), text(x.4)], vec![text("composition"), text(x.5)], vec![text("temperature"), text(x.6)], vec![text("depth"), text(format!("{} km of 6,371 km to the centre ({}%)", fmt_km(d), fmt_float((d / 6371.0 * 1000.0).round() / 10.0, 4)))]])),
+            ]));
+        }
+        let r = 695_700.0 - d;
+        if r < 0.0 {
+            return None;
+        }
+        let x = SUN_LAYERS.iter().filter(|x| x.1 != "tachocline").find(|x| r >= x.2 && (x.3 == 0.0 || r < x.3))?;
+        return Some(Answer::new("solar layer", vec![
+            pod("Input", "Input interpretation", text(format!("{} km below the Sun's surface", fmt_km(d)))),
+            primary(pod("Result", "Layer", text(format!("{} ({} solar radii from the centre)", x.1, fmt_float((r / 695_700.0 * 1000.0).round() / 1000.0, 4))))),
+            pod("Table", "Properties", table(None, vec![vec![text("description"), text(x.4)], vec![text("temperature"), text(x.5)]])),
+        ]));
+    }
+    // a named layer: "asthenosphere", "radiative zone of the sun", "earth's outer core"
+    let sun = l.contains("sun") || l.contains("solar");
+    let name = re!(r"^(?:the )?(?:earth'?s |sun'?s |solar )?(.+?)(?: (?:of|in) (?:the )?(?:earth|sun))?$").captures(l)?;
+    let n = name[1].trim().trim_start_matches("the ");
+    if sun || ["photosphere", "chromosphere", "corona", "radiative zone", "convection zone", "tachocline"].contains(&n) {
+        let x = SUN_LAYERS.iter().find(|x| x.0.split(';').any(|a| a == n))?;
+        if !sun && x.1 == "corona" {
+            return None;
+        }
+        let range = if x.3 == 0.0 { format!("from about {} km from the centre outward", fmt_km(x.2)) } else { format!("{}–{} km from the centre ({}–{} solar radii)", fmt_km(x.2), fmt_km(x.3), fmt_float((x.2 / 695_700.0 * 100.0).round() / 100.0, 3), fmt_float((x.3 / 695_700.0 * 100.0).round() / 100.0, 3)) };
+        return Some(Answer::new("solar layer", vec![
+            pod("Input", "Input interpretation", text(format!("Sun | {}", x.1))),
+            primary(pod("Result", "Description", text(x.4))),
+            pod("Table", "Properties", table(None, vec![vec![text("extent"), text(range)], vec![text("temperature"), text(x.5)]])),
+        ]));
+    }
+    let x = EARTH_LAYERS.iter().find(|x| x.0.split(';').any(|a| a == n))?;
+    if ["core", "crust", "mantle"].contains(&x.1) && !l.contains("earth") {
+        return None;
+    }
+    Some(Answer::new("Earth layer", vec![
+        pod("Input", "Input interpretation", text(format!("Earth | {}", x.1))),
+        primary(pod("Result", "Depth", text(format!("{}–{} km below the surface", fmt_km(x.2), fmt_km(x.3))))),
+        pod("Table", "Properties", table(None, vec![vec![text("state"), text(x.4)], vec![text("composition"), text(x.5)], vec![text("temperature"), text(x.6)], vec![text("thickness"), text(format!("about {} km", fmt_km(x.3 - x.2)))]])),
+    ]))
+}
+
 /// "SSW", "south-southwest", "ENE": the 32-wind compass (16 named here)
 fn compass_point(raw: &str, l: &str) -> Option<Answer> {
     const P: [(&str, &str); 16] = [
@@ -585,6 +671,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
     compass_point(&q.raw, l)
+        .or_else(|| layers(l))
         .or_else(|| clouds(l))
         .or_else(|| seawater(l))
         .or_else(|| altitude_table(l))
