@@ -606,6 +606,8 @@ pub static CONSTANTS: &[Constant] = &[
     Constant { names: &["solar luminosity", "luminosity of the sun", "sun luminosity"], symbol: "L_☉", value: 3.828e26, unit: "W", exact: true },
     Constant { names: &["hubble constant"], symbol: "H₀", value: 67.4, unit: "km/s/Mpc", exact: false },
     Constant { names: &["geocentric gravitational constant", "standard gravitational parameter of the earth", "gm of earth"], symbol: "GM_⊕", value: 3.986004418e14, unit: "m^3/s^2", exact: false },
+    // the reference geoid potential adopted by IAG Resolution 1 (2015)
+    Constant { names: &["geopotential of the earth", "earth geopotential", "geopotential of earth", "geoid potential", "reference geopotential", "w0 geopotential"], symbol: "W₀", value: 62_636_853.4, unit: "m^2/s^2", exact: false },
     Constant { names: &["absolute zero"], symbol: "", value: 0.0, unit: "K", exact: true },
 ];
 

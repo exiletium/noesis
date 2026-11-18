@@ -498,7 +498,7 @@ fn turing(q: &Query) -> Option<Answer> {
                 Some(sk) => sk,
                 None => {
                     // the smallest machine whose numbering reaches n
-                    let need_colors = re!(r"(?:all|single|=)\s*(\d)s?\b").captures(&l).and_then(|c| c[1].parse::<u8>().ok()).map(|c| c + 1).unwrap_or(2);
+                    let need_colors = re!(r"(?:all|single|(?:tape|initial condition|init)\s*=)\s*(\d)s?\b").captures(&l).and_then(|c| c[1].parse::<u8>().ok()).map(|c| c + 1).unwrap_or(2);
                     let cands = [(2u8, 2u8), (2, 3), (3, 2), (2, 4), (3, 3), (2, 5), (4, 2), (3, 4), (4, 3)];
                     *cands.iter().find(|(s, k)| *k >= need_colors && n < BigUint::from(2u32 * *s as u32 * *k as u32).pow(*s as u32 * *k as u32))?
                 }

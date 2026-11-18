@@ -1593,3 +1593,10 @@ fn distribution_names_beat_parameter_names() {
     assert!(short("mean of logistic distribution mu=2 beta=3").starts_with('2'));
     assert!(short("mean of the lognormal distribution").contains("e^"));
 }
+
+#[test]
+fn geopotential_goddesses_and_tm_width() {
+    assert!(short("geopotential of the earth").starts_with("62636853"));
+    assert!(short("Isis, Seshat").contains("Seshat: writing"));
+    assert!(!short("evolve TM 120597441632 on random tape, width = 5").contains("did not understand"));
+}
