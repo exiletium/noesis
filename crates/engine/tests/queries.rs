@@ -501,7 +501,7 @@ fn graphs_sequences_and_poles() {
 
 #[test]
 fn school_calculus_and_word_problems() {
-    assert_eq!(short("Rachel has 17 apples. She gives 9 to Sarah. How many apples does Rachel have now?"), "8");
+    assert_eq!(short("Rachel has 17 apples. She gives 9 to Sarah. How many apples does Rachel have now?"), "8 apples");
     assert_eq!(short("if there are 40 cookies all together and A takes 10 and B takes 5 how many are left"), "25");
     assert_eq!(short("If Jane has 23 cats and I have 2 cats, and then Jane gives me 5 cats, how many more cats does Jane have than I?"), "11");
     assert_eq!(short("Z transform of n^4"), "(z (z^3 + 11 z^2 + 11 z + 1))/(z - 1)^5");
@@ -1251,4 +1251,16 @@ fn layers_and_buildings() {
     assert!(short("radiative zone of the sun").starts_with("energy moves outward as radiation"));
     assert!(short("Empire State Building, Chrysler Building").contains("Chrysler Building: height 318.9 m"));
     assert_eq!(short("UHF"), "300 MHz–3 GHz");
+}
+
+#[test]
+fn word_problems_cousins_and_us_cities() {
+    assert_eq!(short("Jordan has 6 basketballs and Shaquille has 4. How many do they have together?"), "10 basketballs");
+    assert_eq!(short("Tom has 3 apples and buys 5 more. He eats 2. How many apples does Tom have now?"), "6 apples");
+    assert_eq!(short("Ann has 12 pencils and Bob has 7. How many more pencils does Ann have than Bob?"), "5 pencils");
+    assert_eq!(short("Ann has 10 stickers and Bob has 2. Ann gives 3 to Bob. How many stickers does Bob have?"), "5 stickers");
+    assert!(short("second cousin once removed").starts_with("the child of your second cousin"));
+    // a state after the comma picks the city in that state
+    assert!(short("Springfield, MA").contains("42.10° N, 72.59° W"));
+    assert!(short("Springfield, Illinois").contains("39.80° N"));
 }

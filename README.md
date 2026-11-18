@@ -282,7 +282,7 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 
 Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
 
-**Understood:** Noesis gives an answer to **66.4%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+**Understood:** Noesis gives an answer to **66.5%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
 **Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 175 that could be checked (WolframAlpha answered and the run finished), the answers agree on **60%** (105). On the rest, Noesis gives a different answer on 6% and does not understand 34%. The automatic checker alone reports 31% agreement; the difference is answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. The agreement sample was taken before the country statistics were added; the figure includes seven answers corrected after the comparison (sum-to-product factoring, anagrams, Galois fields, geodetic datums, the stellar mass–luminosity relation and substitution-system initial conditions).
 

@@ -38,6 +38,8 @@ pub struct City {
     pub capital: bool,
     /// year of the population figure when it comes from Wikidata, else empty (GeoNames)
     pub population_year: String,
+    /// first-level region: a US state abbreviation, else a GeoNames admin1 code
+    pub admin1: String,
 }
 
 pub fn countries() -> &'static HashMap<String, Country> {
@@ -66,7 +68,7 @@ pub fn cities() -> &'static Vec<City> {
         let f = |r: &[serde_json::Value], k: usize| r.get(k).and_then(|v| v.as_f64()).unwrap_or(0.0);
         raw.rows
             .iter()
-            .map(|r| City { name: s(r, 0), country: s(r, 1), lat: f(r, 2), lon: f(r, 3), population: f(r, 4) as u64, timezone: s(r, 5), capital: f(r, 6) == 1.0, population_year: s(r, 8) })
+            .map(|r| City { name: s(r, 0), country: s(r, 1), lat: f(r, 2), lon: f(r, 3), population: f(r, 4) as u64, timezone: s(r, 5), capital: f(r, 6) == 1.0, population_year: s(r, 8), admin1: s(r, 7) })
             .collect()
     })
 }
@@ -114,11 +116,27 @@ pub fn find_country(q: &str) -> Option<&'static Country> {
     })
 }
 
+/// US states and DC: (postal abbreviation, name).
+pub const US_STATES: &[(&str, &str)] = &[("AL", "Alabama"), ("AK", "Alaska"), ("AZ", "Arizona"), ("AR", "Arkansas"), ("CA", "California"), ("CO", "Colorado"), ("CT", "Connecticut"), ("DE", "Delaware"), ("DC", "District of Columbia"), ("FL", "Florida"), ("GA", "Georgia"), ("HI", "Hawaii"), ("ID", "Idaho"), ("IL", "Illinois"), ("IN", "Indiana"), ("IA", "Iowa"), ("KS", "Kansas"), ("KY", "Kentucky"), ("LA", "Louisiana"), ("ME", "Maine"), ("MD", "Maryland"), ("MA", "Massachusetts"), ("MI", "Michigan"), ("MN", "Minnesota"), ("MS", "Mississippi"), ("MO", "Missouri"), ("MT", "Montana"), ("NE", "Nebraska"), ("NV", "Nevada"), ("NH", "New Hampshire"), ("NJ", "New Jersey"), ("NM", "New Mexico"), ("NY", "New York"), ("NC", "North Carolina"), ("ND", "North Dakota"), ("OH", "Ohio"), ("OK", "Oklahoma"), ("OR", "Oregon"), ("PA", "Pennsylvania"), ("RI", "Rhode Island"), ("SC", "South Carolina"), ("SD", "South Dakota"), ("TN", "Tennessee"), ("TX", "Texas"), ("UT", "Utah"), ("VT", "Vermont"), ("VA", "Virginia"), ("WA", "Washington"), ("WV", "West Virginia"), ("WI", "Wisconsin"), ("WY", "Wyoming")];
+
+/// The postal abbreviation of a US state written as a name or an abbreviation.
+pub fn us_state(s: &str) -> Option<&'static str> {
+    let s = s.trim().trim_end_matches('.');
+    US_STATES.iter().find(|(a, n)| a.eq_ignore_ascii_case(s) || n.eq_ignore_ascii_case(s)).map(|(a, _)| *a)
+}
+
 pub fn find_city(q: &str) -> Option<&'static City> {
     let l = q.trim().to_lowercase();
     let (name, cc) = match l.split_once(',') {
         Some((n, c)) => {
             let cc = find_country(c.trim()).map(|c| c.iso2.clone());
+            // "Springfield, MA", "Portland, Oregon"
+            if cc.is_none() {
+                if let Some(st) = us_state(c) {
+                    let n = n.trim().to_lowercase();
+                    return cities().iter().filter(|x| x.country == "US" && x.admin1 == st && x.name.to_lowercase() == n).max_by_key(|x| x.population);
+                }
+            }
             // "Madison, WI" keeps a short region; "Phoenix of traffic" is not one
             if cc.is_none() && c.split_whitespace().count() > 2 {
                 return None;

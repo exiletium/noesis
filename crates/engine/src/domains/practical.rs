@@ -15,7 +15,45 @@ macro_rules! re {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim();
-    tire(l).or_else(|| tip(l)).or_else(|| poker(l)).or_else(|| relationship(l))
+    tire(l).or_else(|| tip(l)).or_else(|| poker(l)).or_else(|| cousin_term(l)).or_else(|| relationship(l))
+}
+
+/// "second cousin once removed", "what is a third cousin": the common
+/// ancestor and the expected share of DNA.
+fn cousin_term(l: &str) -> Option<Answer> {
+    let l = l.trim().trim_end_matches(['?', '.']);
+    let l = re!(r"^(?:what is an? |what's an? |define |definition of an? |meaning of )").replace(l, "");
+    let m = re!(r"^(first|second|third|fourth|fifth|sixth|1st|2nd|3rd|4th|5th|6th) cousins?(?: (once|twice|thrice|three times|four times|1x|2x|3x) removed)?$").captures(&l)?;
+    let n: u32 = match &m[1] { "first" | "1st" => 1, "second" | "2nd" => 2, "third" | "3rd" => 3, "fourth" | "4th" => 4, "fifth" | "5th" => 5, _ => 6 };
+    let k: u32 = match m.get(2).map(|x| x.as_str()) { Some("once" | "1x") => 1, Some("twice" | "2x") => 2, Some("thrice" | "three times" | "3x") => 3, Some("four times") => 4, _ => 0 };
+    let ancestor = |gen: u32| -> String {
+        match gen {
+            1 => "parents".to_string(),
+            2 => "grandparents".to_string(),
+            g => format!("{}grandparents", "great-".repeat((g - 2) as usize)),
+        }
+    };
+    let r = 0.5f64.powi((2 * n + 1 + k) as i32);
+    let name = l.to_string();
+    let desc = if k == 0 {
+        format!("a child of a {} of one of your parents: you share {} (and are the same number of generations from them)", if n == 1 { "sibling".to_string() } else { format!("{} cousin", ["", "first", "second", "third", "fourth", "fifth"][(n - 1) as usize]) }, ancestor(n + 1))
+    } else {
+        let ord = ["", "first", "second", "third", "fourth", "fifth", "sixth"][n as usize];
+        let down = ["", "child", "grandchild", "great-grandchild", "great-great-grandchild"][k as usize];
+        let up = ["", "parents", "grandparents", "great-grandparents", "great-great-grandparents"][k as usize];
+        format!("the {down} of your {ord} cousin, or a {ord} cousin of one of your {up}: one of you is {k} generation{} further from the common ancestors", if k > 1 { "s" } else { "" })
+    };
+    let rows = vec![
+        vec![text("common ancestors"), text(format!("the {} of the closer cousin ({} of the other)", ancestor(n + 1), ancestor(n + 1 + k)))],
+        vec![text("generations apart"), text(k.to_string())],
+        vec![text("coefficient of relationship"), text(format!("1/{} ({}%)", 2u64.pow(2 * n + 1 + k), fmt_float(r * 100.0, 4)))],
+        vec![text("expected shared DNA"), text(format!("about {}% on average", fmt_float(r * 100.0, 3)))],
+    ];
+    Some(Answer::new("family relationship", vec![
+        pod("Input", "Input interpretation", text(name)),
+        primary(pod("Result", "Definition", text(desc))),
+        pod("Table", "Details", table(None, rows)),
+    ]))
 }
 
 fn n(v: f64, d: usize) -> String {

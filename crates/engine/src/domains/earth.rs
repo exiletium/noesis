@@ -86,7 +86,7 @@ fn dms(v: f64, pos: char, negc: char) -> String {
 }
 
 fn pseudo_city(lat: f64, lon: f64) -> City {
-    City { name: String::new(), country: String::new(), lat, lon, population: 0, timezone: String::new(), capital: false, population_year: String::new() }
+    City { name: String::new(), country: String::new(), lat, lon, population: 0, timezone: String::new(), capital: false, population_year: String::new(), admin1: String::new() }
 }
 
 fn nearest_city(lat: f64, lon: f64) -> Option<(&'static City, f64)> {
