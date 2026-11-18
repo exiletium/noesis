@@ -169,7 +169,16 @@ pub fn handle(q: &Query) -> Option<Answer> {
 
     // "paintings by Vermeer", "works by Rodin", "famous paintings by van gogh"
     if let Some(m) = re!(r"^(?:famous |notable )?(?:paintings|works|artworks|sculptures|works of art) (?:by|of) (.+)$").captures(&l) {
-        let ws: Vec<&Work> = WORKS.iter().filter(|w| by_artist(w, &m[1])).collect();
+        let want = |w: &Work| {
+            if l.contains("sculptures") {
+                w.kind.contains("sculpture")
+            } else if l.contains("paintings") {
+                !w.kind.contains("sculpture") && !w.kind.contains("drawing") && !w.kind.contains("print")
+            } else {
+                true
+            }
+        };
+        let ws: Vec<&Work> = WORKS.iter().filter(|w| by_artist(w, &m[1]) && want(w)).collect();
         if ws.is_empty() {
             return None;
         }

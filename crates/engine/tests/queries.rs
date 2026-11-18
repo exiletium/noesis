@@ -1498,3 +1498,13 @@ fn artworks_names_and_germination() {
     assert_eq!(short("germination time for garden peas"), "7–14 days (at 75 °F soil)");
     assert_eq!(short("days to maturity for sweet corn"), "60–100 days from seed");
 }
+
+#[test]
+fn character_creators_and_comparisons() {
+    assert_eq!(short("Who created Spiderman?"), "Stan Lee  |  Steve Ditko");
+    assert_eq!(short("who created superman"), "Jerry Siegel  |  Joe Shuster");
+    assert_eq!(short("who created Bugs Bunny and Daffy Duck?"), "Bugs Bunny: Tex Avery | Daffy Duck: Bob Clampett, Tex Avery");
+    assert!(short("Captain America vs. Iron Man").starts_with("Captain America: superhero"));
+    assert!(short("Edward Cullen, Isabella Cullen").contains("Bella Swan"));
+    assert_eq!(short("who created the Mona Lisa"), "Leonardo da Vinci");
+}

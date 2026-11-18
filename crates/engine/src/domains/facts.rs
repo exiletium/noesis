@@ -145,7 +145,7 @@ fn facts() -> &'static Facts {
                     f.people.entry(norm(at(1))).or_insert(Person { name: at(1), about: at(2), born: at(3), died: at(4), place: at(5) });
                 }
                 "F" => {
-                    let c = Character { name: at(1), about: at(2), works: at(3), creators: at(4), links: at(5).parse().unwrap_or(0) };
+                    let c = Character { name: at(1), about: at(2), works: at(3), creators: dedupe(at(4)), links: at(5).parse().unwrap_or(0) };
                     let key = norm(at(1));
                     if f.characters.get(&key).is_none_or(|old| old.links < c.links) {
                         f.characters.insert(key, c);
@@ -160,8 +160,57 @@ fn facts() -> &'static Facts {
         for o in &mut f.office_list {
             o.terms.sort_by_key(|t| sort_key(t.start));
         }
+        for &(name, about, works, creators) in EXTRA_CHARACTERS {
+            f.characters.entry(norm(name)).or_insert(Character { name, about, works, creators, links: 0 });
+        }
         f
     })
+}
+
+/// Well-known characters missing from the generated data.
+const EXTRA_CHARACTERS: &[(&str, &str, &str, &str)] = &[
+    ("Captain America", "superhero appearing in Marvel Comics (Steve Rogers)", "Captain America Comics (1941); Avengers; Captain America: The First Avenger; Captain America: The Winter Soldier; Captain America: Civil War", "Joe Simon; Jack Kirby"),
+    ("Count Dracula", "vampire and title character of Bram Stoker's novel", "Dracula (1897); Nosferatu; Dracula (1931); Dracula (1958); Bram Stoker's Dracula", "Bram Stoker"),
+    ("Garfield", "lasagna-loving orange cat of the comic strip Garfield (1978)", "Garfield (comic strip); Garfield and Friends; Garfield: The Movie; The Garfield Movie", "Jim Davis"),
+    ("Pikachu", "Electric-type Pokémon and the franchise mascot", "Pokémon Red and Green (1996); Pokémon (anime); Pokémon Detective Pikachu", "Atsuko Nishida; Ken Sugimori"),
+    ("Winnie-the-Pooh", "teddy bear of A. A. Milne's stories", "Winnie-the-Pooh (1926); The House at Pooh Corner (1928); The Many Adventures of Winnie the Pooh", "A. A. Milne; E. H. Shepard"),
+];
+
+/// Other names for characters in the data.
+const CHARACTER_ALIASES: &[(&str, &str)] = &[
+    ("isabella cullen", "bella swan"), ("bella cullen", "bella swan"), ("isabella swan", "bella swan"),
+    ("dracula", "count dracula"), ("pooh", "winnie the pooh"), ("pooh bear", "winnie the pooh"),
+    ("spongebob", "spongebob squarepants"), ("dumbledore", "albus dumbledore"), ("steve rogers", "captain america"),
+    ("tony stark", "iron man"), ("peter parker", "spider man"), ("clark kent", "superman"), ("bruce wayne", "batman"),
+];
+
+/// Creator lists in the data repeat names ("Tex Avery; Tex Avery").
+fn dedupe(s: &'static str) -> &'static str {
+    let mut seen: Vec<&str> = Vec::new();
+    for n in s.split("; ").filter(|n| !n.is_empty()) {
+        if !seen.contains(&n) {
+            seen.push(n);
+        }
+    }
+    if seen.join("; ") == s {
+        return s;
+    }
+    Box::leak(seen.join("; ").into_boxed_str())
+}
+
+/// A character by name, ignoring spaces and hyphens ("Spiderman") and allowing aliases.
+fn character(name: &str) -> Option<&'static Character> {
+    let f = facts();
+    let k = norm(name);
+    if let Some(c) = f.characters.get(&k) {
+        return Some(c);
+    }
+    if let Some((_, to)) = CHARACTER_ALIASES.iter().find(|(a, _)| *a == k) {
+        return f.characters.get(*to);
+    }
+    static COMPACT: OnceLock<HashMap<String, &'static Character>> = OnceLock::new();
+    let compact = COMPACT.get_or_init(|| facts().characters.iter().map(|(k, c)| (k.replace(' ', ""), c)).collect());
+    compact.get(&k.replace(' ', "")).copied()
 }
 
 /// (year, month, day) of an ISO date or bare year; BCE years are negative.
@@ -512,7 +561,18 @@ fn characters(l: &str) -> Option<Answer> {
     } else {
         return None;
     };
-    let c = facts().characters.get(&norm(name))?;
+    // "who created Bugs Bunny and Daffy Duck"
+    if want == "creator" {
+        let parts: Vec<&str> = re!(r"\s+and\s+|,\s*(?:and\s+)?").split(name).map(str::trim).filter(|p| !p.is_empty()).collect();
+        if parts.len() > 1 {
+            let cs: Option<Vec<&'static Character>> = parts.iter().map(|p| character(p)).collect();
+            let cs = cs?;
+            let rows = cs.iter().map(|c| vec![text(c.name), text(c.creators.replace("; ", ", "))]).collect();
+            let short = cs.iter().map(|c| format!("{}: {}", c.name, c.creators.replace("; ", ", "))).collect::<Vec<_>>().join(" | ");
+            return Some(simple(format!("{} (fictional characters) | creators", cs.iter().map(|c| c.name).collect::<Vec<_>>().join(", ")), "Creators", short, vec![pod("Table", "Creators", table(Some(vec!["character", "created by"]), rows))]));
+        }
+    }
+    let c = character(name)?;
     let mut rows = vec![vec![text("type"), text("fictional character")]];
     if !c.about.is_empty() {
         rows.push(vec![text("description"), text(c.about)]);
@@ -640,7 +700,6 @@ pub fn bare(q: &Query) -> Option<Answer> {
         return None;
     }
     let parts: Vec<&str> = re!(r"\s+(?:vs\.?|versus|and)\s+|,\s+").split(raw).map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-    let f = facts();
     if parts.len() > 1 {
         let ws: Option<Vec<&'static Vec<Work>>> = parts.iter().map(|p| work_named(p)).collect();
         if let Some(ws) = ws {
@@ -651,7 +710,7 @@ pub fn bare(q: &Query) -> Option<Answer> {
             let short = ws.iter().map(|all| format!("{}: {} by {}{}", all[0].title, all[0].kind, all[0].names.replace("; ", ", "), if all[0].year.is_empty() { String::new() } else { format!(" ({})", all[0].year) })).collect::<Vec<_>>().join(" | ");
             return Some(simple(parts.join(" | "), "Comparison", short, vec![pod("Table", "Works", table(Some(vec!["title", "type", "creator", "date"]), rows.collect()))]));
         }
-        let cs: Option<Vec<&'static Character>> = parts.iter().map(|p| f.characters.get(&norm(p))).collect();
+        let cs: Option<Vec<&'static Character>> = parts.iter().map(|p| character(p)).collect();
         let cs = cs?;
         let rows = cs.iter().map(|c| vec![text(c.name), text(c.about), text(c.works.replace("; ", ", ")), text(c.creators.replace("; ", ", "))]);
         let short = cs.iter().map(|c| format!("{}: {}", c.name, c.about)).collect::<Vec<_>>().join(" | ");
@@ -660,7 +719,7 @@ pub fn bare(q: &Query) -> Option<Answer> {
     if let Some(all) = work_named(raw) {
         return Some(work_card(all));
     }
-    let c = f.characters.get(&norm(raw))?;
+    let c = character(raw)?;
     characters(&format!("who is {}", c.name.to_lowercase()))
 }
 
@@ -668,6 +727,12 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches('?').trim();
     if l.len() < 6 || l.len() > 120 {
         return None;
+    }
+    // "who created superman" means the character, not the 1978 film
+    if re!(r"^who\s+(?:created|invented)\s").is_match(l) {
+        if let Some(a) = characters(l) {
+            return Some(a);
+        }
     }
     creators(l).or_else(|| when_made(l)).or_else(|| works_by(l)).or_else(|| awards(l)).or_else(|| offices(l)).or_else(|| events(l)).or_else(|| people(l)).or_else(|| characters(l))
 }
