@@ -1410,3 +1410,15 @@ fn board_games_ropes_comets_and_lab_ranges() {
     // calcium-40 stays a nuclide
     assert!(!short("calcium 40").contains("reference range"));
 }
+
+#[test]
+fn instrument_ranges_and_woods() {
+    assert_eq!(short("clarinet"), "D3 to B♭6 | 147 Hz to 1865 Hz");
+    assert_eq!(short("What frequencies can a violin sound?"), "G3 to A7 | 196 Hz to 3520 Hz");
+    assert_eq!(short("lowest note on a double bass"), "E1 (41.2 Hz)");
+    assert!(!noesis::query("tenor").success);
+    assert_eq!(short("Young’s modulus of post oak"), "10.4 GPa");
+    assert!(short("wood indentation hardness hemlock, red oak, fir").contains("Northern red oak: 1290 lbf"));
+    assert!(short("What are the longest board games?").starts_with("Risk (1–8 hours)"));
+    assert!(short("what is air made of?").starts_with("nitrogen 78.08%"));
+}

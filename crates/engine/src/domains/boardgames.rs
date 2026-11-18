@@ -154,6 +154,33 @@ fn compare(list: &[&'static Game]) -> Answer {
     ])
 }
 
+/// Upper end of the playing time in minutes: "1–8 hours" → 480
+fn max_minutes(t: &str) -> f64 {
+    if t.contains("several hours") {
+        return 300.0;
+    }
+    re!(r"(\d+)\s*(hours?|minutes?)$").captures(t).map_or(0.0, |m| m[1].parse::<f64>().unwrap_or(0.0) * if m[2].starts_with('h') { 60.0 } else { 1.0 })
+}
+
+/// "longest board games", "shortest board games"
+fn by_length(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:what are )?(?:the )?(longest|shortest|quickest) (?:board ?games|games)$").captures(l)?;
+    let longest = &m[1] == "longest";
+    let mut list: Vec<&Game> = GAMES.iter().collect();
+    list.sort_by(|a, b| max_minutes(a.time).partial_cmp(&max_minutes(b.time)).unwrap());
+    if longest {
+        list.reverse();
+    }
+    list.truncate(10);
+    let rows: Vec<Vec<Content>> = list.iter().map(|g| vec![text(title(g)), text(g.time), text(players(g))]).collect();
+    Some(Answer::new("board games by playing time", vec![
+        pod("Input", "Input interpretation", text(format!("{} board games (by maximum playing time)", &m[1]))),
+        primary(pod("Result", "Result", text(list.iter().take(5).map(|g| format!("{} ({})", title(g), g.time)).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Games", table(Some(vec!["game", "playing time", "players"]), rows)),
+        pod("Note", "Scope", text("among about 40 well-known board games in Noesis's built-in list")),
+    ]))
+}
+
 fn listing(l: &str) -> Option<Answer> {
     let m = re!(r"^(?:(?:list of |all )?board ?games|games)\s+(?:with |for )?(?:(minimum age|min age|age|ages)\s*(>=|<=|>|<|=|of|at least|at most|under|over)?\s*(\d+)\+?|(\d+)\s+players?)$").captures(l)?;
     let (desc, sel): (String, Vec<&Game>) = if let Some(n) = m.get(4) {
@@ -185,7 +212,7 @@ fn listing(l: &str) -> Option<Answer> {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim();
-    if let Some(a) = listing(l) {
+    if let Some(a) = by_length(l).or_else(|| listing(l)) {
         return Some(a);
     }
     // "how many players are needed for Risk" (cleaned to "players are needed

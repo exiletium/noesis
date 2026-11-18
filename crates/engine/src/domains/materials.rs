@@ -99,33 +99,44 @@ struct Wood {
     tension: f64,
     /// Janka side hardness, lbf
     janka: f64,
+    /// shear parallel to the grain, MPa (NaN when not tabulated)
+    shear: f64,
 }
 
-const fn w(names: &'static [&'static str], density: f64, modulus: f64, rupture: f64, compression: f64, tension: f64, janka: f64) -> Wood {
-    Wood { names, density, modulus, rupture, compression, tension, janka }
+const fn w(names: &'static [&'static str], density: f64, modulus: f64, rupture: f64, compression: f64, tension: f64, janka: f64, shear: f64) -> Wood {
+    Wood { names, density, modulus, rupture, compression, tension, janka, shear }
 }
 
 static WOODS: &[Wood] = &[
-    w(&["white pine", "eastern white pine", "pine"], 0.40, 8.5, 59.0, 33.1, 73.0, 380.0),
-    w(&["sugar maple", "hard maple", "maple"], 0.71, 12.6, 109.0, 54.0, 110.0, 1450.0),
-    w(&["red maple", "soft maple"], 0.61, 11.3, 92.0, 45.1, 100.0, 950.0),
-    w(&["american white oak", "white oak", "oak"], 0.75, 12.3, 105.0, 51.3, 105.0, 1360.0),
-    w(&["northern red oak", "red oak"], 0.70, 12.5, 99.0, 46.6, 100.0, 1290.0),
-    w(&["sitka spruce", "spruce"], 0.43, 10.8, 70.0, 38.7, 95.0, 510.0),
-    w(&["mahogany", "honduran mahogany", "genuine mahogany"], 0.59, 10.1, 80.0, 46.6, 90.0, 800.0),
-    w(&["black walnut", "walnut"], 0.61, 11.6, 101.0, 52.3, 100.0, 1010.0),
-    w(&["douglas fir", "douglas-fir"], 0.53, 13.4, 85.0, 49.9, 105.0, 710.0),
-    w(&["balsa"], 0.16, 3.7, 21.6, 14.9, 20.0, 70.0),
-    w(&["black cherry", "cherry"], 0.56, 10.3, 85.0, 49.0, 90.0, 950.0),
-    w(&["white ash", "ash"], 0.67, 12.0, 103.0, 51.1, 105.0, 1320.0),
-    w(&["yellow birch", "birch"], 0.69, 13.9, 114.0, 56.3, 115.0, 1260.0),
-    w(&["teak"], 0.66, 12.3, 97.0, 54.0, 100.0, 1070.0),
-    w(&["western red cedar", "red cedar", "cedar"], 0.37, 7.7, 51.7, 31.4, 60.0, 350.0),
-    w(&["shagbark hickory", "hickory"], 0.80, 14.9, 139.0, 63.5, 125.0, 1880.0),
-    w(&["yellow poplar", "tulip poplar", "poplar"], 0.47, 10.9, 70.0, 38.2, 80.0, 540.0),
-    w(&["american beech", "beech"], 0.72, 11.9, 103.0, 50.3, 100.0, 1300.0),
-    w(&["american elm", "elm"], 0.56, 9.2, 81.0, 38.1, 85.0, 830.0),
-    w(&["redwood", "coast redwood"], 0.45, 9.2, 69.0, 42.4, 75.0, 450.0),
+    w(&["white pine", "eastern white pine", "pine"], 0.40, 8.5, 59.0, 33.1, 73.0, 380.0, 6.2),
+    w(&["sugar maple", "hard maple", "maple"], 0.71, 12.6, 109.0, 54.0, 110.0, 1450.0, 16.1),
+    w(&["red maple", "soft maple"], 0.61, 11.3, 92.0, 45.1, 100.0, 950.0, 12.8),
+    w(&["american white oak", "white oak", "oak"], 0.75, 12.3, 105.0, 51.3, 105.0, 1360.0, 13.8),
+    w(&["northern red oak", "red oak"], 0.70, 12.5, 99.0, 46.6, 100.0, 1290.0, 12.3),
+    w(&["sitka spruce", "spruce"], 0.43, 10.8, 70.0, 38.7, 95.0, 510.0, 7.9),
+    w(&["mahogany", "honduran mahogany", "genuine mahogany"], 0.59, 10.1, 80.0, 46.6, 90.0, 800.0, f64::NAN),
+    w(&["black walnut", "walnut"], 0.61, 11.6, 101.0, 52.3, 100.0, 1010.0, 9.4),
+    w(&["douglas fir", "douglas-fir"], 0.53, 13.4, 85.0, 49.9, 105.0, 710.0, 7.8),
+    w(&["balsa"], 0.16, 3.7, 21.6, 14.9, 20.0, 70.0, f64::NAN),
+    w(&["black cherry", "cherry"], 0.56, 10.3, 85.0, 49.0, 90.0, 950.0, 11.7),
+    w(&["white ash", "ash"], 0.67, 12.0, 103.0, 51.1, 105.0, 1320.0, 13.2),
+    w(&["yellow birch", "birch"], 0.69, 13.9, 114.0, 56.3, 115.0, 1260.0, 13.0),
+    w(&["teak"], 0.66, 12.3, 97.0, 54.0, 100.0, 1070.0, f64::NAN),
+    w(&["western red cedar", "red cedar", "cedar"], 0.37, 7.7, 51.7, 31.4, 60.0, 350.0, 6.8),
+    w(&["shagbark hickory", "hickory"], 0.80, 14.9, 139.0, 63.5, 125.0, 1880.0, 16.8),
+    w(&["yellow poplar", "tulip poplar", "poplar"], 0.47, 10.9, 70.0, 38.2, 80.0, 540.0, 8.2),
+    w(&["american beech", "beech"], 0.72, 11.9, 103.0, 50.3, 100.0, 1300.0, 13.9),
+    w(&["american elm", "elm"], 0.56, 9.2, 81.0, 38.1, 85.0, 830.0, 10.4),
+    w(&["redwood", "coast redwood"], 0.45, 9.2, 69.0, 42.4, 75.0, 450.0, 6.9),
+    w(&["post oak"], 0.67, 10.4, 91.0, 45.3, 90.0, 1350.0, 12.7),
+    w(&["laurel oak", "diamond leaf oak", "diamond-leaf oak", "swamp laurel oak"], 0.63, 11.7, 87.0, 48.1, 87.0, 1210.0, 12.6),
+    w(&["longleaf pine", "american longleaf pine", "southern yellow pine"], 0.59, 13.7, 100.0, 58.4, 100.0, 870.0, 10.4),
+    w(&["loblolly pine"], 0.51, 12.3, 88.0, 49.2, 88.0, 690.0, 9.6),
+    w(&["lodgepole pine"], 0.41, 9.2, 65.0, 37.0, 65.0, 480.0, 6.1),
+    w(&["western hemlock", "hemlock"], 0.45, 11.3, 81.0, 49.0, 81.0, 540.0, 8.6),
+    w(&["eastern hemlock"], 0.40, 8.3, 61.0, 37.3, 61.0, 500.0, 7.3),
+    w(&["balsam fir", "fir"], 0.35, 10.0, 63.0, 36.4, 63.0, 400.0, 4.6),
+    w(&["white fir"], 0.39, 10.3, 68.0, 40.0, 68.0, 480.0, 7.6),
 ];
 
 fn metal(s: &str) -> Option<&'static Metal> {
@@ -169,6 +180,7 @@ fn wood_rows(x: &Wood) -> Vec<(&'static str, String)> {
         ("compressive strength", format!("{} MPa (parallel to grain)", n(x.compression))),
         ("tensile strength", format!("about {} MPa (parallel to grain)", n(x.tension))),
         ("Janka hardness", format!("{} lbf ({} kN)", n(x.janka), n(x.janka * 4.448_22 / 1000.0))),
+        ("shear strength", if x.shear.is_nan() { "(not available)".to_string() } else { format!("{} MPa (parallel to grain)", n(x.shear)) }),
         ("thermal conductivity", format!("about {} W/(m K) (across the grain)", n(0.04 + 0.17 * x.density))),
     ]
 }
@@ -180,13 +192,14 @@ fn prop_key(p: &str) -> Option<&'static str> {
         "thermal conductivity" | "heat conductivity" | "conductivity" => "thermal conductivity",
         "specific heat" | "specific heat capacity" | "heat capacity" => "specific heat",
         "melting point" | "melting temperature" => "melting point",
-        "young's modulus" | "youngs modulus" | "elastic modulus" | "modulus of elasticity" | "stiffness" => "Young's modulus",
+        "young's modulus" | "young’s modulus" | "youngs modulus" | "elastic modulus" | "modulus of elasticity" | "stiffness" => "Young's modulus",
         "tensile strength" | "ultimate tensile strength" | "strength" => "tensile strength",
         "yield strength" | "yield stress" => "yield strength",
         "resistivity" | "electrical resistivity" => "electrical resistivity",
         "thermal expansion" | "coefficient of thermal expansion" | "thermal expansion coefficient" => "thermal expansion",
         "hardness" | "mohs hardness" => "hardness",
-        "janka hardness" => "Janka hardness",
+        "janka hardness" | "indentation hardness" | "wood indentation hardness" | "side hardness" => "Janka hardness",
+        "shear strength" | "shear" | "shear strength parallel to grain" => "shear strength",
         "compressive strength" | "compression strength" => "compressive strength",
         "bending strength" | "modulus of rupture" | "flexural strength" => "bending strength (modulus of rupture)",
         _ => return None,
@@ -222,7 +235,8 @@ fn split_list(s: &str) -> Vec<String> {
 
 fn materials(l: &str) -> Option<Answer> {
     // "compare thermal conductivity of copper, aluminum, iron"
-    if let Some(c) = re!(r"^(?:compare\s+)?(?:the\s+)?([a-z' ]+?)\s+(?:of|for)\s+(.+)$").captures(l) {
+    let c = re!(r"^(?:compare\s+)?(?:the\s+)?([a-z'’ ]+?)\s+(?:of|for)\s+(.+)$").captures(l).or_else(|| re!(r"^((?:wood )?(?:indentation hardness|janka hardness|shear strength|tensile strength|compressive strength|bending strength|young's modulus|young’s modulus|modulus of elasticity))\s+(.+)$").captures(l));
+    if let Some(c) = c {
         if let Some(key) = prop_key(&c[1]) {
             let items: Option<Vec<(String, Mat)>> = split_list(&c[2]).iter().map(|s| material(s)).collect();
             let items = items?;

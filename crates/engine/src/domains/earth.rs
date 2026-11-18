@@ -615,7 +615,7 @@ const AIR: &[(&str, &str, &str)] = &[
 
 /// "atmosphere of Earth", "composition of air", "what is air made of"
 fn atmosphere(l: &str) -> Option<Answer> {
-    if !re!(r"^(?:the )?(?:(?:composition|gases) of (?:the )?(?:air|atmosphere|earth'?s atmosphere|atmosphere of (?:the )?earth)|(?:the )?atmosphere of (?:the )?earth|earth'?s atmosphere|air composition|atmospheric composition|composition of the earth'?s atmosphere|what is (?:the )?air made of|what gases (?:are|make up) (?:in )?(?:the )?air)$").is_match(l) {
+    if !re!(r"^(?:the )?(?:(?:composition|gases) of (?:the )?(?:air|atmosphere|earth'?s atmosphere|atmosphere of (?:the )?earth)|(?:the )?atmosphere of (?:the )?earth|earth'?s atmosphere|air composition|atmospheric composition|composition of the earth'?s atmosphere|(?:what is )?(?:the )?air made of|what gases (?:are|make up) (?:in )?(?:the )?air)$").is_match(l) {
         return None;
     }
     let rows = AIR.iter().map(|(n, f, v)| vec![text(*n), text(*f), text(*v)]).collect();
