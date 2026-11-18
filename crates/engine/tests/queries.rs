@@ -1284,3 +1284,16 @@ fn yoga_pilates_and_strength_exercises() {
     assert!(short("Sun Salutation A").starts_with("Mountain Pose (Tadasana)"));
     assert!(short("yoga poses to strengthen abdominal muscles").starts_with("Plank Pose"));
 }
+
+#[test]
+fn us_states() {
+    assert_eq!(short("capital of Vermont"), "Montpelier");
+    assert_eq!(short("Texas state flower"), "bluebonnet");
+    assert_eq!(short("New Mexico's state bird"), "greater roadrunner");
+    assert_eq!(short("when did Hawaii become a state"), "August 21, 1959 (50th state)");
+    assert!(short("illinois income tax vs. virginia income tax vs. oregon income tax").starts_with("Illinois: 4.95%"));
+    assert!(short("largest states by area").starts_with("Alaska"));
+    // the country, a city and a chemical keep their meanings
+    assert_eq!(short("capital of Georgia"), "Tbilisi");
+    assert!(!noesis::query("CO").short_answer().unwrap_or_default().contains("Colorado"));
+}
