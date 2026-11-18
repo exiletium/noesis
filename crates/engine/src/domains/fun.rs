@@ -103,6 +103,9 @@ fn chat(q: &Query) -> Option<Answer> {
         "possibility of successfully navigating an asteroid field" | "odds of successfully navigating an asteroid field" => Some(("asteroid field", "Approximately 3,720 to 1, according to a nervous protocol droid. Real asteroid belts are so sparse that spacecraft cross them without maneuvering: typical separations are hundreds of thousands of kilometers.")),
         "who's the cat that won't cop out when there's danger all about" | "who is the cat that won't cop out when there's danger all about" => Some(("Shaft", "John Shaft (from Isaac Hayes' \"Theme from Shaft\", 1971).")),
         "do you know a dirty joke" | "tell me a dirty joke" => Some(("joke", "A white horse fell in the mud.")),
+        "why did the chicken cross the road" => Some(("joke", "To get to the other side.")),
+        "why did the chicken cross the mobius strip" | "why did the chicken cross the möbius strip" | "why did the chicken cross the moebius strip" => Some(("joke", "To get to the same side: a Möbius strip has only one side.")),
+        "why did the chicken cross the klein bottle" => Some(("joke", "To get to the inside, which is also the outside.")),
         _ => None,
     };
     if let Some((t, body)) = ans {

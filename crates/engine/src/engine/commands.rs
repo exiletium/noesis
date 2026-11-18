@@ -71,6 +71,8 @@ fn normalise_plot(c: &str) -> Option<String> {
         return None;
     }
     let mut t = re!(r"(?i)^(?:real|2d)\s+").replace(c, "").to_string();
+    // a drawing style is cosmetic: "graph sin t + cos(sqrt(3) t) handwritten style"
+    t = re!(r"(?i),?\s+(?:in\s+)?(?:an?\s+)?(?:handwritten|hand[- ]drawn|xkcd|sketchy?|chalkboard|comic|pencil)(?:\s+style)?$").replace(&t, "").to_string();
     t = re!(r"\s*\.\.\s*").replace_all(&t, " to ").to_string();
     t = re!(r"(?i),\s*(?:for\s+|from\s+)?([a-zθ]+)\s*=\s*").replace_all(&t, " $1 = ").to_string();
     t = re!(r"(?i)\s+(?:for\s+|from\s+)?([a-zθ]+)\s*=\s*(\S)").replace_all(&t, " $1 = $2").to_string();

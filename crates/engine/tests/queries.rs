@@ -1706,3 +1706,14 @@ fn element_group_comparisons_and_apostrophe_names() {
     assert!(pod_text(&q("metal melting point"), "Result").contains("Lithium"));
     assert!(short("Ma'at").starts_with("Egyptian goddess"));
 }
+
+#[test]
+fn hearing_distance_riemann_surfaces_and_jokes() {
+    assert_eq!(short("furthest distance you can hear 100 dB"), "100000 m");
+    assert_eq!(short("sound level at distance 100 m, 120 dB at 1 m"), "80");
+    assert!(short("hard coal angle of repose").contains("27"));
+    let r = q("Riemann surface log z");
+    assert!(r.pods.iter().any(|p| p.title.contains("Im(log z)")));
+    assert!(!short("why did the chicken cross the Möbius strip").is_empty());
+    assert!(!q("graph sin t + cos (sqrt(3)t) handwritten style").pods.is_empty());
+}

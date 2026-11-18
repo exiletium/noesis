@@ -495,6 +495,8 @@ fn solve_formula(f: &Formula, text: &str) -> Solved {
     let to_si = |v: &Var, g: &Given| -> Option<f64> {
         match &g.unit {
             Some((_, _, d, _)) if same_dim(d, &v.dim) => Some(g.value),
+            // "100 dB" reads as decibytes; a dimensionless level takes the bare number
+            Some((_, _, _, u)) if u.eq_ignore_ascii_case("db") && v.dim == [0; 8] => parse_number(g.shown[..g.shown.len() - u.len()].trim()),
             Some((_, _, _, u)) => {
                 // single letters with a second reading: C and F as temperatures, H as henries
                 let alt = match u.as_str() {

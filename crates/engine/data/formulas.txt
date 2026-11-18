@@ -701,7 +701,7 @@ eq L = 10 * log10(I / 1e-12)
 var L; sound level; ; decibels, level
 var I; intensity; W/m^2
 
-== inverse square law for sound | sound level at distance | how far can you hear
+== inverse square law for sound | sound level at distance
 eq L2 = L1 - 20 * log10(r2 / r1)
 var L1; sound level at the reference distance; ; level, db; 100
 var r1; reference distance; m; ; 1
@@ -1092,3 +1092,11 @@ var U; flow speed; m/s; speed, velocity
 var k; thermal conductivity; W/(m K); thermal conductivity, conductivity
 var dT; temperature difference; K; temperature difference
 note viscous heating relative to heat conduction
+
+== maximum hearing distance | furthest distance you can hear | farthest distance you can hear | how far can you hear | distance a sound can be heard
+eq r = r0*10^((L - Lth)/20)
+var r; distance at which the sound reaches the threshold of hearing; m; distance
+var L; sound level at the reference distance (dB); ; sound level, level, loudness, db
+var r0; reference distance; m; reference; 1
+var Lth; threshold of hearing (dB); ; threshold; 0
+note Free-field inverse-square spreading (−6 dB per doubling of distance) with no air absorption, ground effect or background noise; real ranges are much shorter.

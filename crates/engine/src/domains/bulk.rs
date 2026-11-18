@@ -72,7 +72,7 @@ snow|bulk material|bulk=100-500;rep=38;note=fresh snow is about 100 kg/m³, sett
 wheat,wheat grain|bulk material|bulk=790;rep=27
 wheat flour,flour|bulk material|bulk=590;rep=45
 ashes|bulk material|bulk=650;rep=40
-anthracite coal,anthracite,hard coal|coal|d=1.5;bulk=865;hcm=30;comp=86-98 % carbon
+anthracite coal,anthracite,hard coal|coal|d=1.5;bulk=865;rep=27;hcm=30;comp=86-98 % carbon
 bituminous coal,soft coal|coal|d=1.3;bulk=830;hcm=27;comp=45-86 % carbon
 olivine,peridot|mineral|f=(Mg,Fe)2SiO4;sys=orthorhombic;mohs=6.5-7;d=3.27-4.37;col=olive green to yellow-green;note=a major mineral of Earth's upper mantle; gem variety peridot
 gypsum|mineral|f=CaSO4·2H2O;sys=monoclinic;mohs=2;d=2.31-2.33;col=colourless, white, grey

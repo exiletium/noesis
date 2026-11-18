@@ -68,6 +68,9 @@ const SURFACES: &[(&[&str], &str, [&str; 3], (f64, f64), (f64, f64), &[(&str, &s
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim().replace('’', "'");
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
+    if let Some(a) = riemann(&l) {
+        return Some(a);
+    }
     let name = re!(r"^(?:plot |draw |show |graph |3d plot (?:of )?|plot of |picture of |image of |a |the )*(.+?)(?: plot| surface plot| parametrization| parametric equations?)?$").captures(&l)?.get(1)?.as_str().to_string();
     let s = SURFACES.iter().find(|s| s.0.contains(&name.as_str()))?;
     let f: Option<Vec<crate::expr::Expr>> = s.2.iter().map(|e| crate::parse::parse(e).ok().map(|p| p.expr)).collect();
@@ -86,5 +89,55 @@ pub fn handle(q: &Query) -> Option<Answer> {
         primary(pod("Plot", "Surface (wireframe)", plot(pl))),
         pod("Parametrization", "Parametric equations", table(None, rows)),
         pod("Properties", "Properties", table(None, s.5.iter().map(|(k, v)| vec![text(*k), text(*v)]).collect())),
+    ]))
+}
+
+/// Riemann surfaces of log z and z^(p/q): the imaginary part of the continued
+/// function over polar coordinates z = u e^(iv), followed around all its sheets.
+fn riemann(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:plot |draw |show )?(?:the )?riemann surfaces? (?:of |for )?(.+)$").captures(l)?;
+    let f = m[1].replace(' ', "");
+    let (name, z, ur, vr, sheets, branch) = match f.as_str() {
+        "logz" | "log(z)" | "lnz" | "ln(z)" => ("log z", "v".to_string(), (0.05, 2.0), (-2.0 * std::f64::consts::PI, 2.0 * std::f64::consts::PI), "infinitely many".to_string(), "z = 0 and z = ∞ (logarithmic)"),
+        _ => {
+            let (p, q): (u32, u32) = if f == "sqrt(z)" || f == "sqrtz" || f == "√z" {
+                (1, 2)
+            } else if f == "cbrt(z)" || f == "cbrtz" {
+                (1, 3)
+            } else {
+                let c = re!(r"^z\^\(?(\d+)/(\d+)\)?$").captures(&f)?;
+                (c[1].parse().ok()?, c[2].parse().ok()?)
+            };
+            let g = { let (mut a, mut b) = (p, q); while b != 0 { let t = a % b; a = b; b = t; } a };
+            let (p, q) = (p / g, q / g);
+            if q < 2 || q > 6 || p == 0 || p > 12 {
+                return None;
+            }
+            let name = if (p, q) == (1, 2) { "√z".to_string() } else { format!("z^({p}/{q})") };
+            (
+                Box::leak(name.into_boxed_str()) as &str,
+                format!("u^({p}/{q}) sin({p} v/{q})"),
+                (0.0, 1.5),
+                (0.0, 2.0 * std::f64::consts::PI * q as f64),
+                q.to_string(),
+                "z = 0 and z = ∞ (algebraic)",
+            )
+        }
+    };
+    let xs = ["u cos(v)".to_string(), "u sin(v)".to_string(), z.clone()];
+    let fx: Option<Vec<crate::expr::Expr>> = xs.iter().map(|e| crate::parse::parse(e).ok().map(|p| p.expr)).collect();
+    let fx = fx?;
+    let (u, v) = (crate::expr::sym("u"), crate::expr::sym("v"));
+    let pl = crate::plot::parametric_surface([&fx[0], &fx[1], &fx[2]], &u, &v, ur, vr)?;
+    let fmt = |x: f64| crate::print::fmt_float((x * 1000.0).round() / 1000.0, 5);
+    Some(Answer::new(format!("Riemann surface of {name}"), vec![
+        pod("Input", "Input interpretation", text(format!("Riemann surface | {name}"))),
+        primary(pod("Plot", &format!("Im({name}) over z = u e^(iv)"), plot(pl))),
+        pod("Properties", "Properties", table(None, vec![
+            vec![text("sheets"), text(sheets)],
+            vec![text("branch points"), text(branch)],
+            vec![text("height"), text(format!("Im({name}) = {z}"))],
+            vec![text("range"), text(format!("{} ≤ |z| ≤ {}, {} ≤ arg z ≤ {}", fmt(ur.0), fmt(ur.1), fmt(vr.0), fmt(vr.1)))],
+        ])),
     ]))
 }
