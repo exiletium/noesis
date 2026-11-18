@@ -1525,3 +1525,12 @@ fn orbits_reagents_and_packing() {
     assert_eq!(short("How many marbles fit in 1000 cubic inches?"), "about 4,890");
     assert_eq!(short("how many golf balls fit in a gallon"), "about 60");
 }
+
+#[test]
+fn nobel_years_verses_and_mains() {
+    assert!(short("Nobel Prize 1930").starts_with("Physics: Chandrasekhara Venkata Raman | Chemistry: Hans Fischer"));
+    assert_eq!(short("Gospel of John chapter 11 verse 35"), "Jesus wept.");
+    assert_eq!(short("mains voltage in Bhutan"), "230 V, 50 Hz");
+    assert_eq!(short("plug type Japan"), "types A, B");
+    assert_eq!(short("110V AC"), "110 V RMS | peak 155.56 V | peak-to-peak 311.13 V");
+}

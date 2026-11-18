@@ -594,6 +594,21 @@ fn characters(l: &str) -> Option<Answer> {
 }
 
 fn awards(l: &str) -> Option<Answer> {
+    // "Nobel Prize 1930", "Nobel prizes in 1930", "1930 Nobel Prize winners"
+    if let Some(m) = re!(r"^(?:(\d{4}) )?nobel (?:prizes?|laureates)(?: winners)?(?: (?:in |of )?(\d{4}))?$").captures(l) {
+        let year = m.get(1).or(m.get(2))?.as_str();
+        let order = ["Nobel Prize in Physics", "Nobel Prize in Chemistry", "Nobel Prize in Physiology or Medicine", "Nobel Prize in Literature", "Nobel Peace Prize", "Prize in Economic Sciences in Memory of Alfred Nobel"];
+        let f = facts();
+        let rows: Vec<Vec<Content>> = order.iter().filter_map(|a| {
+            let w = f.awards.get(&(norm(a), year.to_string()))?;
+            Some(vec![text(a.trim_start_matches("Nobel Prize in ").trim_start_matches("Prize in ").trim_end_matches(" in Memory of Alfred Nobel").replace("Nobel Peace Prize", "Peace")), text(w.replace("; ", ", "))])
+        }).collect();
+        if rows.is_empty() {
+            return None;
+        }
+        let short = rows.iter().map(|r| format!("{}: {}", crate::engine::content_text(&r[0]), crate::engine::content_text(&r[1]))).collect::<Vec<_>>().join(" | ");
+        return Some(simple(format!("Nobel Prizes | {year}"), "Laureates", short, vec![pod("Table", "Nobel Prizes", table(Some(vec!["prize", "laureates"]), rows))]));
+    }
     let m = re!(r"^(?:who\s+won\s+)?(?:the\s+)?(?:winners?\s+of\s+(?:the\s+)?)?(\d{4}\s+)?nobel\s+(?:prize\s+)?(?:in|for)?\s*(physics|chemistry|literature|peace|medicine|physiology or medicine|economics|economic sciences)(?:\s+prize)?(?:\s+(?:winners?|laureates?))?(?:\s+(?:in\s+|of\s+)?(\d{4}))?$").captures(l)?;
     let year = m.get(1).or(m.get(3))?.as_str().trim();
     let field = m.get(2)?.as_str();

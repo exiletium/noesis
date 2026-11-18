@@ -248,8 +248,10 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
-    // verses: "1 Corinthians 13:11"
-    if let Some(v) = VERSES.iter().find(|v| v.0 == l.trim_start_matches("the verse ").trim_end_matches(" kjv")) {
+    // verses: "1 Corinthians 13:11", "Gospel of John chapter 11 verse 35"
+    let worded = re!(r"^(?:the )?(?:gospel of |book of |epistle to the |letter to the )?((?:[123] )?[a-z]+) (?:chapter |ch\.? )(\d+),? (?:verse |v\.? )(\d+)$").captures(l).map(|m| format!("{} {}:{}", &m[1], &m[2], &m[3]));
+    let key = worded.as_deref().unwrap_or(l);
+    if let Some(v) = VERSES.iter().find(|v| v.0 == key.trim_start_matches("the verse ").trim_end_matches(" kjv")) {
         let mut c = v.0.chars();
         let title = c.next().map(|x| x.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default();
         return Some(Answer::new("verse", vec![pod("Input", "Input interpretation", text(format!("{title} (King James Version)"))), primary(pod("Result", "Text", text(v.1)))]));
