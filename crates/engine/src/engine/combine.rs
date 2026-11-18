@@ -19,6 +19,19 @@ thread_local! {
     static DEPTH: Cell<u32> = const { Cell::new(0) };
 }
 
+/// Another quantity of the answer in the given unit, as in
+/// "0.1221 M☉ (2.43×10^29 kg)" read in kg.
+fn value_in(text: &str, unit: &str) -> Option<f64> {
+    let line = text.lines().next()?;
+    let r = Regex::new(&format!(r"(\d[\d,]*(?:\.\d+)?)(?:\s*×\s*10\^\(?(-?\d+)\)?)?\s*{}(?:[\s,;)]|$)", regex::escape(unit))).ok()?;
+    let m = r.captures(line)?;
+    let mut v: f64 = m[1].replace(',', "").parse().ok()?;
+    if let Some(e) = m.get(2) {
+        v *= 10f64.powi(e.as_str().parse().ok()?);
+    }
+    Some(v)
+}
+
 /// The leading quantity of an answer: value and unit ("$" for money).
 fn value(text: &str) -> Option<(f64, String)> {
     let line = text.lines().next()?;
@@ -101,6 +114,9 @@ pub fn combine(q: &Query) -> Option<Answer> {
         }
         for k in (1..aw.len()).rev() {
             tries.push(format!("{} {b}", aw[..k].join(" ")));
+            if !aw[k - 1].eq_ignore_ascii_case("of") {
+                tries.push(format!("{} of {b}", aw[..k].join(" ")));
+            }
         }
         for k in 1..aw.len() {
             tries.push(format!("{b} {}", aw[k..].join(" ")));
@@ -108,7 +124,12 @@ pub fn combine(q: &Query) -> Option<Answer> {
         if !shares {
             tries.push(b.clone());
         }
-        let (vb, ub, tb, bq) = tries.iter().take(8).find_map(|t| {
+        // "mass Sun" -> "mass of Sun"
+        let bw: Vec<&str> = b.split_whitespace().collect();
+        for k in 1..bw.len().min(3) {
+            tries.push(format!("{} of {}", bw[..k].join(" "), bw[k..].join(" ")));
+        }
+        let (mut vb, mut ub, tb, bq) = tries.iter().take(12).find_map(|t| {
             if budget::remaining() <= 0.3 {
                 return None;
             }
@@ -116,6 +137,15 @@ pub fn combine(q: &Query) -> Option<Answer> {
             // the borrowed property must give the same kind of quantity
             (u == ua || t == &b || divide).then(|| (v, u, txt, t.clone()))
         })?;
+        // the same quantity in different units: use the other unit given in either answer
+        let (mut va, mut ua) = (va, ua);
+        if ua != ub && !ua.is_empty() && !ub.is_empty() {
+            if let Some(v) = value_in(&ta, &ub) {
+                (va, ua) = (v, ub.clone());
+            } else if let Some(v) = value_in(&tb, &ua) {
+                (vb, ub) = (v, ua.clone());
+            }
+        }
         let (res, unit) = if divide {
             if vb == 0.0 {
                 return None;

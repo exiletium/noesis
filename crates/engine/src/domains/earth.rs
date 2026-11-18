@@ -495,6 +495,30 @@ fn cosmic_origins(l: &str) -> Option<Answer> {
     Some(Answer::new("cosmic origins", vec![input(format!("cosmic origins of {}", els.iter().map(|e| e.name.as_str()).collect::<Vec<_>>().join(", "))), primary(pod("Result", "Main sources", text(main))), pod("Table", "Origins", table(Some(vec!["element", "made mainly by"]), rowsv))]))
 }
 
+/// "SSW", "south-southwest", "ENE": the 32-wind compass (16 named here)
+fn compass_point(raw: &str, l: &str) -> Option<Answer> {
+    const P: [(&str, &str); 16] = [
+        ("N", "north"), ("NNE", "north-northeast"), ("NE", "northeast"), ("ENE", "east-northeast"), ("E", "east"), ("ESE", "east-southeast"), ("SE", "southeast"), ("SSE", "south-southeast"),
+        ("S", "south"), ("SSW", "south-southwest"), ("SW", "southwest"), ("WSW", "west-southwest"), ("W", "west"), ("WNW", "west-northwest"), ("NW", "northwest"), ("NNW", "north-northwest"),
+    ];
+    let r = raw.trim().trim_end_matches(['?', '.']);
+    let name = l.trim_start_matches("compass direction ").trim_start_matches("compass point ").replace(' ', "-");
+    let k = P.iter().position(|(a, n)| (a.len() == 3 && *a == r) || (n.contains('-') && *n == name) || (raw.to_lowercase().starts_with("compass") && a.eq_ignore_ascii_case(&name)))?;
+    let (abbr, full) = P[k];
+    let deg = k as f64 * 22.5;
+    let opp = P[(k + 8) % 16];
+    Some(Answer::new("compass point", vec![
+        pod("Input", "Input interpretation", text(format!("{full} ({abbr})"))),
+        primary(pod("Result", "Bearing", text(format!("{}° (range {}° to {}°)", fmt_float(deg, 6), fmt_float((deg - 11.25 + 360.0) % 360.0, 6), fmt_float(deg + 11.25, 6))))),
+        pod("Table", "Basic information", table(None, vec![
+            vec![text("name"), text(full)],
+            vec![text("abbreviation"), text(abbr)],
+            vec![text("bearing"), text(format!("{}° clockwise from north", fmt_float(deg, 6)))],
+            vec![text("opposite direction"), text(format!("{} ({})", opp.1, opp.0))],
+        ])),
+    ]))
+}
+
 /// The ten WMO cloud genera: name, abbreviation, étage, typical base in
 /// temperate regions (km), appearance, composition, precipitation.
 const CLOUDS: &[(&str, &str, &str, &str, &str, &str, &str)] = &[
@@ -560,7 +584,8 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
-    clouds(l)
+    compass_point(&q.raw, l)
+        .or_else(|| clouds(l))
         .or_else(|| seawater(l))
         .or_else(|| altitude_table(l))
         .or_else(|| codes(l))

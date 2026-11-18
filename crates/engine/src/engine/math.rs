@@ -16,6 +16,14 @@ use num_traits::{One, Signed, ToPrimitive, Zero};
 pub fn handle(q: &Query) -> Option<Answer> {
     // a bare function name means the function itself: "sin" -> sin(x)
     const BARE: &[&str] = &["sin", "cos", "tan", "sec", "csc", "cot", "sinh", "cosh", "tanh", "arcsin", "arccos", "arctan", "asin", "acos", "atan", "ln", "log", "exp", "sqrt", "gamma", "erf", "abs", "floor", "ceil", "zeta", "sinc", "W"];
+    // letters only with an upper-case word ("LAX", "EU gdp") are names or
+    // abbreviations, not a product of single-letter variables
+    let t = q.clean.trim();
+    if t.chars().all(|c| c.is_alphabetic() || c == ' ')
+        && t.split_whitespace().any(|w| w.chars().count() >= 2 && w.chars().any(|c| c.is_uppercase()) && !BARE.contains(&w) && !["Gamma", "Beta", "Pi", "Zeta", "Li", "Ei", "Si", "Ci"].contains(&w))
+    {
+        return None;
+    }
     let input = if BARE.contains(&q.clean.trim()) { format!("{}(x)", q.clean.trim()) } else { q.clean.clone() };
     let parsed = parse::parse(&input).ok()?;
     analyze(q, parsed)

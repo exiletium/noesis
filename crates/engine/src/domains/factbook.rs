@@ -386,6 +386,45 @@ fn entities(s: &str) -> Option<Vec<&'static (&'static str, Rows)>> {
     re!(r"\s*(?:,\s*(?:and\s+)?|\s+vs\.?\s+|\s+versus\s+|\s+compared (?:to|with)\s+|\s+and\s+)\s*").split(s).map(|x| entity(x.trim_end_matches("'s"))).collect()
 }
 
+/// "world gdp per capita", "EU GDP": nominal and purchasing-power figures for
+/// the aggregates that the per-country GDP tables do not cover.
+fn aggregate_gdp(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:(?:the )?(world|global|european union|eu)(?:'s)? (gdp per capita|gdp per person|gdp)|(gdp per capita|gdp per person|gdp) (?:of |in |for )?(?:the )?(world|european union|eu))$").captures(l)?;
+    let who = m.get(1).or(m.get(4))?.as_str();
+    let per = m.get(2).or(m.get(3))?.as_str() != "gdp";
+    let e = entity(if who == "global" { "world" } else { who })?;
+    let first = |f: &str, sub: &str| values(&e.1, f, sub).first().map(|x| x.1);
+    let nominal = first("GDP (official exchange rate)", "")?;
+    let pop = first("Population", "total").and_then(number);
+    let (title, main) = if per {
+        let n = number(nominal)?;
+        let p = pop?;
+        ("GDP per capita (nominal)", format!("${} per person (2024 est.)", super::geo::fmt_int(((n / p / 10.0).round() * 10.0) as u64)))
+    } else {
+        ("GDP (nominal)", nominal.to_string())
+    };
+    let mut rows = vec![vec![text("GDP at official exchange rates"), text(nominal)]];
+    if let Some(v) = first("Real GDP (purchasing power parity)", "") {
+        rows.push(vec![text("GDP at purchasing power parity"), text(v)]);
+    }
+    if let Some(v) = first("Real GDP per capita", "") {
+        rows.push(vec![text("GDP per capita at purchasing power parity"), text(v)]);
+    }
+    if let Some(v) = first("Real GDP growth rate", "") {
+        rows.push(vec![text("real growth rate"), text(v)]);
+    }
+    if let Some(v) = first("Population", "total") {
+        rows.push(vec![text("population"), text(v)]);
+    }
+    Some(Answer::new("country data", vec![
+        input(format!("{} | {}", e.0, if per { "GDP per capita" } else { "GDP" })),
+        primary(pod("Result", title, text(main))),
+        pod("Table", "Economy", table(None, rows)),
+        pod("Note", "Note", text(if per { "nominal GDP at official exchange rates divided by the population; the purchasing-power figure is the Factbook's" } else { "the Factbook's latest estimate" })),
+        source(),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
@@ -396,6 +435,9 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
     }
     if let Some(a) = ranking(l) {
+        return Some(a);
+    }
+    if let Some(a) = aggregate_gdp(l) {
         return Some(a);
     }
     if let Some(a) = topic(l) {

@@ -1228,3 +1228,18 @@ fn broader_and_narrower_terms() {
     assert!(short("narrower terms green").contains("sea green"));
     assert!(pod_text(&q("define dog"), "Broader").contains("canine"));
 }
+
+#[test]
+fn continents_compass_and_aggregates() {
+    assert_eq!(short("area of Africa"), "30,370,000 km² (11,725,923 mi²)");
+    assert!(short("highest elevation of South America vs North America").starts_with("South America: Aconcagua"));
+    assert_eq!(short("SSW"), "202.5° (range 191.25° to 213.75°)");
+    assert!(short("world gdp per capita").ends_with("per person (2024 est.)"));
+    // acronyms are not products of variables
+    assert!(!noesis::query("EU gdp").short_answer().unwrap_or_default().contains("E U"));
+    // a hyphenated name is not a graph edge
+    assert_eq!(short("carbon-14 half-life"), "5700 years");
+    // fractions, mixed numbers and multiples in conversions
+    assert_eq!(short("1 1/3 quarts times two in fluid ounces"), "85.333333 US fluid ounces");
+    assert_eq!(short("mass Proxima Centauri / Sun"), "0.1222 (12.22%)");
+}

@@ -863,8 +863,49 @@ fn light(q: &Query) -> Option<Answer> {
     ))
 }
 
+/// ITU radio bands: abbreviation, name, frequency range, wavelength range, uses.
+const RADIO_BANDS: &[(&str, &str, &str, &str, &str)] = &[
+    ("ELF", "extremely low frequency", "3–30 Hz", "100,000–10,000 km", "communication with submarines"),
+    ("SLF", "super low frequency", "30–300 Hz", "10,000–1,000 km", "communication with submarines, AC power grids"),
+    ("ULF", "ultra low frequency", "300 Hz–3 kHz", "1,000–100 km", "communication in mines, earthquake studies"),
+    ("VLF", "very low frequency", "3–30 kHz", "100–10 km", "navigation, time signals, submarine communication"),
+    ("LF", "low frequency", "30–300 kHz", "10–1 km", "longwave broadcasting, time signals, RFID"),
+    ("MF", "medium frequency", "300 kHz–3 MHz", "1 km–100 m", "AM (mediumwave) broadcasting, maritime radio"),
+    ("HF", "high frequency", "3–30 MHz", "100–10 m", "shortwave broadcasting, amateur radio, over-the-horizon aviation communication"),
+    ("VHF", "very high frequency", "30–300 MHz", "10–1 m", "FM radio, television, air-band and marine radio"),
+    ("UHF", "ultra high frequency", "300 MHz–3 GHz", "1 m–10 cm", "television, mobile phones, Wi-Fi (2.4 GHz), Bluetooth, GPS"),
+    ("SHF", "super high frequency", "3–30 GHz", "10–1 cm", "Wi-Fi (5 GHz), satellite links, radar, microwave relays"),
+    ("EHF", "extremely high frequency", "30–300 GHz", "10–1 mm", "radio astronomy, 5G millimetre wave, high-resolution radar"),
+    ("THF", "tremendously high frequency", "300 GHz–3 THz", "1–0.1 mm", "terahertz imaging and spectroscopy"),
+];
+
+/// "UHF", "very high frequency", "radio frequency bands"
+fn radio_band(q: &Query) -> Option<Answer> {
+    let raw = q.raw.trim().trim_end_matches(['?', '.']);
+    let l = q.lower.trim().trim_end_matches(['?', '.']).trim_end_matches(" band").trim_end_matches(" radio");
+    if matches!(l, "radio bands" | "radio frequency bands" | "radio frequencies" | "itu radio bands" | "radio spectrum" | "frequency bands") {
+        let rows = RADIO_BANDS.iter().map(|b| vec![text(b.0), text(b.1), text(b.2), text(b.3)]).collect();
+        return Some(Answer::new("radio bands", vec![
+            pod("Input", "Input interpretation", text("ITU radio bands")),
+            primary(pod("Result", "Radio bands", table(Some(vec!["band", "name", "frequency", "wavelength"]), rows))),
+        ]));
+    }
+    let b = RADIO_BANDS.iter().find(|b| (b.0.len() == 3 && raw.trim_end_matches(" band") == b.0) || l == b.1 || l == format!("{} band", b.1))?;
+    Some(Answer::new("radio band", vec![
+        pod("Input", "Input interpretation", text(format!("{} ({})", b.1, b.0))),
+        primary(pod("Result", "Frequency range", text(b.2))),
+        pod("Table", "Basic information", table(None, vec![
+            vec![text("abbreviation"), text(b.0)],
+            vec![text("frequency range"), text(b.2)],
+            vec![text("wavelength range"), text(b.3)],
+            vec![text("typical uses"), text(b.4)],
+        ])),
+        pod("Source", "Note", text("ITU radio band designations")),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
-    light(q).or_else(|| resistor(q)).or_else(|| lasers(q)).or_else(|| work_function(q)).or_else(|| ratio(q)).or_else(|| particles(q))
+    radio_band(q).or_else(|| light(q)).or_else(|| resistor(q)).or_else(|| lasers(q)).or_else(|| work_function(q)).or_else(|| ratio(q)).or_else(|| particles(q))
 }
 
 #[cfg(test)]

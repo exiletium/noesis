@@ -631,6 +631,10 @@ fn edge_list(raw: &str) -> Option<Graph> {
     if !rest.chars().all(|c| c == ',' || c == ' ' || c == '{' || c == '}' || c == ';') {
         return None;
     }
+    // edges are separated by commas or semicolons ("carbon-14 half-life" is not two edges)
+    if rest.chars().filter(|c| *c == ',' || *c == ';').count() + 1 < items.len() {
+        return None;
+    }
     let directed = items.iter().all(|c| &c[2] == "->" || &c[2] == "→");
     let mut labels: Vec<String> = Vec::new();
     let idx = |s: &str, labels: &mut Vec<String>| -> usize {

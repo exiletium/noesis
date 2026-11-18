@@ -479,6 +479,32 @@ pub fn parse_quantity(s: &str) -> Option<(f64, Unit, String)> {
         let u = lookup_word("in")?;
         return Some((ft * 12.0 + inch, u, format!("{ft} ft {inch} in")));
     }
+    // a multiple of a quantity: "1 1/3 quarts times two", "3 * 250 ml"
+    static RM: OnceLock<Regex> = OnceLock::new();
+    let rm = RM.get_or_init(|| re(r"^\s*(?:(.+?)\s+(?:times|multiplied by|x|\*)\s+(two|three|four|five|six|ten|twelve|\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:times|x|\*)\s+(.+?))\s*$"));
+    if let Some(m) = rm.captures(s) {
+        let (q, k) = match (m.get(1), m.get(2), m.get(3), m.get(4)) {
+            (Some(q), Some(k), _, _) => (q.as_str(), k.as_str()),
+            (_, _, Some(k), Some(q)) => (q.as_str(), k.as_str()),
+            _ => return None,
+        };
+        let k: f64 = match k { "two" => 2.0, "three" => 3.0, "four" => 4.0, "five" => 5.0, "six" => 6.0, "ten" => 10.0, "twelve" => 12.0, x => x.parse().ok()? };
+        if let Some((v, u, shown)) = parse_quantity(q) {
+            return Some((v * k, u, format!("{} × {shown}", fmt_float(k, 10))));
+        }
+    }
+    // fractions and mixed numbers: "1/2 cup", "1 1/3 quarts", "1 and 1/2 miles"
+    static R3: OnceLock<Regex> = OnceLock::new();
+    let r3 = R3.get_or_init(|| re(r"^\s*(?:(\d+)\s+(?:and\s+)?)?(\d+)\s*/\s*(\d+)\s+([a-z].*?)\s*$"));
+    if let Some(m) = r3.captures(s) {
+        let whole: f64 = m.get(1).map_or(Some(0.0), |x| x.as_str().parse().ok())?;
+        let (a, b): (f64, f64) = (m[2].parse().ok()?, m[3].parse().ok()?);
+        if b > 0.0 {
+            let u = parse_unit(&m[4])?;
+            let shown = format!("{}{}/{} {}", m.get(1).map(|x| format!("{} ", x.as_str())).unwrap_or_default(), &m[2], &m[3], m[4].trim());
+            return Some((whole + a / b, u, shown));
+        }
+    }
     let m = r.captures(s)?;
     let num_s = m[1].trim();
     let v: f64 = if let Ok(v) = num_s.replace(',', "").parse() {
