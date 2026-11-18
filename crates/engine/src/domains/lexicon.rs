@@ -19,6 +19,190 @@ macro_rules! re {
 
 static WORDS_Z: &[u8] = include_bytes!("../../data/words.z");
 static DICT_Z: &[u8] = include_bytes!("../../data/dictionary.z");
+static CMU_Z: &[u8] = include_bytes!("../../data/cmudict.z");
+
+/// word → ARPAbet pronunciations (CMU Pronouncing Dictionary)
+fn cmudict() -> &'static HashMap<&'static str, Vec<&'static str>> {
+    static D: OnceLock<HashMap<&'static str, Vec<&'static str>>> = OnceLock::new();
+    D.get_or_init(|| {
+        inflate(CMU_Z)
+            .lines()
+            .filter_map(|line| {
+                let (w, p) = line.split_once('\t')?;
+                Some((w, p.split('|').collect()))
+            })
+            .collect()
+    })
+}
+
+fn is_vowel(ph: &str) -> bool {
+    ph.ends_with(|c: char| c.is_ascii_digit())
+}
+
+/// ARPAbet → IPA with stress marks placed before the stressed syllable.
+pub fn ipa(arpabet: &str) -> String {
+    let ph: Vec<&str> = arpabet.split_whitespace().collect();
+    let sym = |p: &str| -> &'static str {
+        let (base, stress) = p.split_at(p.trim_end_matches(|c: char| c.is_ascii_digit()).len());
+        match base {
+            "AA" => "ɑ", "AE" => "æ", "AH" => if stress == "0" { "ə" } else { "ʌ" }, "AO" => "ɔ", "AW" => "aʊ", "AY" => "aɪ",
+            "EH" => "ɛ", "ER" => if stress == "0" { "ɚ" } else { "ɝ" }, "EY" => "eɪ", "IH" => "ɪ", "IY" => "i", "OW" => "oʊ",
+            "OY" => "ɔɪ", "UH" => "ʊ", "UW" => "u", "B" => "b", "CH" => "tʃ", "D" => "d", "DH" => "ð", "F" => "f", "G" => "ɡ",
+            "HH" => "h", "JH" => "dʒ", "K" => "k", "L" => "l", "M" => "m", "N" => "n", "NG" => "ŋ", "P" => "p", "R" => "ɹ",
+            "S" => "s", "SH" => "ʃ", "T" => "t", "TH" => "θ", "V" => "v", "W" => "w", "Y" => "j", "Z" => "z", "ZH" => "ʒ",
+            _ => "",
+        }
+    };
+    const ONSETS: &[&str] = &["P R", "P L", "B R", "B L", "T R", "D R", "K R", "K L", "G R", "G L", "F R", "F L", "TH R", "SH R", "S P", "S T", "S K", "S M", "S N", "S L", "S W", "T W", "K W", "D W", "P Y", "B Y", "K Y", "F Y", "M Y", "HH Y", "V Y"];
+    // where each stressed syllable starts (index of its first phone)
+    let mut marks: HashMap<usize, &str> = HashMap::new();
+    let vowels: Vec<usize> = (0..ph.len()).filter(|&i| is_vowel(ph[i])).collect();
+    let multi = vowels.len() > 1;
+    for (k, &v) in vowels.iter().enumerate() {
+        let mark = if ph[v].ends_with('1') { "ˈ" } else if ph[v].ends_with('2') { "ˌ" } else { continue };
+        if !multi {
+            continue;
+        }
+        let prev = if k == 0 { None } else { Some(vowels[k - 1]) };
+        let start = match prev {
+            None => 0,
+            Some(pv) => {
+                let cons: Vec<&str> = ph[pv + 1..v].to_vec();
+                let n = cons.len();
+                if n == 0 {
+                    v
+                } else if n >= 2 && ONSETS.contains(&cons[n - 2..].join(" ").as_str()) {
+                    if n >= 3 && cons[n - 3] == "S" && ["P R", "T R", "K R", "P L", "K L", "K W"].contains(&cons[n - 2..].join(" ").as_str()) { v - 3 } else { v - 2 }
+                } else {
+                    v - 1
+                }
+            }
+        };
+        marks.insert(start, mark);
+    }
+    let mut out = String::new();
+    for (i, p) in ph.iter().enumerate() {
+        if let Some(m) = marks.get(&i) {
+            out.push_str(m);
+        }
+        out.push_str(sym(p));
+    }
+    out
+}
+
+fn rhyme_part(arpabet: &str) -> String {
+    let ph: Vec<&str> = arpabet.split_whitespace().collect();
+    let last = ph.iter().rposition(|p| p.ends_with('1')).or_else(|| ph.iter().rposition(|p| is_vowel(p))).unwrap_or(0);
+    ph[last..].iter().map(|p| p.trim_end_matches(|c: char| c.is_ascii_digit())).collect::<Vec<_>>().join(" ")
+}
+
+fn rhymes_of(w: &str) -> Vec<&'static str> {
+    static R: OnceLock<HashMap<String, Vec<&'static str>>> = OnceLock::new();
+    let index = R.get_or_init(|| {
+        let mut m: HashMap<String, Vec<&'static str>> = HashMap::new();
+        for (word, ps) in cmudict() {
+            if word.chars().all(|c| c.is_ascii_lowercase()) && (dictionary().contains_key(word) || words().binary_search(word).is_ok()) {
+                m.entry(rhyme_part(ps[0])).or_default().push(word);
+            }
+        }
+        m
+    });
+    let Some(ps) = cmudict().get(w) else { return vec![] };
+    let mut v: Vec<&'static str> = index.get(&rhyme_part(ps[0])).map(|x| x.iter().copied().filter(|x| *x != w && !x.ends_with(w)).collect()).unwrap_or_default();
+    // common words (with a dictionary entry) first, then shorter
+    v.sort_by_key(|x| (!dictionary().contains_key(x), x.len(), *x));
+    v
+}
+
+fn syllables(arpabet: &str) -> usize {
+    arpabet.split_whitespace().filter(|p| is_vowel(p)).count()
+}
+
+fn pron_rows(w: &str) -> Option<Vec<(String, String)>> {
+    let ps = cmudict().get(w)?;
+    let mut rows = vec![("IPA".to_string(), ps.iter().map(|p| format!("/{}/", ipa(p))).collect::<Vec<_>>().join(", "))];
+    rows.push(("ARPAbet".to_string(), ps[0].to_string()));
+    let n = syllables(ps[0]);
+    rows.push(("syllables".to_string(), n.to_string()));
+    Some(rows)
+}
+
+/// "pronunciation of colonel", "phonetic hypothesize", "how to pronounce quinoa",
+/// "syllables in banana", "rhymes with orange", "words close to house"
+fn sounds(l: &str) -> Option<Answer> {
+    let src = pod("Source", "Source", text("CMU Pronouncing Dictionary (Carnegie Mellon University); American English"));
+    if let Some(m) = re!(r"^(?:pronunciation|pronounciation|phonetics?|phonetic spelling|phonetic transcription|ipa|ipa transcription)(?: of| for)? (?:the word )?([a-z']+)$|^(?:how (?:do (?:you|i|we) |to |should i |is )?(?:pronounce|say)|pronounce) (?:the word )?([a-z']+)(?: pronounced)?$|^([a-z']+) (?:pronunciation|phonetics?|in ipa|ipa)$").captures(l) {
+        let w = m.get(1).or(m.get(2)).or(m.get(3))?.as_str();
+        let rows = pron_rows(w)?;
+        return Some(Answer::new(format!("pronunciation of {w}"), vec![
+            pod("Input", "Input interpretation", text(format!("{w} (English word) | pronunciation"))),
+            primary(pod("Result", "Pronunciation", text(rows[0].1.clone()))),
+            pod("Table", "Details", table(None, rows.into_iter().map(|(a, b)| vec![text(a), text(b)]).collect())),
+            src,
+        ]));
+    }
+    if let Some(m) = re!(r"^(?:how many )?syllables (?:in|of|does) (?:the word )?([a-z']+)(?: have)?$|^(?:number of )?syllables (?:in|of) (?:the word )?([a-z']+)$|^([a-z']+) syllables$").captures(l) {
+        let w = m.get(1).or(m.get(2)).or(m.get(3))?.as_str();
+        let rows = pron_rows(w)?;
+        return Some(Answer::new(format!("syllables in {w}"), vec![
+            pod("Input", "Input interpretation", text(format!("{w} (English word) | syllables"))),
+            primary(pod("Result", "Syllables", text(rows[2].1.clone()))),
+            pod("Table", "Pronunciation", table(None, rows.into_iter().map(|(a, b)| vec![text(a), text(b)]).collect())),
+            src,
+        ]));
+    }
+    if let Some(m) = re!(r"^(?:(?:words )?(?:that )?rhym(?:e|es|ing) (?:with|for) |what rhymes with |rhymes (?:of|to) |rhyme )(?:the word )?([a-z']+)$|^([a-z']+) rhymes$").captures(l) {
+        let w = m.get(1).or(m.get(2))?.as_str();
+        cmudict().get(w)?;
+        let r = rhymes_of(w);
+        return Some(Answer::new(format!("rhymes with {w}"), vec![
+            pod("Input", "Input interpretation", text(format!("{w} | rhymes"))),
+            primary(pod("Result", "Rhymes", text(if r.is_empty() { "no perfect rhymes in the dictionary".to_string() } else { word_list(&r) }))),
+            pod("Pronunciation", "Pronunciation", text(format!("/{}/", ipa(cmudict()[w][0])))),
+            src,
+        ]));
+    }
+    if let Some(m) = re!(r"^(?:words (?:close|similar|near) to|words one letter (?:away )?from|neighbou?rs of the word) ([a-z]+)$").captures(l) {
+        let w = &m[1];
+        let mut out: Vec<&'static str> = Vec::new();
+        let b = w.as_bytes();
+        let mut cands: Vec<String> = Vec::new();
+        for i in 0..=b.len() {
+            for c in b'a'..=b'z' {
+                let mut x = b.to_vec();
+                x.insert(i, c);
+                cands.push(String::from_utf8(x).unwrap());
+                if i < b.len() && b[i] != c {
+                    let mut y = b.to_vec();
+                    y[i] = c;
+                    cands.push(String::from_utf8(y).unwrap());
+                }
+            }
+            if i < b.len() {
+                let mut x = b.to_vec();
+                x.remove(i);
+                cands.push(String::from_utf8(x).unwrap());
+            }
+        }
+        for c in cands {
+            if let Ok(k) = words().binary_search(&c.as_str()) {
+                if !out.contains(&words()[k]) {
+                    out.push(words()[k]);
+                }
+            }
+        }
+        out.sort_by_key(|x| (!dictionary().contains_key(x), *x));
+        if out.is_empty() {
+            return None;
+        }
+        return Some(Answer::new(format!("words close to {w}"), vec![
+            pod("Input", "Input interpretation", text(format!("words one letter away from {w}"))),
+            primary(pod("Result", "Words", text(word_list(&out)))),
+            pod("Note", "Note", text("words formed by adding, removing or changing one letter")),
+        ]));
+    }
+    None
+}
 
 fn inflate(data: &[u8]) -> &'static str {
     let bytes = miniz_oxide::inflate::decompress_to_vec(data).unwrap_or_default();
@@ -114,7 +298,7 @@ fn letters_score(w: &str) -> u32 {
 }
 
 fn define(l: &str) -> Option<Answer> {
-    let m = re!(r"^(?:define|definition of|definition for|meaning of|the meaning of|what does)\s+(?:the word\s+)?([a-z]+)(?:\s+mean)?$|^([a-z]+)\s+(?:definition|meaning)$|^what is the (?:definition|meaning) of\s+(?:the word\s+)?([a-z]+)$").captures(l)?;
+    let m = re!(r"^(?:define|definition of|definition for|meaning of|the meaning of|what does|(?:the )?word)\s+(?:the word\s+)?([a-z]+)(?:\s+mean)?$|^([a-z]+)\s+(?:definition|meaning)$|^what is the (?:definition|meaning) of\s+(?:the word\s+)?([a-z]+)$").captures(l)?;
     let w = m.get(1).or(m.get(2)).or(m.get(3))?.as_str();
     let (base, glosses, syns) = lookup(w)?;
     let mut pods = vec![pod("Input", "Input interpretation", text(format!("{base} (English word) | definition")))];
@@ -126,8 +310,11 @@ fn define(l: &str) -> Option<Answer> {
     if !others.is_empty() {
         pods.push(pod("Anagrams", "Anagrams", text(word_list(&others))));
     }
+    if let Some(rows) = pron_rows(&base) {
+        pods.insert(2, pod("Pronunciation", "Pronunciation", table(None, rows.into_iter().map(|(a, b)| vec![text(a), text(b)]).collect())));
+    }
     pods.push(pod("Scrabble", "Scrabble score", text(format!("{} ({} letters)", letters_score(&base), base.len()))));
-    pods.push(pod("Source", "Source", text("WordNet 3.1, Princeton University")));
+    pods.push(pod("Source", "Source", text("WordNet 3.1, Princeton University; pronunciation from the CMU Pronouncing Dictionary")));
     Some(Answer::new(format!("definition of {base}"), pods))
 }
 
@@ -299,5 +486,5 @@ fn soundex_query(l: &str) -> Option<Answer> {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches('?').trim();
-    soundex_query(l).or_else(|| anagram_query(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
+    soundex_query(l).or_else(|| sounds(l)).or_else(|| anagram_query(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
 }

@@ -1210,3 +1210,14 @@ fn measuring_instruments() {
     assert!(short("hydrometer").starts_with("Hydrometer — measures density"));
     assert!(short("how do you measure charges?").contains("electrometer"));
 }
+
+#[test]
+fn pronunciation_and_rhymes() {
+    assert_eq!(short("pronunciation of colonel"), "/ˈkɝnəl/");
+    assert_eq!(short("phonetic hypothesize"), "/haɪˈpɑθəˌsaɪz/");
+    assert_eq!(short("syllables in banana"), "3");
+    assert!(short("rhymes with house").contains("mouse"));
+    assert!(short("words close to house").contains("horse"));
+    assert!(short("word plinth").contains("architectural support"));
+    assert!(pod_text(&q("define plinth"), "Pronunciation").contains("/plɪnθ/"));
+}
