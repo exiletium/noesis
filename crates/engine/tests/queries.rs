@@ -1315,3 +1315,11 @@ fn file_formats_and_keyboard_layouts() {
     assert!(short("dvorak keyboard").contains("AOEUIDHTNS"));
     assert!(short("english keyboard layout").starts_with("US QWERTY"));
 }
+
+#[test]
+fn periodic_table_radioactive_elements_and_uk_nations() {
+    assert!(short("radioactive elements").starts_with("Technetium, Promethium, Polonium"));
+    assert!(pod_text(&q("show me the periodic table"), "Result").contains("Og"));
+    assert_eq!(short("capital of Northern Ireland"), "Belfast");
+    assert!(short("Scotland").contains("capital Edinburgh"));
+}

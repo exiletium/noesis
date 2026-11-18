@@ -62,6 +62,43 @@ pub(super) const GROUPS: &[(&[&str], &str)] = &[
 fn chemistry(q: &Query) -> Option<Answer> {
     let l = q.lower.trim();
     let bare = l.trim_start_matches("list of ").trim_start_matches("list the ").trim_start_matches("all ").trim_start_matches("the ").trim_end_matches(" elements").trim_end_matches(" in the periodic table");
+    // elements with no stable isotope
+    if matches!(bare, "radioactive" | "radioactive elements" | "unstable" | "elements with no stable isotopes" | "which elements are radioactive") {
+        let els: Vec<_> = elements().iter().filter(|e| e.z == 43 || e.z == 61 || e.z >= 84).collect();
+        let rows: Vec<Vec<Content>> = els.iter().map(|e| vec![text(e.z.to_string()), text(e.symbol.clone()), text(e.name.clone())]).collect();
+        return Some(simple(
+            "radioactive elements (no stable isotopes)",
+            "Elements",
+            els.iter().map(|e| e.name.clone()).collect::<Vec<_>>().join(", "),
+            vec![
+                pod("Table", "Members", table(Some(vec!["Z", "symbol", "name"]), rows)),
+                pod("Count", "Count", text(els.len().to_string())),
+                pod("Note", "Note", text("technetium (43), promethium (61) and every element from polonium (84) on have no stable isotope; bismuth-209 decays too, but with a half-life of about 2 × 10¹⁹ years")),
+            ],
+        ));
+    }
+    // the periodic table as a grid
+    if matches!(l.trim_end_matches(['?', '.']), "periodic table" | "the periodic table" | "show me the periodic table" | "show the periodic table" | "periodic table of elements" | "periodic table of the elements" | "the periodic table of elements") {
+        let els = elements();
+        let mut rows: Vec<Vec<Content>> = Vec::new();
+        for period in 1..=7u32 {
+            let mut row = vec![text(period.to_string())];
+            for group in 1..=18u32 {
+                let cell = els.iter().find(|e| e.period == Some(period) && e.group == Some(group)).map(|e| e.symbol.clone()).unwrap_or_else(|| if group == 3 && period >= 6 { "*".repeat(period as usize - 5) } else { String::new() });
+                row.push(text(cell));
+            }
+            rows.push(row);
+        }
+        let series = |lo: u32, hi: u32| els.iter().filter(|e| e.z >= lo && e.z <= hi).map(|e| e.symbol.clone()).collect::<Vec<_>>().join(" ");
+        let mut header = vec!["period".to_string()];
+        header.extend((1..=18).map(|g| g.to_string()));
+        return Some(Answer::new("periodic table", vec![
+            pod("Input", "Input interpretation", text("periodic table of the elements")),
+            primary(pod("Result", "Periodic table", table(Some(header.iter().map(|s| s.as_str()).collect()), rows))),
+            pod("Series", "Lanthanides and actinides", table(None, vec![vec![text("* lanthanides"), text(series(57, 71))], vec![text("** actinides"), text(series(89, 103))]])),
+            pod("Count", "Elements", text(format!("{} known elements, arranged by atomic number in 7 periods and 18 groups", els.len()))),
+        ]));
+    }
     if let Some((_, series)) = GROUPS.iter().find(|(names, _)| names.contains(&bare) || names.iter().any(|n| bare == format!("{n} elements"))) {
         let els: Vec<_> = elements().iter().filter(|e| e.series.as_deref() == Some(*series)).collect();
         if els.is_empty() {
