@@ -1677,3 +1677,15 @@ fn isbns_paper_sizes_and_compressed_turing_machines() {
     assert!(pod_text(&q("TM 2506 with left-right compression"), "Input").contains("left-right compressed"));
     assert!(pod_text(&q("left-compressed evolution of Wolfram 2,3"), "Input").contains("left compressed"));
 }
+
+#[test]
+fn trig_inequalities_and_fraction_diagrams() {
+    assert_eq!(short("number line csc(x)<=2/sqrt(3)"), "π/3 + 2πn ≤ x ≤ 2π/3 + 2πn or π + 2πn < x < 2π + 2πn for integer n");
+    assert_eq!(short("solve sin(x) > 1/2"), "π/6 + 2πn < x < 5π/6 + 2πn for integer n");
+    assert_eq!(short("cos(x) > 0"), "−π/2 + 2πn < x < π/2 + 2πn for integer n");
+    assert_eq!(short("solve tan(x) >= 1"), "π/4 + πn ≤ x < π/2 + πn for integer n");
+    assert_eq!(short("tape diagram of 3/6"), "3/6: [■|■|■|□|□|□]");
+    assert!(pod_text(&q("1/3 - 4/5 pie charts"), "Difference").contains("−7/15"));
+    assert!(pod_text(&q("pie chart 5/7"), "Values").contains("71.43%"));
+    assert_eq!(short("x^2 < 4"), "-2 < x < 2");
+}

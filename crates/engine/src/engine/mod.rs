@@ -24,6 +24,7 @@ pub mod inference;
 pub mod numbers;
 pub mod daily;
 pub mod school2;
+pub mod trigineq;
 pub mod ccss;
 pub mod chance;
 pub mod intseq;

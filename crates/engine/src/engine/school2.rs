@@ -294,9 +294,105 @@ fn data_list(t: &str) -> Option<Vec<f64>> {
     (v.len() >= 2).then_some(v)
 }
 
+/// Pie charts and tape diagrams of fractions: "pie chart 5/7", "tape diagram of 3/6", "1/3 - 4/5 pie charts".
+fn fraction_charts(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:(pie\s*charts?|tape\s*diagrams?|bar\s*models?|fraction\s*(?:bars?|strips?))\s+(?:of\s+|for\s+)?(.+)|(.+?)\s+(?:as\s+(?:an?\s+)?)?(pie\s*charts?|tape\s*diagrams?|bar\s*models?|fraction\s*(?:bars?|strips?)))$").captures(l)?;
+    let kind = m.get(1).or(m.get(4))?.as_str();
+    let body = m.get(2).or(m.get(3))?.as_str();
+    let fr = re!(r"(\d+)\s*/\s*(\d+)");
+    if !re!(r"^(?:\s*\d+\s*/\s*\d+\s*(?:,|-|–|\band\b|\bvs\.?|&)?)+\s*$").is_match(body) {
+        return None;
+    }
+    let fs: Vec<(u32, u32)> = fr.captures_iter(body).filter_map(|c| Some((c[1].parse().ok()?, c[2].parse().ok()?))).collect();
+    if fs.is_empty() || fs.len() > 6 || fs.iter().any(|(a, b)| *b == 0 || *b > 60 || a > b) {
+        return None;
+    }
+    let pie = kind.starts_with("pie");
+    let g = |a: u32, b: u32| -> u32 { let (mut a, mut b) = (a, b); while b != 0 { let t = a % b; a = b; b = t; } a.max(1) };
+    let mut segs: Vec<[[f64; 2]; 2]> = Vec::new();
+    let mut rows = Vec::new();
+    let mut tapes = Vec::new();
+    for (i, (a, b)) in fs.iter().enumerate() {
+        let (a, b) = (*a, *b);
+        let d = g(a, b);
+        let v = a as f64 / b as f64;
+        rows.push(vec![text(format!("{a}/{b}")), text(if d > 1 { format!("{}/{}", a / d, b / d) } else { format!("{a}/{b}") }), text(fmt(v)), text(format!("{}%", fmt((v * 10000.0).round() / 100.0))), text(format!("{}°", fmt((v * 3600.0).round() / 10.0)))]);
+        if pie {
+            let cx = i as f64 * 2.6;
+            let pt = |ang: f64, r: f64| [cx + r * ang.cos(), r * ang.sin()];
+            // start at the top and go clockwise
+            let ang = |t: f64| std::f64::consts::FRAC_PI_2 - t * std::f64::consts::TAU;
+            for k in 0..96 {
+                segs.push([pt(ang(k as f64 / 96.0), 1.0), pt(ang((k + 1) as f64 / 96.0), 1.0)]);
+            }
+            for k in 0..b {
+                segs.push([[cx, 0.0], pt(ang(k as f64 / b as f64), 1.0)]);
+            }
+            // shading: radial hatching across the shaded sectors
+            let hatch = (v * 120.0).round() as usize;
+            for k in 0..hatch {
+                let t = (k as f64 + 0.5) / 120.0;
+                segs.push([pt(ang(t), 0.08), pt(ang(t), 0.97)]);
+            }
+        } else {
+            let y0 = -(i as f64) * 1.4;
+            let w = 6.0 / b as f64;
+            segs.push([[0.0, y0], [6.0, y0]]);
+            segs.push([[0.0, y0 + 1.0], [6.0, y0 + 1.0]]);
+            for k in 0..=b {
+                segs.push([[k as f64 * w, y0], [k as f64 * w, y0 + 1.0]]);
+            }
+            let hatch = (a as f64 * w / 0.08).round() as usize;
+            for k in 0..hatch {
+                let xh = (k as f64 + 0.5) * 0.08;
+                segs.push([[xh, y0 + 0.06], [xh, y0 + 0.94]]);
+            }
+            tapes.push(format!("{a}/{b}: [{}]", (0..b).map(|k| if k < a { "■" } else { "□" }).collect::<Vec<_>>().join("|")));
+        }
+    }
+    let names = fs.iter().map(|(a, b)| format!("{a}/{b}")).collect::<Vec<_>>().join(", ");
+    let what = if pie { "pie chart" } else { "tape diagram" };
+    let mut pods = vec![input(format!("{what} | {names}"))];
+    if pie {
+        pods.push(primary(pod("Plot", if fs.len() > 1 { "Pie charts" } else { "Pie chart" }, plot(pl::segments(segs, "")))));
+    } else {
+        pods.push(primary(pod("Result", "Tape diagram", text(tapes.join("\n")))));
+        pods.push(pod("Plot", "Tape diagram", plot(pl::segments(segs, ""))));
+    }
+    pods.push(pod("Values", "Values", table(Some(vec!["fraction", "simplest form", "decimal", "percent", "angle of a circle"]), rows)));
+    if fs.len() == 2 {
+        let (a, b) = fs[0];
+        let (c, d) = fs[1];
+        let (n, m) = (a as i64 * d as i64 - c as i64 * b as i64, b as i64 * d as i64);
+        let gg = g(n.unsigned_abs() as u32, m as u32) as i64;
+        let diff = if n == 0 { "0".to_string() } else if m / gg == 1 { (n / gg).to_string() } else { format!("{}/{}", n / gg, m / gg) };
+        pods.push(pod("Difference", "Difference", text(format!("{a}/{b} − {c}/{d} = {}", diff.replace('-', "−")))));
+    }
+    Some(Answer::new(what, pods))
+}
+
+/// "sin(x) > 1/2", "solve cos(2x) <= 0".
+fn trig_inequality(l: &str) -> Option<Answer> {
+    if l.contains("number line") {
+        return None;
+    }
+    let body = re!(r"^(?:solve|find all (?:real )?solutions? (?:of|to)|for what (?:values? of )?[a-z] is|when is|where is)?\s*(.+)$").captures(l)?.get(1)?.as_str().trim().to_string();
+    let (op, a, b, x) = super::trigineq::parse(&body)?;
+    if solve::solve_inequality(op, &a, &b, &x).is_some() {
+        return None;
+    }
+    let sol = super::trigineq::solve(op, &a, &b, &x)?;
+    Some(Answer::new("inequality", vec![
+        input(format!("solve {body} for {}", ptext(&x))),
+        primary(pod("Result", "Solution", text(sol.text))),
+        pod("NumberLine", "Number line (three periods)", plot(pl::number_line(sol.spans))),
+        pod("Period", "Period", text(super::trigineq::nice(sol.period))),
+    ]))
+}
+
 fn charts(l: &str) -> Option<Answer> {
     if let Some(m) = re!(r"^(histogram|dot\s*plot|line\s*plot|pie\s*chart|bar\s*(?:chart|graph))\s+(?:of\s+)?(.+)$").captures(l) {
-        let v = data_list(&m[2])?;
+        let Some(v) = data_list(&m[2]) else { return fraction_charts(l) };
         let kind = m[1].replace(' ', "");
         if kind == "histogram" {
             let n = v.len();
@@ -329,6 +425,9 @@ fn charts(l: &str) -> Option<Answer> {
         let counts: Vec<(String, f64)> = uniq.iter().map(|u| (fmt(*u), v.iter().filter(|x| *x == u).count() as f64)).collect();
         let rows: Vec<Vec<Content>> = counts.iter().map(|(u, c)| vec![text(u.clone()), text("•".repeat(*c as usize))]).collect();
         return Some(Answer::new("dot plot", vec![input(format!("dot plot of {} values", v.len())), primary(pod("Result", "Dot plot", table(Some(vec!["value", "count"]), rows))), pod("Plot", "Counts", plot(pl::bars(counts)))]));
+    }
+    if let Some(a) = fraction_charts(l) {
+        return Some(a);
     }
     // "1/3 pie chart"
     if let Some(m) = re!(r"^(\d+)\s*/\s*(\d+)\s+(?:of\s+a\s+)?pie(?:\s*chart)?$").captures(l) {
@@ -374,6 +473,12 @@ fn span_text(sp: &pl::Span, x: &str) -> String {
 fn number_lines(l: &str) -> Option<Answer> {
     let m = re!(r"^(?:show\s+|plot\s+|graph\s+|draw\s+)?(?:(.+?)\s+on\s+(?:a|the)\s+number\s*line|number\s*line\s+(?:of\s+|for\s+|with\s+)?(.+))$").captures(l)?;
     let body = m.get(1).or(m.get(2))?.as_str().trim();
+    if let Some((op, a, b, x)) = super::trigineq::parse(body) {
+        if solve::solve_inequality(op, &a, &b, &x).is_none() {
+            let sol = super::trigineq::solve(op, &a, &b, &x)?;
+            return Some(Answer::new("number line", vec![input(format!("{body} on a number line")), primary(pod("Result", "Solution", text(sol.text))), pod("NumberLine", "Number line (three periods)", plot(pl::number_line(sol.spans)))]));
+        }
+    }
     if body.contains(['<', '>', '≤', '≥']) {
         let mut parts: Vec<String> = Vec::new();
         for p in re!(r"\s*(?:,|\band\b|&&)\s*").split(body).filter(|p| !p.trim().is_empty()) {
@@ -1031,6 +1136,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     triangles(&l)
         .or_else(|| number_lines(&l))
         .or_else(|| charts(&l))
+        .or_else(|| trig_inequality(&l))
         .or_else(|| point_plots(&l))
         .or_else(|| compare_fns(&l))
         .or_else(|| fn_props(&l))
