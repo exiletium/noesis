@@ -378,8 +378,10 @@ fn synonyms(l: &str) -> Option<Answer> {
 }
 
 fn anagram_query(l: &str) -> Option<Answer> {
-    let m = re!(r"^(?:anagrams?|word anagrams?)\s+(?:(?:of|for)\s+)?(?:the word\s+)?([a-z]+)$|^([a-z]+)\s+anagrams?$|^(?:unscramble|descramble|rearrange the letters(?: of| in)?)\s+([a-z]+)$").captures(l)?;
-    let w = m.get(1).or(m.get(2)).or(m.get(3))?.as_str();
+    let m = re!(r"^(?:anagrams?|word anagrams?)\s+(?:(?:of|for)\s+)?(?:the (?:word|phrase)\s+)?([a-z]+(?: [a-z]+){0,3})$|^([a-z]+)\s+anagrams?$|^(?:unscramble|descramble|rearrange the letters(?: of| in)?)\s+([a-z]+)$").captures(l)?;
+    let phrase = m.get(1).or(m.get(2)).or(m.get(3))?.as_str();
+    let joined = phrase.replace(' ', "");
+    let w = joined.as_str();
     if w.len() < 2 || w.len() > 30 {
         return None;
     }
@@ -388,9 +390,9 @@ fn anagram_query(l: &str) -> Option<Answer> {
     if unscramble && is_word(w) {
         found.insert(0, words().iter().copied().find(|x| *x == w)?);
     }
-    let mut pods = vec![pod("Input", "Input interpretation", text(format!("anagrams | {w}")))];
+    let mut pods = vec![pod("Input", "Input interpretation", text(format!("anagrams | {phrase}")))];
     if found.is_empty() {
-        pods.push(primary(pod("Result", "Result", text(format!("no English words can be formed from all the letters of \"{w}\"")))));
+        pods.push(primary(pod("Result", "Result", text(format!("no English words can be formed from all the letters of \"{phrase}\"")))));
     } else {
         pods.push(primary(pod("Result", "Result", text(word_list(&found)))));
     }
@@ -403,7 +405,7 @@ fn anagram_query(l: &str) -> Option<Answer> {
         total /= crate::numtheory::factorial(*k as u64);
     }
     pods.push(pod("Arrangements", "Distinct arrangements of the letters", text(total.to_string())));
-    Some(Answer::new(format!("anagrams of {w}"), pods))
+    Some(Answer::new(format!("anagrams of {phrase}"), pods))
 }
 
 /// "word subsets recycle" (words spelled from some of the letters, each used

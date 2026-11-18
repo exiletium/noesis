@@ -1639,3 +1639,16 @@ fn radio_horizon_lens_tilt_and_threads() {
     assert!(short("martin's formula 10 degrees, power 5 diopters").starts_with("5.05026"));
     assert_eq!(short("M10 thread pitch diameter, diameter 10 mm, pitch 1.5 mm"), "9.02572 mm");
 }
+
+#[test]
+fn particle_reactions_hashes_and_phrase_anagrams() {
+    let r = q("pi^- + p -> p + pi^- 3 GeV");
+    assert!(pod_text(&r, "Result").contains("allowed"));
+    assert!(pod_text(&r, "Kinematics").contains("2.55528 GeV"));
+    assert!(short("p -> e+ + pi0").starts_with("forbidden"));
+    assert!(short("lambda -> p + pi-").contains("weak"));
+    assert!(pod_text(&q("n -> p + e- + electron antineutrino"), "Kinematics").contains("0.782333 MeV"));
+    assert_eq!(short("md4 hello"), "866437cb7a794bce2b727acc0362ee27");
+    assert_eq!(short("ripemd160 hello"), "108f07b8382412612c048d07d13f814118445acd");
+    assert_eq!(short("anagrams pepsi cola"), "episcopal");
+}
