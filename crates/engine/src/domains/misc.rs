@@ -141,10 +141,17 @@ fn calendar_conversion(l: &str) -> Option<Answer> {
     let l = l.trim_end_matches('?').trim();
     let from_greg = |cname: &str, date: &str| -> Option<Answer> {
         let name = cal::calendar_name(cname)?;
-        let d = parse_date(date)?;
+        // a date in another calendar ("17 jiuyue, 4706 Chinese lunar calendar") or a Gregorian one
+        let (d, from) = match parse_date(date) {
+            Some(d) => (d, date_long(d)),
+            None => {
+                let (src, d) = cal::parse_other(date.trim_start_matches("convert ").trim())?;
+                (d, format!("{} ({src} calendar)", date.trim_start_matches("convert ").trim()))
+            }
+        };
         let out = cal::to_calendar(name, d)?;
         let pods = vec![
-            pod("Input", "Input interpretation", text(format!("convert {} to the {} calendar", date_long(d), cname.trim().trim_start_matches("the ").trim_end_matches(" calendar").trim_end_matches(" date"))))
+            pod("Input", "Input interpretation", text(format!("convert {} to the {} calendar", from, cname.trim().trim_start_matches("the ").trim_end_matches(" calendar").trim_end_matches(" date"))))
             ,
             primary(pod("Result", "Result", text(out))),
             pod("Calendars", "Other calendars", table(None, cal::rows(d).into_iter().map(|(k, v)| vec![text(k), text(v)]).collect())),
@@ -165,6 +172,21 @@ fn calendar_conversion(l: &str) -> Option<Answer> {
                 return Some(a);
             }
         }
+    }
+    // "chinese new year 2027"
+    if let Some(m) = re!(r"^(?:when is |date of )?(?:the )?(?:chinese|lunar) new year(?: in| of)?\s*(\d{4})?$").captures(l) {
+        let y: i32 = m.get(1).and_then(|x| x.as_str().parse().ok()).unwrap_or_else(|| chrono::Local::now().year());
+        let mut f = cal::chinese_new_year(y)?;
+        if m.get(1).is_none() && cal::from_fixed(f)? < chrono::Local::now().date_naive() {
+            f = cal::chinese_new_year(y + 1)?;
+        }
+        let d = cal::from_fixed(f)?;
+        let mut pods = vec![pod("Input", "Input interpretation", text(format!("Chinese New Year {}", d.year())))];
+        let mut info = date_info_pods(d);
+        info[0] = primary(pod("Result", "Date", text(date_long(d))));
+        pods.extend(info);
+        pods.push(pod("Calendar", "Chinese date", text(cal::chinese_text(f))));
+        return Some(Answer::new("Chinese New Year", pods));
     }
     // another calendar to Gregorian
     let body = re!(r"\s+(?:to|in|into)\s+(?:the\s+)?gregorian(?:\s+calendar)?$").replace(l, "").to_string();

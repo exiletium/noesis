@@ -1689,3 +1689,12 @@ fn trig_inequalities_and_fraction_diagrams() {
     assert!(pod_text(&q("pie chart 5/7"), "Values").contains("71.43%"));
     assert_eq!(short("x^2 < 4"), "-2 < x < 2");
 }
+
+#[test]
+fn chinese_calendar() {
+    assert_eq!(short("convert 17 jiuyue, 4706 Chinese lunar calendar to the Islamic calendar"), "15 Dhu al-Qi'dah 1430 AH");
+    assert_eq!(short("february 10 2024 in the chinese calendar"), "1 zhengyue (month 1), year 4721 (jiachen, year of the Dragon)");
+    assert_eq!(short("chinese new year 2027"), "Saturday, February 6, 2027");
+    assert_eq!(short("17 jiuyue 4706"), "Tuesday, November 3, 2009");
+    assert!(short("today in the chinese calendar").contains("year of the"));
+}
