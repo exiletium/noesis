@@ -267,6 +267,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("intseq", intseq::handle));
     v.push(("math", math::handle));
     v.push(("rephrase", llm::handle));
+    v.push(("titles", crate::domains::facts::bare));
     v.push(("encyclopedia", crate::domains::live::fallback));
     v
 }
@@ -395,7 +396,7 @@ fn run_handlers(input: &str, opts: &Options) -> QueryResult {
     }
     let all = handlers();
     // the fallbacks (language model, encyclopedia) run only after rewordings
-    let (main, fallback): (Vec<_>, Vec<_>) = all.into_iter().partition(|(n, _)| !matches!(*n, "rephrase" | "encyclopedia"));
+    let (main, fallback): (Vec<_>, Vec<_>) = all.into_iter().partition(|(n, _)| !matches!(*n, "rephrase" | "titles" | "encyclopedia"));
     let try_all = |q: &Query, hs: &[(&'static str, Handler)]| -> Option<Answer> {
         let timing = std::env::var("NOESIS_TRACE").map_or(false, |v| v == "2");
         for (_name, h) in hs {

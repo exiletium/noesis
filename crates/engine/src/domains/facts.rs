@@ -547,10 +547,127 @@ fn awards(l: &str) -> Option<Answer> {
     Some(simple(format!("Nobel Prize | {field} | {year}"), "Laureates", winners.replace("; ", "  |  "), extra))
 }
 
+
+/// A work's title, allowing a possessive creator in front: "Edward Hopper's Nighthawks".
+fn work_named(s: &str) -> Option<&'static Vec<Work>> {
+    let f = facts();
+    let s = s.trim().trim_start_matches("the painting ").trim_start_matches("the film ").trim_start_matches("the movie ").trim_start_matches("the novel ").trim_start_matches("the book ");
+    f.works.get(&norm(s)).or_else(|| {
+        let (who, title) = s.split_once("'s ").or_else(|| s.split_once("’s "))?;
+        let all = f.works.get(&norm(title))?;
+        let who = who.to_lowercase();
+        all.iter().any(|w| w.names.to_lowercase().contains(who.split_whitespace().last().unwrap_or(&who))).then_some(all)
+    })
+}
+
+fn work_card(all: &'static [Work]) -> Answer {
+    let w = &all[0];
+    let mut rows = vec![vec![text("type"), text(w.kind)], vec![text(w.role), text(w.names.replace("; ", ", "))]];
+    if !w.year.is_empty() {
+        rows.push(vec![text("date"), text(w.year)]);
+    }
+    let mut extra = vec![pod("Work", w.title, table(None, rows))];
+    for name in w.names.split("; ").take(2) {
+        extra.extend(person_pod(name));
+    }
+    let others: Vec<Vec<Content>> = all.iter().skip(1).take(6).map(|o| vec![text(format!("{} ({}{})", o.title, o.kind, if o.year.is_empty() { String::new() } else { format!(", {}", o.year) })), text(format!("{}: {}", o.role, o.names))]).collect();
+    if !others.is_empty() {
+        extra.push(pod("Others", "Other works with this title", table(None, others)));
+    }
+    let value = format!("{} by {}{}", w.kind, w.names.replace("; ", ", "), if w.year.is_empty() { String::new() } else { format!(" ({})", w.year) });
+    simple(format!("{} ({})", w.title, w.kind), "Basic information", value, extra)
+}
+
+/// "When was Edward Hopper's Nighthawks completed?", "what year was Hamlet written"
+fn when_made(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:when|what year|in what year|in which year)\s+(?:was|were|did)\s+(.+?)\s+(?:completed|painted|made|created|written|published|released|composed|finished|come out|came out|premiered?|first performed|sculpted|directed|recorded)$").captures(l)?;
+    let all = work_named(&m[1])?;
+    let w = all.iter().find(|w| !w.year.is_empty())?;
+    Some(simple(format!("{} ({}) | date", w.title, w.kind), "Date", w.year.to_string(), vec![pod("Work", w.title, table(None, vec![vec![text("type"), text(w.kind)], vec![text(w.role), text(w.names.replace("; ", ", "))]]))]))
+}
+
+/// "sculptures by Picasso", "paintings by Frida Kahlo", "films directed by Spike Lee"
+fn works_by(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:list of |all |famous |notable )?(paintings|sculptures|works of art|artworks|works|novels|books|plays|poems|films|movies|operas|symphonies|albums|songs|video games|games|musicals|tv shows|television series)\s+(?:by|of|from|directed by|written by|painted by|composed by|created by)\s+(.+)$").captures(l)?;
+    let kinds: &[&str] = match &m[1] {
+        "paintings" => &["painting"],
+        "sculptures" => &["sculpture"],
+        "works of art" | "artworks" => &["painting", "sculpture", "visual artwork"],
+        "novels" => &["novel", "novella", "novel series"],
+        "books" => &["book", "novel", "literary work", "written work", "novella", "book series", "novel series"],
+        "plays" => &["play", "tragedy", "comedy"],
+        "poems" => &["poem", "epic poem"],
+        "films" | "movies" => &["film", "animated film", "short film"],
+        "operas" => &["opera"],
+        "symphonies" => &["symphony"],
+        "albums" => &["album"],
+        "songs" => &["song", "single"],
+        "video games" | "games" => &["video game"],
+        "musicals" => &["musical"],
+        "tv shows" | "television series" => &["television series"],
+        _ => &[],
+    };
+    let who = m[2].trim().to_lowercase();
+    let who_words: Vec<&str> = who.split_whitespace().collect();
+    if who_words.is_empty() {
+        return None;
+    }
+    let matches = |names: &str| {
+        names.split("; ").any(|n| {
+            let n = n.to_lowercase();
+            n == who || (who_words.len() == 1 && n.split_whitespace().last() == Some(who.as_str())) || (who_words.len() > 1 && n.contains(&who))
+        })
+    };
+    let mut seen = std::collections::HashSet::new();
+    let mut found: Vec<&'static Work> = facts().works.values().flatten().filter(|w| (kinds.is_empty() || kinds.contains(&w.kind)) && matches(w.names) && seen.insert(norm(w.title))).collect();
+    if found.is_empty() {
+        return None;
+    }
+    found.sort_by_key(|w| sort_key(w.year));
+    let creator = found[0].names.split("; ").find(|n| matches(n)).unwrap_or(found[0].names);
+    let short = found.iter().take(40).map(|w| w.title).collect::<Vec<_>>().join(" | ");
+    let rows = found.iter().take(60).map(|w| vec![text(w.title), text(w.kind), text(w.year)]).collect();
+    let mut extra = vec![pod("Table", "Works", table(Some(vec!["title", "type", "date"]), rows))];
+    extra.extend(person_pod(creator));
+    Some(simple(format!("{} | {}", creator, &m[1]), "Works", short, extra))
+}
+
+/// Last resort, after every other handler: a bare title or character name,
+/// typed with capitals ("Girl with a Pearl Earring", "Rear Window vs Vertigo", "Pikachu").
+pub fn bare(q: &Query) -> Option<Answer> {
+    let raw = q.clean.trim().trim_end_matches(['?', '.', '!']).trim();
+    if raw.len() < 4 || raw.len() > 100 || !raw.chars().next().is_some_and(|c| c.is_uppercase() || c.is_ascii_digit()) {
+        return None;
+    }
+    let parts: Vec<&str> = re!(r"\s+(?:vs\.?|versus|and)\s+|,\s+").split(raw).map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+    let f = facts();
+    if parts.len() > 1 {
+        let ws: Option<Vec<&'static Vec<Work>>> = parts.iter().map(|p| work_named(p)).collect();
+        if let Some(ws) = ws {
+            let rows = ws.iter().map(|all| {
+                let w = &all[0];
+                vec![text(w.title), text(w.kind), text(format!("{}: {}", w.role, w.names.replace("; ", ", "))), text(w.year)]
+            });
+            let short = ws.iter().map(|all| format!("{}: {} by {}{}", all[0].title, all[0].kind, all[0].names.replace("; ", ", "), if all[0].year.is_empty() { String::new() } else { format!(" ({})", all[0].year) })).collect::<Vec<_>>().join(" | ");
+            return Some(simple(parts.join(" | "), "Comparison", short, vec![pod("Table", "Works", table(Some(vec!["title", "type", "creator", "date"]), rows.collect()))]));
+        }
+        let cs: Option<Vec<&'static Character>> = parts.iter().map(|p| f.characters.get(&norm(p))).collect();
+        let cs = cs?;
+        let rows = cs.iter().map(|c| vec![text(c.name), text(c.about), text(c.works.replace("; ", ", ")), text(c.creators.replace("; ", ", "))]);
+        let short = cs.iter().map(|c| format!("{}: {}", c.name, c.about)).collect::<Vec<_>>().join(" | ");
+        return Some(simple(parts.join(" | "), "Comparison", short, vec![pod("Table", "Fictional characters", table(Some(vec!["character", "description", "appears in", "created by"]), rows.collect()))]));
+    }
+    if let Some(all) = work_named(raw) {
+        return Some(work_card(all));
+    }
+    let c = f.characters.get(&norm(raw))?;
+    characters(&format!("who is {}", c.name.to_lowercase()))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches('?').trim();
     if l.len() < 6 || l.len() > 120 {
         return None;
     }
-    creators(l).or_else(|| awards(l)).or_else(|| offices(l)).or_else(|| events(l)).or_else(|| people(l)).or_else(|| characters(l))
+    creators(l).or_else(|| when_made(l)).or_else(|| works_by(l)).or_else(|| awards(l)).or_else(|| offices(l)).or_else(|| events(l)).or_else(|| people(l)).or_else(|| characters(l))
 }

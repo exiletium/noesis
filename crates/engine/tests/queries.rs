@@ -1297,3 +1297,13 @@ fn us_states() {
     assert_eq!(short("capital of Georgia"), "Tbilisi");
     assert!(!noesis::query("CO").short_answer().unwrap_or_default().contains("Colorado"));
 }
+
+#[test]
+fn bare_titles_and_works_by_creator() {
+    assert_eq!(short("Girl with a Pearl Earring"), "painting by Johannes Vermeer");
+    assert!(short("Rear Window vs Vertigo").starts_with("Rear Window: film by Alfred Hitchcock (1954)"));
+    assert!(short("Sasuke Uchiha").contains("Naruto"));
+    assert!(short("paintings by Frida Kahlo").contains("The Two Fridas"));
+    // ordinary meanings come first
+    assert!(short("Mars").contains("planet"));
+}
