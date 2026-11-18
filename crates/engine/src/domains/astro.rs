@@ -152,14 +152,20 @@ fn rows(x: &Body) -> Vec<(&'static str, String)> {
         ("surface gravity", format!("{} m/s²  ({} g)", sci(gravity(x)), sci(gravity(x) / 9.80665))),
         ("escape velocity", format!("{} km/s", sci((2.0 * BIG_G * x.mass / x.radius).sqrt() / 1000.0))),
         ("rotation period", format!("{}{}", duration(x.rotation.abs() / 24.0), if x.rotation < 0.0 { " (retrograde)" } else { "" })),
-        (if x.name == "Sun" { "surface temperature" } else { "mean temperature" }, format!("{} K  ({} °C)", sci(x.temp), sci(x.temp - 273.15))),
     ];
+    if x.temp > 0.0 {
+        v.push((if x.name == "Sun" { "surface temperature" } else { "mean temperature" }, format!("{} K  ({} °C)", sci(x.temp), sci(x.temp - 273.15))));
+    }
     if x.orbit > 0.0 {
-        let around = if x.name == "Moon" { "Earth" } else { "the Sun" };
-        v.push((if x.name == "Moon" { "distance from Earth" } else { "distance from the Sun" }, if x.name == "Moon" { km(x.orbit) } else { format!("{}  ({} au)", km(x.orbit), sci(x.orbit / AU)) }));
-        v.push(("orbital period", format!("{} around {around}", duration(x.period))));
+        let planet = if x.name == "Moon" { Some("Earth") } else { x.kind.strip_prefix("moon of ") };
+        let around = planet.unwrap_or("the Sun");
+        v.push((
+            match planet { Some("Earth") => "distance from Earth", Some("Mars") => "distance from Mars", Some("Jupiter") => "distance from Jupiter", Some("Saturn") => "distance from Saturn", Some("Uranus") => "distance from Uranus", Some("Neptune") => "distance from Neptune", Some(_) => "distance from its planet", None => "distance from the Sun" },
+            if planet.is_some() { km(x.orbit) } else { format!("{}  ({} au)", km(x.orbit), sci(x.orbit / AU)) },
+        ));
+        v.push(("orbital period", format!("{} around {around}{}", duration(x.period.abs()), if x.period < 0.0 { " (retrograde)" } else { "" })));
         v.push(("light travel time", light_time(x.orbit)));
-        v.push(("orbital speed", format!("{} km/s", sci(2.0 * std::f64::consts::PI * x.orbit / (x.period * 86400.0) / 1000.0))));
+        v.push(("orbital speed", format!("{} km/s", sci(2.0 * std::f64::consts::PI * x.orbit / (x.period.abs() * 86400.0) / 1000.0))));
     }
     if x.kind.contains("planet") {
         v.push(("known moons", x.moons.to_string()));
@@ -178,7 +184,7 @@ fn light_time(d: f64) -> String {
     }
 }
 
-fn body_answer(x: &'static Body, want: Option<&str>) -> Option<Answer> {
+pub(crate) fn body_answer(x: &'static Body, want: Option<&str>) -> Option<Answer> {
     let all = rows(x);
     let mut pods = vec![pod("Input", "Input interpretation", text(match want {
         Some(w) => format!("{} | {w}", x.name),

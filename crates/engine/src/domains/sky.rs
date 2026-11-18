@@ -796,7 +796,61 @@ static MOONS: &[Body] = &[
     Body { name: "Triton", kind: "moon of Neptune", mass: 2.139e22, radius: 1.3534e6, orbit: 3.5476e8, period: -5.877, rotation: 141.05, temp: 38.0, moons: 0 },
     Body { name: "Charon", kind: "moon of Pluto", mass: 1.586e21, radius: 6.06e5, orbit: 1.9591e7, period: 6.387, rotation: 153.3, temp: 53.0, moons: 0 },
     Body { name: "Ceres", kind: "dwarf planet", mass: 9.3839e20, radius: 4.697e5, orbit: 4.14e11, period: 1680.0, rotation: 9.074, temp: 168.0, moons: 0 },
+    Body { name: "Eris", kind: "dwarf planet", mass: 1.6466e22, radius: 1.163e6, orbit: 1.01522e13, period: 204_199.0, rotation: 378.86, temp: 0.0, moons: 1 },
+    Body { name: "Haumea", kind: "dwarf planet", mass: 4.006e21, radius: 7.98e5, orbit: 6.4501e12, period: 103_410.0, rotation: 3.9155, temp: 0.0, moons: 2 },
+    Body { name: "Makemake", kind: "dwarf planet", mass: 3.1e21, radius: 7.15e5, orbit: 6.796e12, period: 111_845.0, rotation: 22.83, temp: 0.0, moons: 1 },
+    Body { name: "Vesta", kind: "asteroid", mass: 2.5908e20, radius: 2.627e5, orbit: 3.5328e11, period: 1325.75, rotation: 5.342, temp: 0.0, moons: 0 },
+    Body { name: "Pallas", kind: "asteroid", mass: 2.04e20, radius: 2.56e5, orbit: 4.1476e11, period: 1686.6, rotation: 7.8132, temp: 0.0, moons: 0 },
+    Body { name: "Juno", kind: "asteroid", mass: 2.67e19, radius: 1.27e5, orbit: 3.9934e11, period: 1592.9, rotation: 7.21, temp: 0.0, moons: 0 },
+    Body { name: "Mimas", kind: "moon of Saturn", mass: 3.7493e19, radius: 1.982e5, orbit: 1.85539e8, period: 0.942, rotation: 22.61, temp: 0.0, moons: 0 },
+    Body { name: "Tethys", kind: "moon of Saturn", mass: 6.1745e20, radius: 5.311e5, orbit: 2.94619e8, period: 1.888, rotation: 45.31, temp: 0.0, moons: 0 },
+    Body { name: "Dione", kind: "moon of Saturn", mass: 1.0955e21, radius: 5.614e5, orbit: 3.77396e8, period: 2.737, rotation: 65.69, temp: 0.0, moons: 0 },
+    Body { name: "Rhea", kind: "moon of Saturn", mass: 2.3065e21, radius: 7.638e5, orbit: 5.27108e8, period: 4.518, rotation: 108.43, temp: 0.0, moons: 0 },
+    Body { name: "Iapetus", kind: "moon of Saturn", mass: 1.8056e21, radius: 7.345e5, orbit: 3.56082e9, period: 79.3215, rotation: 1903.7, temp: 0.0, moons: 0 },
+    Body { name: "Miranda", kind: "moon of Uranus", mass: 6.4e19, radius: 2.358e5, orbit: 1.2939e8, period: 1.413, rotation: 33.92, temp: 0.0, moons: 0 },
+    Body { name: "Ariel", kind: "moon of Uranus", mass: 1.251e21, radius: 5.789e5, orbit: 1.9102e8, period: 2.520, rotation: 60.48, temp: 0.0, moons: 0 },
+    Body { name: "Umbriel", kind: "moon of Uranus", mass: 1.275e21, radius: 5.847e5, orbit: 2.663e8, period: 4.144, rotation: 99.46, temp: 0.0, moons: 0 },
+    Body { name: "Titania", kind: "moon of Uranus", mass: 3.4e21, radius: 7.889e5, orbit: 4.3591e8, period: 8.706, rotation: 208.94, temp: 0.0, moons: 0 },
+    Body { name: "Oberon", kind: "moon of Uranus", mass: 3.076e21, radius: 7.614e5, orbit: 5.8352e8, period: 13.463, rotation: 323.11, temp: 0.0, moons: 0 },
 ];
+
+/// A bare moon, dwarf planet or asteroid, or a list of them: "Titan",
+/// "Io, Europa, Ganymede, Callisto", "Ceres, Pallas, Juno, Vesta".
+fn minor_bodies(l: &str) -> Option<Answer> {
+    let names: Vec<&str> = re!(r"\s*(?:,|\bvs\.?|\bversus\b|\band\b)\s*").split(l).filter(|s| !s.trim().is_empty()).collect();
+    let bodies: Option<Vec<&'static Body>> = names
+        .iter()
+        .map(|s| {
+            let s = re!(r"\s+(?:moon|dwarf planet|asteroid)$").replace(s.trim(), "");
+            let s = s.trim_start_matches("the ").trim_start_matches("moon ").trim_start_matches("asteroid ");
+            MOONS.iter().find(|b| b.name.eq_ignore_ascii_case(s)).or_else(|| (names.len() > 1).then(|| any_body(s)).flatten())
+        })
+        .collect();
+    let bodies = bodies?;
+    if bodies.is_empty() {
+        return None;
+    }
+    if bodies.len() == 1 {
+        return super::astro::body_answer(bodies[0], None);
+    }
+    let rows: Vec<Vec<Content>> = bodies
+        .iter()
+        .map(|b| {
+            let around = b.kind.strip_prefix("moon of ").unwrap_or(if b.name == "Moon" { "Earth" } else { "the Sun" });
+            let dist = if b.name == "Moon" || b.kind.starts_with("moon of ") { format!("{} km from {around}", fmt_float((b.orbit / 1000.0).round(), 9)) } else { format!("{} au", fmt_float(b.orbit / 1.495_978_707e11, 4)) };
+            vec![text(b.name), text(b.kind), text(format!("{} kg", sci_s(b.mass))), text(format!("{} km", fmt_float((2.0 * b.radius / 1000.0).round(), 7))), text(dist), text(format!("{} days", fmt_float(b.period.abs(), 5)))]
+        })
+        .collect();
+    Some(Answer::new("solar-system bodies", vec![
+        input(bodies.iter().map(|b| b.name).collect::<Vec<_>>().join(" | ")),
+        primary(pod("Result", "Properties", table(Some(vec!["body", "type", "mass", "diameter", "orbit", "orbital period"]), rows))),
+    ]))
+}
+
+fn sci_s(v: f64) -> String {
+    let e = v.abs().log10().floor() as i32;
+    format!("{}×10^{e}", fmt_float(v / 10f64.powi(e), 4))
+}
 
 fn any_body(w: &str) -> Option<&'static Body> {
     let w = w.trim().trim_start_matches("the ").trim();
@@ -1023,6 +1077,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
     eclipses(l)
+        .or_else(|| minor_bodies(l))
         .or_else(|| next_moon(l))
         .or_else(|| moon_phase(l))
         .or_else(|| meteor_showers(l))

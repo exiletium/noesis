@@ -1191,3 +1191,11 @@ fn money_defaults_banknotes_and_clouds() {
     assert!(short("nimbostratus, cumulus").starts_with("nimbostratus: middle"));
     assert!(short("cumulus cloud height").starts_with("base 0.5–2 km"));
 }
+
+#[test]
+fn moons_and_minor_bodies() {
+    assert!(pod_text(&q("Titan"), "Properties").contains("distance from Saturn | 1,221,870 km"));
+    assert!(short("Io, Europa, Ganymede, Callisto").contains("Callisto | moon of Jupiter"));
+    assert!(short("Ceres, Pallas, Juno, Vesta").contains("Vesta | asteroid"));
+    assert!(pod_text(&q("Triton moon"), "Properties").contains("(retrograde)"));
+}
