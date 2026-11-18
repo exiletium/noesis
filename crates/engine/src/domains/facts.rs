@@ -623,7 +623,7 @@ fn works_by(l: &str) -> Option<Answer> {
     if found.is_empty() {
         return None;
     }
-    found.sort_by_key(|w| sort_key(w.year));
+    found.sort_by_key(|w| (sort_key(w.year), w.title));
     let creator = found[0].names.split("; ").find(|n| matches(n)).unwrap_or(found[0].names);
     let short = found.iter().take(40).map(|w| w.title).collect::<Vec<_>>().join(" | ");
     let rows = found.iter().take(60).map(|w| vec![text(w.title), text(w.kind), text(w.year)]).collect();

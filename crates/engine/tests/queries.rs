@@ -1307,3 +1307,11 @@ fn bare_titles_and_works_by_creator() {
     // ordinary meanings come first
     assert!(short("Mars").contains("planet"));
 }
+
+#[test]
+fn file_formats_and_keyboard_layouts() {
+    assert_eq!(short(".pdf file format"), "Portable Document Format (document file)");
+    assert_eq!(short("mime type of mp3"), "audio/mpeg");
+    assert!(short("dvorak keyboard").contains("AOEUIDHTNS"));
+    assert!(short("english keyboard layout").starts_with("US QWERTY"));
+}
