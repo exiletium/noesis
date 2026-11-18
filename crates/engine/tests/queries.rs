@@ -1534,3 +1534,13 @@ fn nobel_years_verses_and_mains() {
     assert_eq!(short("plug type Japan"), "types A, B");
     assert_eq!(short("110V AC"), "110 V RMS | peak 155.56 V | peak-to-peak 311.13 V");
 }
+
+#[test]
+fn equinoxes_solstices_and_lagrange_points() {
+    assert_eq!(short("september equinox 2025"), "Monday, September 22, 2025, 18:19 UTC");
+    assert_eq!(short("march equinox 2024"), "Wednesday, March 20, 2024, 03:06 UTC");
+    assert_eq!(short("summer solstice 2026"), "Sunday, June 21, 2026, 08:24 UTC");
+    assert!(short("autumnal equinox 1850").starts_with("Monday, September 23, 1850"));
+    assert!(short("Lagrange points Earth and Moon").starts_with("L1: 58,020 km from Moon | L2: 64,510 km from Moon"));
+    assert_eq!(short("Sun-Earth L2"), "1.51 million km from Earth (away from Sun)");
+}

@@ -106,6 +106,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Arithmetic on looked-up values | `(mass Phobos+Deimos) / (mass Mars)`, `(mass Saturn+Uranus+Neptune) / (mass Jupiter)`, `(surface area Ceres) / (area India)` |
 | Orbits, reagents and packing | `semi major axis of an orbit with an apogee of 2000km and perigee of 275km`, `concentrated acetic acid`, `How many marbles fit in 1000 cubic inches?` |
 | Nobel years, verses and mains power | `Nobel Prize 1930`, `Gospel of John chapter 11 verse 35`, `mains voltage in Bhutan`, `plug type Japan` |
+| Seasons and Lagrange points | `autumnal equinox 1850`, `equinoxes and solstices 2025`, `Lagrange points Earth and Moon`, `Sun-Earth L2` |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
