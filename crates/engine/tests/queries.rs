@@ -1607,3 +1607,10 @@ fn spherical_bessel_and_trig_over_powers() {
     assert!(short("integrate spherical Bessel j3(x)").contains("(x^2 sin(x) + 5 x cos(x) - 5 sin(x))/x^3"));
     assert!(short("integrate cos(2x)/x^2").contains("-2 Si(2 x) - cos(2 x)/x"));
 }
+
+#[test]
+fn heun_functions() {
+    assert_eq!(short("compute HeunG derivative [4.3 + 0.1 I, -0.2, 1.3, 0.12, -0.14, 4.32, 0.12]"), "0.565563551 - 0.0122579681 i");
+    assert!(short("series confluent heun function (4, -0.6, -0.7 , -0.18, 0.3 , x)").starts_with("1 + 5.71428571 x - 50.3333333 x^2"));
+    assert!(short("HeunTPrime[x, -0.6, -0.7 , -0.18, 0.3 , 0.12]").starts_with("[plot"));
+}
