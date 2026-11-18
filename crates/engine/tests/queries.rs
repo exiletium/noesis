@@ -1434,3 +1434,14 @@ fn ac_voltage_tires_and_cryptograms() {
     assert!(short("Mali declares independence").starts_with("22 September 1960"));
     assert!(short("cryptograms calculus").contains("volvulus"));
 }
+
+#[test]
+fn reaction_products_and_compound_classes() {
+    assert_eq!(short("hydrogen + oxygen ->"), "2 H₂ + O₂ → 2 H₂O");
+    assert_eq!(short("sodium reacts with water"), "2 Na + 2 H₂O → 2 NaOH + H₂");
+    // two elements joined by "and" are still compared
+    assert!(short("hydrogen and oxygen").contains("atomic number"));
+    assert!(short("mineral acids").starts_with("hydrochloric acid | nitric acid"));
+    assert!(short("nucleosides").starts_with("adenosine | guanosine"));
+    assert!(pod_text(&q("amino acids"), "Table").contains("C₁₁H₁₂N₂O₂"));
+}
