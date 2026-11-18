@@ -35,9 +35,28 @@ const EXAMPLES: &[(&[&str], &str)] = &[
     (&["quadratic formula", "quadratic equation solver"], "solve x^2-5x+6=0"),
 ];
 
+/// "log plot e^x - x": a logarithmic y axis, drawn as log₁₀ of the function.
+fn log_plot(q: &Query) -> Option<Answer> {
+    let m = regex::Regex::new(r"(?i)^(?:log|log-linear|semilog|semi-log|logarithmic)\s+plot\s+(?:of\s+)?(.+?)(\s*,\s*[a-z]\s*=.+|\s+from\s+.+)?$").ok()?.captures(q.clean.trim())?;
+    let f = m[1].trim();
+    let rewritten = format!("plot log10({f}){}", m.get(2).map_or("", |x| x.as_str()));
+    DEPTH.with(|d| d.set(1));
+    let r = run_handlers(&rewritten, q.opts);
+    DEPTH.with(|d| d.set(0));
+    if !r.success {
+        return None;
+    }
+    let mut pods = vec![pod("Scale", "Scale", text(format!("logarithmic y axis: the curve shown is log₁₀({f}), so each unit up is a factor of 10")))];
+    pods.extend(r.pods);
+    Some(Answer::new(format!("log plot of {f}"), pods))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     if DEPTH.with(|d| d.get()) > 0 {
         return None;
+    }
+    if let Some(a) = log_plot(q) {
+        return Some(a);
     }
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = l.trim_end_matches(" calculator").trim_end_matches(" solver").trim_end_matches(" tool").trim();

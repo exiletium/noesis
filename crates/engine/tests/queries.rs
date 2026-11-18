@@ -1331,3 +1331,9 @@ fn tool_examples_and_named_cubic_graphs() {
     let pappus = pod_text(&q("Pappus graph"), "Properties");
     assert!(pappus.contains("girth | 6") && pappus.contains("diameter | 4"));
 }
+
+#[test]
+fn log_plots_and_conway_constant() {
+    assert!(pod_text(&q("log plot e^x-x"), "Scale").contains("log₁₀"));
+    assert!(short("Conway's constant").starts_with("1.30357726903429639125"));
+}
