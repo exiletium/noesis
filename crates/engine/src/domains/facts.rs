@@ -180,9 +180,10 @@ fn sort_key(d: &str) -> (i32, u32, u32) {
     parts(d).unwrap_or((i32::MAX, 0, 0))
 }
 
+/// Wikidata years are astronomical: 0 is 1 BC and −30 is 31 BC.
 fn year_text(y: i32) -> String {
     if y <= 0 {
-        format!("{} BC", -y)
+        format!("{} BC", 1 - y)
     } else {
         y.to_string()
     }
@@ -226,6 +227,13 @@ fn simple(interp: String, title: &str, value: String, extra: Vec<crate::engine::
     pods.extend(extra);
     pods.push(pod("Source", "Source", text("Wikidata (CC0)")));
     Answer::new(interp, pods)
+}
+
+/// An event's dates as stored (astronomical years): (name, start, end, point in time).
+pub(crate) fn event(name: &str) -> Option<(&'static str, &'static str, &'static str, &'static str)> {
+    let f = facts();
+    let e = &f.event_list[*f.events.get(&norm(name))?];
+    Some((e.name, e.start, e.end, e.point))
 }
 
 /// A Wikidata person card: (display name, description, card pod).

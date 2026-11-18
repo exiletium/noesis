@@ -1063,3 +1063,21 @@ fn famous_people() {
     // surnames that are also cities or units stay with geography and units
     assert!(!short("darwin").contains("naturalist"));
 }
+
+#[test]
+fn history_eras_and_battles() {
+    assert_eq!(short("How long did the Aztec empire last?"), "about 93 years");
+    assert_eq!(short("how long did the roman empire last"), "about 502 years");
+    assert_eq!(short("roman republic demonym"), "Roman");
+    assert_eq!(short("nationality name for the kingdom of burgundy"), "Burgundian");
+    assert!(short("Which current countries were ruled by the Mongolian empire?").starts_with("Mongolia, China, Russia"));
+    assert!(short("Ottoman Empire in 1566").contains("Suleiman"));
+    assert_eq!(short("time between the start of the Battle of Kadesh and the end of the Battle of Actium"), "1,243 years");
+    assert!(short("commanders during the Battle of Pharsalus").starts_with("Julius Caesar"));
+    assert!(short("US civil war battles").contains("Battle of Gettysburg"));
+    assert!(short("Bear Flag Republic").contains("June 14, 1846"));
+    assert!(short("Ancient Athens vs Sparta").contains("Sparta"));
+    assert!(short("When was the great Baltimore fire?").contains("February 7, 1904"));
+    // Wikidata years are astronomical: Actium was 31 BC
+    assert!(short("when was the battle of actium").contains("31 BC"));
+}
