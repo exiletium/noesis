@@ -1614,3 +1614,11 @@ fn heun_functions() {
     assert!(short("series confluent heun function (4, -0.6, -0.7 , -0.18, 0.3 , x)").starts_with("1 + 5.71428571 x - 50.3333333 x^2"));
     assert!(short("HeunTPrime[x, -0.6, -0.7 , -0.18, 0.3 , 0.12]").starts_with("[plot"));
 }
+
+#[test]
+fn coulomb_wave_functions() {
+    assert_eq!(short("CoulombF[3, 0.12, 2]"), "0.106761232");
+    assert_eq!(short("incoming irregular Coulomb wave 2, .2, 3."), "0.978448384 - 0.811797688 i");
+    assert_eq!(short("CoulombG[5, 0.46, 1.7]"), "140.450941");
+    assert!(short("plot Coulomb wave of first type 3, 0.12, x").starts_with("[plot"));
+}

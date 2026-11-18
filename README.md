@@ -112,7 +112,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Office holders and opening lines | `President of Argentina`, `Prime Minister of Canada`, `first line of moby dick`, `opening phrase of A Tale of Two Cities` |
 | Office holders at events, leaders, L-systems | `Who was King of England when WWI ended?`, `Prime Minister of Pakistan when Osama Bin Laden was killed?`, `leaders of New Zealand`, `Lindenmayer system 01->1, 1->01, 0->10` |
 | Parametric surfaces and parameterised distributions | `3d parametric plot (cos u, sin u + cos v, sin v), u=0 to 2pi, v=0 to 2pi`, `Dini's surface`, `klein bottle`, `moyal distribution mu=2.3 sigma=12 skewness` |
-| Heun and spherical Bessel functions | `compute HeunG derivative [4.3 + 0.1 I, -0.2, 1.3, 0.12, -0.14, 4.32, 0.12]`, `series confluent heun function (4, -0.6, -0.7, -0.18, 0.3, x)`, `integrate spherical Bessel j3(x)` |
+| Heun, Coulomb wave and spherical Bessel functions | `compute HeunG derivative [4.3 + 0.1 I, -0.2, 1.3, 0.12, -0.14, 4.32, 0.12]`, `series confluent heun function (4, -0.6, -0.7, -0.18, 0.3, x)`, `integrate spherical Bessel j3(x)`, `incoming irregular Coulomb wave 2, .2, 3` |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
@@ -309,7 +309,7 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 
 Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
 
-**Understood:** Noesis gives an answer to **72.0%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+**Understood:** Noesis gives an answer to **72.1%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
 **Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 189 that could be checked (WolframAlpha answered and the run finished), the answers agree on **53%** (100). On the rest, Noesis gives a different answer on 14% (27) and does not understand 33% (62). The automatic checker alone reports 35% agreement (66); the difference is 34 answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. Most of the questions Noesis does not understand need live or very large datasets: current economic indicators, US state, county and school-district statistics, elected officials, recent earthquakes, fuel prices.
 
