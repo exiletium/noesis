@@ -1455,3 +1455,14 @@ fn dog_and_horse_anatomy_and_bare_activities() {
     assert!(pod_text(&q("horse left stifle joint image view from left"), "Table").contains("knee"));
     assert_eq!(short("unicycling"), "350 kcal");
 }
+
+#[test]
+fn integral_tables_and_named_constants() {
+    assert!(short("integrals containing cos(u)").starts_with("∫cos(u) du = sin(u) + C"));
+    assert!(short("definite integrals with Si(x)").contains("Si(1) + cos(1) − 1"));
+    assert!(short("sample definite integrals product log").starts_with("∫₀^e W(x) dx = e − 1"));
+    // a single integral is still computed
+    assert!(short("integral of cos(x)").contains("sin(x)"));
+    assert_eq!(short("log 2 log (Khinchin's constant)"), "0.684725");
+    assert_eq!(short("Catalan's constant * 2"), "1.83193");
+}

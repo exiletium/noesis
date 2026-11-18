@@ -598,6 +598,12 @@ fn normalize(input: &str) -> String {
             (r"(?i)\bequals\b|\bis\s+equal\s+to\b", "="),
             (r"(?i)\bgolden\s+ratio\b", "goldenratio"),
             (r"(?i)\beuler(-mascheroni|\s+mascheroni)?\s+(constant|gamma)\b", "eulergamma"),
+            (r"(?i)\beuler[’']s\s+constant\b", "eulergamma"),
+            // numeric constants with no symbolic form, to 40 digits
+            (r"(?i)\bkhinch[i]?n[’']?s?\s+constant\b|\bkhintchine[’']?s?\s+constant\b", "2.685452001065306445309714835481795693820"),
+            (r"(?i)\bcatalan[’']?s?\s+constant\b", "0.9159655941772190150546035149323841107741"),
+            (r"(?i)\bglaisher(?:[-–]kinkelin)?[’']?s?\s+constant\b", "1.282427129100622636875342568869791727767"),
+            (r"(?i)\bap[eé]ry[’']?s?\s+constant\b", "zeta(3)"),
         ]
         .iter()
         .map(|(p, r)| (Regex::new(p).unwrap(), *r))
