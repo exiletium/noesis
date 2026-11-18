@@ -1020,3 +1020,39 @@ var phi; volume fraction; ; volume fraction, packing fraction
 var V; total volume; m^3; volume, total volume
 var Vp; volume of one particle; m^3; particle volume
 note random close packing of equal spheres is about 0.64
+
+# ------------------------------------------------------------- food science and transport
+
+== Haugh unit | Haugh units | egg albumen quality
+eq HU = 100 * log10(1000 * h - 1.7 * (1000 * W)^0.37 + 7.6)
+var HU; Haugh unit; ; haugh unit, haugh units
+var h; thick albumen height; mm; albumen height, height
+var W; egg mass; g; egg mass, mass, weight
+note h in millimetres and W in grams (Haugh, 1937)
+
+== diffusion distance | diffusion length | root mean square diffusion distance
+eq x = sqrt(2 * D * t)
+var x; diffusion distance; mm; distance, diffusion length
+var D; diffusion coefficient; m^2/s; diffusion constant, diffusivity, diffusion coefficient
+var t; time; s; time, duration, compute time
+note root-mean-square displacement in one dimension; in three dimensions x = sqrt(6 D t)
+
+== supersaturating ratio | supersaturation ratio | supersaturation of a dissolved gas
+eq S = p / p0 - 1
+var S; supersaturating ratio; ; supersaturation ratio, supersaturating ratio, supersaturation
+var p; equilibrium pressure of the dissolved gas; atm; pressure, gas pressure, bottle pressure
+var p0; ambient pressure; atm; ambient pressure, atmospheric pressure; 1
+
+== critical radius for bubble creation | critical bubble radius | critical radius of a bubble nucleus
+eq r = 2 * gamma / (p0 * S)
+var r; critical radius; nm; radius, critical radius
+var gamma; surface tension; N/m; surface tension; 0.047
+var p0; ambient pressure; atm; ambient pressure, atmospheric pressure; 1
+var S; supersaturating ratio; ; supersaturation ratio, supersaturating ratio, supersaturation
+note default surface tension 47 mN/m (champagne) and ambient pressure 1 atm
+
+== Blasius displacement thickness | Blasius boundary layer displacement thickness | laminar displacement thickness
+eq delta = 1.7208 * x / sqrt(Re)
+var delta; displacement thickness; mm; displacement thickness, thickness
+var x; distance from the leading edge; m; distance, length
+var Re; local Reynolds number; ; reynolds number, Re

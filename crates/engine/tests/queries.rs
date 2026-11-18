@@ -1622,3 +1622,13 @@ fn coulomb_wave_functions() {
     assert_eq!(short("CoulombG[5, 0.46, 1.7]"), "140.450941");
     assert!(short("plot Coulomb wave of first type 3, 0.12, x").starts_with("[plot"));
 }
+
+#[test]
+fn oxidation_numbers_and_bubble_formulas() {
+    assert_eq!(short("oxidation numbers of bicarbonate anion"), "C: +4 | H: +1 | O: −2");
+    assert_eq!(short("oxidation numbers of NH4+"), "N: −3 | H: +1");
+    assert_eq!(short("oxidation number of S in H2SO4"), "S: +6");
+    assert_eq!(short("supersaturating ratio, 6 atm"), "5");
+    assert_eq!(short("critical radius for bubble creation, supersaturating ratio 5"), "185.542 nm");
+    assert_eq!(short("diffusion distance, diffusion constant 9*10^-10 m^2/s, 2 hours"), "3.6 mm");
+}
