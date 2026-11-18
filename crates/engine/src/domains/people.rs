@@ -173,7 +173,7 @@ lily tomlin|1939-09-01|Detroit, Michigan, United States|||American|actress and c
 tom selleck|1945-01-29|Detroit, Michigan, United States|||American|actor|Magnum, P.I., Blue Bloods
 grace kelly|1929-11-12|Philadelphia, Pennsylvania, United States|1982-09-14|Monaco|American|actress and Princess of Monaco|Rear Window, The Country Girl
 judy garland|1922-06-10|Grand Rapids, Minnesota, United States|1969-06-22|London, England|American|actress and singer|Dorothy in The Wizard of Oz; Over the Rainbow
-elizabeth taylor|1932-02-27|Hampstead, London, England|2011-03-23|Los Angeles, United States|British-American|actress|Cleopatra, Who's Afraid of Virginia Woolf?
+elizabeth taylor,liz taylor|1932-02-27|Hampstead, London, England|2011-03-23|Los Angeles, United States|British-American|actress|Cleopatra, Who's Afraid of Virginia Woolf?
 james dean|1931-02-08|Marion, Indiana, United States|1955-09-30|Cholame, California, United States|American|actor|Rebel Without a Cause, East of Eden
 bruce lee|1940-11-27|San Francisco, California, United States|1973-07-20|Hong Kong|Hong Kong-American|martial artist and actor|Enter the Dragon; founded Jeet Kune Do
 jackie chan|1954-04-07|Hong Kong|||Hong Kong|actor and martial artist|Police Story, Rush Hour
@@ -297,8 +297,70 @@ wayne gretzky,gretzky|1961-01-26|Brantford, Ontario, Canada|||Canadian|ice hocke
 tom brady|1977-08-03|San Mateo, California, United States|||American|American football player|quarterback with 7 Super Bowl titles
 simone biles|1997-03-14|Columbus, Ohio, United States|||American|gymnast|the most decorated gymnast in history
 jesse owens|1913-09-12|Oakville, Alabama, United States|1980-03-31|Tucson, Arizona, United States|American|track and field athlete|4 gold medals at the 1936 Berlin Olympics
+walter payton|1953-07-25|Columbia, Mississippi, United States|1999-11-01|Barrington, Illinois, United States|American|American football player|running back for the Chicago Bears (1975–1987); 16,726 career rushing yards; \"Sweetness\"
+jerome bettis|1972-02-16|Detroit, Michigan, United States|||American|American football player|running back for the Rams and Pittsburgh Steelers (1993–2005); 13,662 rushing yards; \"The Bus\"; Super Bowl XL champion
+karl malone|1963-07-24|Summerfield, Louisiana, United States|||American|basketball player|power forward for the Utah Jazz; 36,928 career points; \"The Mailman\"; 2 NBA MVP awards
+bill russell|1934-02-12|Monroe, Louisiana, United States|2022-07-31|Mercer Island, Washington, United States|American|basketball player and coach|11 NBA championships with the Boston Celtics (1957–1969); 5 MVP awards
+ted williams|1918-08-30|San Diego, California, United States|2002-07-05|Inverness, Florida, United States|American|baseball player|left fielder for the Boston Red Sox; the last player to hit .400 in a season (.406 in 1941); 521 home runs
+kris bryant|1992-01-04|Las Vegas, Nevada, United States|||American|baseball player|2016 NL MVP and World Series champion with the Chicago Cubs
+mike trout|1991-08-07|Vineland, New Jersey, United States|||American|baseball player|center fielder for the Los Angeles Angels; 3 AL MVP awards
+bryce harper|1992-10-16|Las Vegas, Nevada, United States|||American|baseball player|right fielder and first baseman (Washington Nationals, Philadelphia Phillies); 2 NL MVP awards
+russell wilson|1988-11-29|Cincinnati, Ohio, United States|||American|American football player|quarterback; won Super Bowl XLVIII with the Seattle Seahawks
+shaun white|1986-09-03|San Diego, California, United States|||American|snowboarder and skateboarder|3 Olympic gold medals in halfpipe (2006, 2010, 2018)
+billie jean king|1943-11-22|Long Beach, California, United States|||American|tennis player|39 Grand Slam titles (12 singles); won the 1973 \"Battle of the Sexes\" against Bobby Riggs; founded the Women's Tennis Association
+kim kardashian|1980-10-21|Los Angeles, California, United States|||American|media personality and businesswoman|Keeping Up with the Kardashians; SKIMS
+angelina jolie|1975-06-04|Los Angeles, California, United States|||American|actress, filmmaker and humanitarian|Girl, Interrupted (Academy Award), Lara Croft: Tomb Raider, Maleficent; UNHCR special envoy
+prince william,william prince of wales,prince william of wales|1982-06-21|Paddington, London, England|||British|Prince of Wales|heir apparent to the British throne
+king charles iii,charles iii,prince charles|1948-11-14|Buckingham Palace, London, England|||British|monarch|King of the United Kingdom since 8 September 2022
+princess diana,diana princess of wales,lady diana|1961-07-01|Sandringham, Norfolk, England|1997-08-31|Paris, France|British|Princess of Wales and humanitarian|campaigns against landmines and for HIV/AIDS awareness
+prince harry,harry duke of sussex|1984-09-15|Paddington, London, England|||British|Duke of Sussex|Spare (2023 memoir)
 peyton manning|1976-03-24|New Orleans, Louisiana, United States|||American|American football player|quarterback; 2 Super Bowl titles, 5 MVP awards
 ";
+
+/// person | parents | spouses | children | siblings
+const FAMILY: &str = "\
+prince william|King Charles III, Diana, Princess of Wales|Catherine, Princess of Wales (married 2011)|Prince George (2013), Princess Charlotte (2015), Prince Louis (2018)|Prince Harry
+prince harry|King Charles III, Diana, Princess of Wales|Meghan Markle (married 2018)|Prince Archie (2019), Princess Lilibet (2021)|Prince William
+king charles iii|Queen Elizabeth II, Prince Philip|Diana Spencer (1981–1996), Camilla Parker Bowles (married 2005)|Prince William, Prince Harry|Princess Anne, Prince Andrew, Prince Edward
+queen elizabeth ii|King George VI, Queen Elizabeth The Queen Mother|Prince Philip, Duke of Edinburgh (1947–2021)|Charles III, Anne, Andrew, Edward|Princess Margaret
+princess diana|John Spencer, 8th Earl Spencer; Frances Shand Kydd|Charles, Prince of Wales (1981–1996)|Prince William, Prince Harry|Sarah, Jane, Charles (9th Earl Spencer)
+elizabeth taylor|Francis Taylor, Sara Sothern|Conrad Hilton Jr. (1950–1951), Michael Wilding (1952–1957), Mike Todd (1957–1958, his death), Eddie Fisher (1959–1964), Richard Burton (1964–1974 and 1975–1976), John Warner (1976–1982), Larry Fortensky (1991–1996)|Michael Wilding Jr., Christopher Wilding, Liza Todd, Maria Burton (adopted)|Howard Taylor
+angelina jolie|Jon Voight, Marcheline Bertrand|Jonny Lee Miller (1996–1999), Billy Bob Thornton (2000–2003), Brad Pitt (2014–2019)|Maddox, Pax, Zahara, Shiloh, Knox, Vivienne|James Haven (brother)
+brad pitt|William Alvin Pitt, Jane Etta Hillhouse|Jennifer Aniston (2000–2005), Angelina Jolie (2014–2019)|Maddox, Pax, Zahara, Shiloh, Knox, Vivienne|Doug Pitt, Julie Neal
+michael jackson|Joe Jackson, Katherine Jackson|Lisa Marie Presley (1994–1996), Debbie Rowe (1996–1999)|Prince Jackson (1997), Paris Jackson (1998), Bigi Jackson (2002, formerly Prince Michael II, \"Blanket\")|Rebbie, Jackie, Tito, Jermaine, La Toya, Marlon, Randy, Janet
+kim kardashian|Robert Kardashian, Kris Jenner|Damon Thomas (2000–2004), Kris Humphries (2011–2013), Kanye West (2014–2022)|North, Saint, Chicago, Psalm|sisters Kourtney and Khloé Kardashian; brother Rob Kardashian; half-sisters Kendall and Kylie Jenner
+john f. kennedy|Joseph P. Kennedy Sr., Rose Kennedy|Jacqueline Bouvier (1953–1963)|Caroline, John Jr., Patrick (died in infancy)|Joseph Jr., Rosemary, Kathleen, Eunice, Patricia, Robert, Jean, Ted
+barack obama|Barack Obama Sr., Ann Dunham|Michelle Robinson (married 1992)|Malia (1998), Sasha (2001)|Maya Soetoro-Ng (half-sister) and half-siblings on his father's side
+donald trump|Fred Trump, Mary Anne MacLeod Trump|Ivana Zelníčková (1977–1990), Marla Maples (1993–1999), Melania Knauss (married 2005)|Donald Jr., Ivanka, Eric, Tiffany, Barron|Maryanne, Fred Jr., Elizabeth, Robert
+elvis presley|Vernon Presley, Gladys Presley|Priscilla Beaulieu (1967–1973)|Lisa Marie Presley|Jesse Garon (twin, stillborn)
+albert einstein|Hermann Einstein, Pauline Koch|Mileva Marić (1903–1919), Elsa Einstein (1919–1936)|Lieserl, Hans Albert, Eduard|Maja Einstein
+marie curie|Władysław Skłodowski, Bronisława Skłodowska|Pierre Curie (1895–1906)|Irène Joliot-Curie, Ève Curie|Zofia, Józef, Bronisława, Helena
+";
+
+fn family(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:who (?:is|was|are|were) )?(?:(.+?)(?:'s|s') (parents|mother|father|children|kids|sons|daughters|siblings|sisters?|brothers?|spouses?|wife|wives|husbands?|family)|(?:who (?:was|is|were) )?(.+?) married to|(parents|children|kids|siblings|spouses?) of (.+))$").captures(l)?;
+    let (who, rel) = if let Some(w) = m.get(1) { (w.as_str(), m[2].to_string()) } else if let Some(w) = m.get(3) { (w.as_str(), "spouses".to_string()) } else { (m.get(5)?.as_str(), m[4].to_string()) };
+    let p = find(who, false)?;
+    let row = FAMILY.lines().map(|x| x.split('|').collect::<Vec<_>>()).find(|r| p.names.contains(&r[0]))?;
+    let (label, i) = match rel.as_str() {
+        "parents" | "mother" | "father" => ("parents", 1),
+        "spouse" | "spouses" | "wife" | "wives" | "husband" | "husbands" => ("spouses", 2),
+        "children" | "kids" | "sons" | "daughters" => ("children", 3),
+        "family" => ("family", 0),
+        _ => ("siblings", 4),
+    };
+    let rows = vec![
+        vec![text("parents"), text(row[1])],
+        vec![text("spouses"), text(row[2])],
+        vec![text("children"), text(row[3])],
+        vec![text("siblings"), text(row[4])],
+    ];
+    Some(Answer::new("family", vec![
+        input(format!("{} | {label}", display(p))),
+        primary(pod("Result", label, text(if i == 0 { row[1].to_string() } else { row[i].to_string() }))),
+        pod("Family", "Family", table(None, rows)),
+    ]))
+}
 
 struct Person {
     names: Vec<&'static str>,
@@ -501,6 +563,10 @@ pub fn handle(q: &Query) -> Option<Answer> {
         let adj = match m[1].trim() { "france" => "french", "germany" => "german", "united states" | "us" | "usa" | "america" => "american", "united kingdom" | "uk" | "britain" | "england" => "english|british|scottish", "poland" => "polish", "denmark" => "danish", "austria" => "austrian", "italy" => "italian", "india" => "indian", "south africa" => "south african", x => x };
         let ps: Vec<&Person> = people().iter().filter(|p| p.f[7].contains("Nobel") && adj.split('|').any(|a| p.f[5].to_lowercase().contains(a))).collect();
         return list_answer(&format!("Nobel Prize winners from {}", display_word(m[1].trim())), ps);
+    }
+
+    if let Some(a) = family(&l) {
+        return Some(a);
     }
 
     // "X birthday moon phase"

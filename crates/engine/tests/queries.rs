@@ -1081,3 +1081,18 @@ fn history_eras_and_battles() {
     // Wikidata years are astronomical: Actium was 31 BC
     assert!(short("when was the battle of actium").contains("31 BC"));
 }
+
+#[test]
+fn sports_teams_venues_and_family() {
+    assert!(short("mass of a bowling ball vs. cricket ball").contains("cricket ball: 155.9 g"));
+    assert_eq!(short("head width of tennis racket"), "31.8 cm (12.5 in)");
+    assert!(short("Dallas Cowboys").contains("Arlington, Texas"));
+    assert!(short("Fenway Park").contains("April 20, 1912"));
+    assert_eq!(short("How much did it cost to build Metlife stadium?"), "$1.6 billion");
+    assert_eq!(short("How many medals has Michael Phelps won?"), "28 Olympic medals (23 gold, 3 silver, 2 bronze)");
+    assert_eq!(short("Prince William's parents"), "King Charles III, Diana, Princess of Wales");
+    assert!(short("who was Liz Taylor married to?").contains("Richard Burton"));
+    assert!(short("Karl Malone vs. Bill Russell").contains("Bill Russell"));
+    // a bare plural animal is not a team
+    assert!(!short("dolphins").contains("NFL"));
+}
