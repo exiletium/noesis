@@ -325,6 +325,7 @@ impl Tm {
     }
 }
 
+#[derive(Clone)]
 enum Tape {
     Blank(u8),
     Pattern(Vec<u8>),
@@ -495,9 +496,18 @@ fn turing(q: &Query) -> Option<Answer> {
     if !re!(r"\btm\b|turing|wolfram 2,\s*3|busy beaver").is_match(&l) {
         return None;
     }
-    if l.contains("compress") {
-        return None;
-    }
+    // compressed evolution: only the steps where the head reaches a new extreme on that side
+    let compress = if re!(r"left[- ]right compress|two[- ]sided compress|left and right compress").is_match(&l) {
+        Some((true, true))
+    } else if re!(r"left[- ]compress").is_match(&l) {
+        Some((true, false))
+    } else if re!(r"right[- ]compress").is_match(&l) {
+        Some((false, true))
+    } else if l.contains("compress") {
+        Some((true, true))
+    } else {
+        None
+    };
     let mut seed_used = None;
     // the machine
     let (tm, name, note): (Tm, String, Option<String>) = if let Some(m) = re!(r"busy beaver,?\s*(\d)[- ]states?(?:,?\s*(\d)[- ]colou?rs?(?:\s*\(?\s*symbols?\)?)?)?").captures(&l) {
@@ -632,6 +642,32 @@ fn turing(q: &Query) -> Option<Answer> {
     }
     if steps > 200_000_000 {
         return None;
+    }
+    if let Some((left, right)) = compress {
+        if !re!(r"\d+\s+steps").is_match(&l) {
+            steps = 20_000;
+        }
+        steps = steps.min(2_000_000);
+        // a trial run finds the steps to keep
+        let mut trial = Machine { tm: &tm, bg: bg.clone(), cyclic, cells: cells.clone(), head, state };
+        let (mut lo, mut hi) = (head, head);
+        let mut kept = std::collections::HashSet::from([0usize]);
+        for t in 1..=steps {
+            let go = trial.step();
+            let h = trial.head;
+            if (left && h < lo) || (right && h > hi) || !go {
+                kept.insert(t);
+            }
+            lo = lo.min(h);
+            hi = hi.max(h);
+            // stop while the whole tape still fits the picture
+            if !go || kept.len() > 120 || hi - lo > 110 {
+                steps = t;
+                break;
+            }
+        }
+        keep = Box::new(move |t| kept.contains(&t));
+        window = format!(", {} compressed ({} steps run)", match (left, right) { (true, true) => "left-right", (true, false) => "left", _ => "right" }, steps);
     }
     let mut mach = Machine { tm: &tm, bg, cyclic, cells, head, state };
     let display_bb = is_bb && tm.s >= 5;

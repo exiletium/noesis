@@ -1666,3 +1666,14 @@ fn general_cellular_automata_waves_and_periods() {
     noesis::domains::live::set_online(false);
     assert!(!noesis::query("period of x + sin(x)").success);
 }
+
+#[test]
+fn isbns_paper_sizes_and_compressed_turing_machines() {
+    assert_eq!(short("ISBN 1-5795-5008-8"), "valid ISBN-10");
+    assert!(pod_text(&q("ISBN 0-306-40615-2"), "Details").contains("978-0-306-40615-7"));
+    assert_eq!(short("isbn 978-0-306-40615-8"), "invalid ISBN-13: the check digit should be 7");
+    assert!(short("paper size A4").starts_with("210 mm × 297 mm"));
+    assert!(short("nearest paper sizes for a 5\"x7\" photo").starts_with("B6"));
+    assert!(pod_text(&q("TM 2506 with left-right compression"), "Input").contains("left-right compressed"));
+    assert!(pod_text(&q("left-compressed evolution of Wolfram 2,3"), "Input").contains("left compressed"));
+}
