@@ -36,6 +36,18 @@ enum Kind {
     Known(&'static [u64], &'static str),
 }
 
+/// OEIS identifiers of the sequences below.
+const OEIS: &[(&str, &str)] = &[
+    ("A000040", "prime"), ("A001097", "twin"), ("A005384", "sophie"), ("A005385", "safe"), ("A006567", "emirp"), ("A000668", "mersenneprime"),
+    ("A000396", "perfect"), ("A019279", "superperfect"), ("A019434", "fermatprime"), ("A000215", "fermat"), ("A000225", "mersenne"),
+    ("A002997", "carmichael"), ("A001358", "semiprime"), ("A002808", "composite"), ("A005101", "abundant"), ("A005100", "deficient"),
+    ("A005117", "squarefree"), ("A002113", "palindromic"), ("A007770", "happy"), ("A005349", "harshad"), ("A001597", "perfectpower"),
+    ("A001110", "sqtri"), ("A000217", "triangular"), ("A000292", "tetrahedral"), ("A000330", "sqpyr"), ("A000332", "pentatope"),
+    ("A000326", "pentagonal"), ("A000384", "hexagonal"), ("A002378", "pronic"), ("A003154", "star"), ("A000290", "square"), ("A000578", "cube"),
+    ("A000045", "fibonacci"), ("A000032", "lucas"), ("A000129", "pell"), ("A001045", "jacobsthal"), ("A000108", "catalan"), ("A000110", "bell"),
+    ("A000142", "factorial"), ("A005843", "even"), ("A005408", "odd"),
+];
+
 struct Seq {
     key: &'static str,
     name: &'static str,
@@ -740,6 +752,15 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
     let l = words_to_digits(&l);
     let l = l.trim_start_matches("show ").trim_start_matches("list ").trim_start_matches("find ").trim_start_matches("compute ").trim_start_matches("what is the ").trim_start_matches("what are the ").to_string();
+    // OEIS A-numbers of the sequences known here: "A000045", "OEIS A000217"
+    let l = match re!(r"^(?:oeis:?\s*)?a(\d{6})$").captures(&l) {
+        Some(m) if l.starts_with("oeis") || raw.starts_with('A') => {
+            let id = format!("A{}", &m[1]);
+            let name = OEIS.iter().find(|(a, _)| *a == id).map(|(_, k)| *k)?;
+            seqs().iter().find(|s| s.key == name).map(|s| s.name.to_lowercase())?
+        }
+        _ => l,
+    };
     // "Fibonacci sequence", "sequence of Fibonacci numbers"
     let l = match re!(r"^(?:the\s+)?(?:sequence|list) of (?:the\s+)?(.+)$|^(?:the\s+)?([a-z' -]+?) (?:sequence|numbers sequence)$").captures(&l) {
         Some(m) if m.get(1).is_some() => m[1].to_string(),

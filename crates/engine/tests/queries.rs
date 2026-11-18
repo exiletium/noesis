@@ -1270,4 +1270,6 @@ fn special_values_and_bare_matrices() {
     assert_eq!(short("erf(3)"), "0.999977909503");
     assert_eq!(short("Beta(5, 4)"), "1/280");
     assert_eq!(short("{{6,-7},{0,3}}"), "18");
+    assert!(short("OEIS A000217").starts_with("1, 3, 6, 10"));
+    assert_eq!(short("230 grams/2 in ounces"), "4.0565056 ounces");
 }

@@ -493,6 +493,17 @@ pub fn parse_quantity(s: &str) -> Option<(f64, Unit, String)> {
             return Some((v * k, u, format!("{} × {shown}", fmt_float(k, 10))));
         }
     }
+    // a share of a quantity: "230 grams/2", "3 liters divided by 4"
+    static RD: OnceLock<Regex> = OnceLock::new();
+    let rd = RD.get_or_init(|| re(r"^\s*(.*?[a-z].*?)\s*(?:/|divided by)\s*(\d+(?:\.\d+)?)\s*$"));
+    if let Some(m) = rd.captures(s) {
+        let k: f64 = m[2].parse().ok()?;
+        if k > 0.0 {
+            if let Some((v, u, shown)) = parse_quantity(&m[1]) {
+                return Some((v / k, u, format!("{shown} / {}", fmt_float(k, 10))));
+            }
+        }
+    }
     // fractions and mixed numbers: "1/2 cup", "1 1/3 quarts", "1 and 1/2 miles"
     static R3: OnceLock<Regex> = OnceLock::new();
     let r3 = R3.get_or_init(|| re(r"^\s*(?:(\d+)\s+(?:and\s+)?)?(\d+)\s*/\s*(\d+)\s+([a-z].*?)\s*$"));

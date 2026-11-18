@@ -284,14 +284,14 @@ Two measurements, both on WolframAlpha's own published example queries (4,311 of
 
 **Understood:** Noesis gives an answer to **66.5%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
-**Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 175 that could be checked (WolframAlpha answered and the run finished), the answers agree on **60%** (105). On the rest, Noesis gives a different answer on 6% and does not understand 34%. The automatic checker alone reports 31% agreement; the difference is answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. The agreement sample was taken before the country statistics were added; the figure includes seven answers corrected after the comparison (sum-to-product factoring, anagrams, Galois fields, geodetic datums, the stellar mass–luminosity relation and substitution-system initial conditions).
+**Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 189 that could be checked (WolframAlpha answered and the run finished), the answers agree on **53%** (100). On the rest, Noesis gives a different answer on 14% (27) and does not understand 33% (62). The automatic checker alone reports 35% agreement (66); the difference is 34 answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. Most of the questions Noesis does not understand need live or very large datasets: current economic indicators, US state, county and school-district statistics, elected officials, recent earthquakes, fuel prices.
 
 | Area | Understood (all examples) | Agree with WolframAlpha (sample) |
 |---|---|---|
-| Mathematics | 93.9% (1,317 / 1,403) | 81% (51 / 63) |
-| Science and technology | 62.2% (834 / 1,340) | 59% (36 / 61) |
-| Everyday life | 44.5% (357 / 803) | 29% (10 / 34) |
-| Society and culture | 40.5% (310 / 765) | 47% (8 / 17) |
+| Mathematics | 93.9% (1,317 / 1,403) | 70% (44 / 63) |
+| Science and technology | 64.0% (858 / 1,340) | 57% (35 / 61) |
+| Everyday life | 46.5% (373 / 803) | 24% (8 / 34) |
+| Society and culture | 41.6% (318 / 765) | 42% (13 / 31) |
 
 Strongest topics (share understood): number theory, logic, trigonometry, differential equations and applied mathematics (100%), Common Core mathematics (99%), algebra and linear algebra (97%), food and nutrition (100% of 18), history (83%), physics (80%). Weakest: institutions and organisations (0%), economic data (7%), today's world and other live data (8%), points of interest (10%), weather (14%), demographics (19%), personal finance (22%), transportation (31%). Most of the weak topics depend on large, frequently updated datasets that an offline program does not carry.
 
