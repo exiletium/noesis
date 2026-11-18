@@ -313,6 +313,12 @@ pub fn candidates(clean: &str) -> Vec<String> {
 fn rules(c: &str, l: &str, out: &mut Vec<String>, orig: &str) {
     let g = |m: &regex::Captures, k: usize| -> String { m.get(k).map(|x| c[x.start()..x.end()].trim().to_string()).unwrap_or_default() };
     school_rules(l, out, orig, &g);
+    // "population Madrid", "life expectancy in New Zealand" -> "population of Madrid"
+    if !l.contains(" of ") {
+        if let Some(m) = re!(r"^(population density|population|gdp per capita|gdp|area|capital city|capital|currency|life expectancy|elevation|altitude|official languages?|languages?|time ?zone|flag|president|prime minister|head of state|national anthem|calling code|unemployment rate|unemployment|inflation rate|inflation|literacy rate|median age|birth rate|death rate|mains voltage|voltage|electricity consumption|mayor|governor|state bird|state flower|nickname|motto|highest point|lowest point|coastline|latitude|longitude|coordinates|founding date)\s+(?:in\s+|for\s+)?([a-z][a-z .'-]+)$").captures(l) {
+            push(out, format!("{} of {}", g(&m, 1), g(&m, 2)), orig);
+        }
+    }
     // "?" or "what" as the unknown
     if let Some(m) = re!(r"^(?:solve\s+)?(.*?)\s*=\s*(?:\?|what)?\s*$").captures(l) {
         if !m[1].contains('=') && !m[1].trim().is_empty() && (l.ends_with('=') || l.ends_with('?') || l.ends_with("what")) {

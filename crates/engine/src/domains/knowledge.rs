@@ -1237,94 +1237,9 @@ fn polygons(l: &str) -> Option<Answer> {
     None
 }
 
-// ---------------------------------------------------------------------------
-// nutrition
-// ---------------------------------------------------------------------------
-
-/// (names, serving, grams, kcal, protein g, carbohydrate g, fat g, fibre g, sugars g)
-type Food = (&'static [&'static str], &'static str, f64, f64, f64, f64, f64, f64, f64);
-
-/// Approximate values per typical serving, after USDA FoodData Central.
-const FOODS: &[Food] = &[
-    (&["banana", "bananas"], "1 medium banana", 118.0, 105.0, 1.3, 27.0, 0.4, 3.1, 14.4),
-    (&["apple", "apples"], "1 medium apple", 182.0, 95.0, 0.5, 25.0, 0.3, 4.4, 19.0),
-    (&["orange", "oranges"], "1 medium orange", 131.0, 62.0, 1.2, 15.4, 0.2, 3.1, 12.2),
-    (&["egg", "eggs", "large egg"], "1 large egg", 50.0, 72.0, 6.3, 0.4, 4.8, 0.0, 0.2),
-    (&["slice of bread", "bread", "white bread"], "1 slice white bread", 25.0, 67.0, 2.0, 12.7, 0.8, 0.6, 1.4),
-    (&["milk", "cup of milk", "glass of milk", "whole milk"], "1 cup whole milk", 244.0, 149.0, 7.7, 11.7, 7.9, 0.0, 12.3),
-    (&["rice", "cup of rice", "white rice", "cooked rice"], "1 cup cooked white rice", 158.0, 205.0, 4.3, 44.5, 0.4, 0.6, 0.1),
-    (&["avocado", "avocados"], "1 avocado", 201.0, 322.0, 4.0, 17.1, 29.5, 13.5, 1.3),
-    (&["chicken breast", "chicken"], "100 g cooked chicken breast", 100.0, 165.0, 31.0, 0.0, 3.6, 0.0, 0.0),
-    (&["salmon"], "100 g cooked salmon", 100.0, 206.0, 22.0, 0.0, 12.4, 0.0, 0.0),
-    (&["slice of pizza", "pizza"], "1 slice cheese pizza", 107.0, 285.0, 12.2, 35.7, 10.4, 2.5, 3.8),
-    (&["can of coke", "coke", "cola", "can of soda", "soda"], "1 can (355 mL) cola", 368.0, 140.0, 0.0, 39.0, 0.0, 0.0, 39.0),
-    (&["coffee", "cup of coffee", "black coffee"], "1 cup brewed black coffee", 237.0, 2.0, 0.3, 0.0, 0.0, 0.0, 0.0),
-    (&["olive oil", "tablespoon of olive oil"], "1 tablespoon olive oil", 13.5, 119.0, 0.0, 0.0, 13.5, 0.0, 0.0),
-    (&["butter", "tablespoon of butter"], "1 tablespoon butter", 14.2, 102.0, 0.1, 0.0, 11.5, 0.0, 0.0),
-    (&["sugar", "tablespoon of sugar"], "1 tablespoon sugar", 12.5, 48.0, 0.0, 12.5, 0.0, 0.0, 12.5),
-    (&["potato", "baked potato", "potatoes"], "1 medium baked potato", 173.0, 161.0, 4.3, 36.6, 0.2, 3.8, 2.0),
-    (&["carrot", "carrots"], "1 medium carrot", 61.0, 25.0, 0.6, 5.8, 0.1, 1.7, 2.9),
-    (&["broccoli"], "1 cup chopped raw broccoli", 91.0, 31.0, 2.5, 6.0, 0.3, 2.4, 1.5),
-    (&["strawberries", "strawberry"], "1 cup strawberries", 152.0, 49.0, 1.0, 11.7, 0.5, 3.0, 7.4),
-    (&["grapes"], "1 cup grapes", 151.0, 104.0, 1.1, 27.3, 0.2, 1.4, 23.4),
-    (&["almonds"], "1 ounce (28 g) almonds", 28.0, 164.0, 6.0, 6.1, 14.2, 3.5, 1.2),
-    (&["peanut butter"], "2 tablespoons peanut butter", 32.0, 188.0, 8.0, 6.3, 16.0, 1.9, 3.0),
-    (&["oatmeal", "oats", "porridge"], "1 cup cooked oatmeal", 234.0, 166.0, 5.9, 28.1, 3.6, 4.0, 0.6),
-    (&["pasta", "spaghetti"], "1 cup cooked pasta", 140.0, 221.0, 8.1, 43.2, 1.3, 2.5, 0.8),
-    (&["cheddar", "cheddar cheese", "cheese", "slice of cheese"], "1 ounce (28 g) cheddar", 28.0, 113.0, 7.0, 0.4, 9.3, 0.0, 0.1),
-    (&["yogurt", "yoghurt", "plain yogurt"], "1 cup plain whole-milk yogurt", 245.0, 149.0, 8.5, 11.4, 8.0, 0.0, 11.4),
-    (&["glass of wine", "wine", "red wine"], "1 glass (148 mL) red wine", 148.0, 125.0, 0.1, 3.8, 0.0, 0.0, 0.9),
-    (&["beer", "can of beer"], "1 can (355 mL) beer", 356.0, 153.0, 1.6, 12.6, 0.0, 0.0, 0.0),
-    (&["chocolate", "chocolate bar", "milk chocolate"], "1 bar (44 g) milk chocolate", 44.0, 235.0, 3.4, 26.0, 13.0, 1.5, 23.0),
-    (&["orange juice", "glass of orange juice"], "1 cup orange juice", 248.0, 112.0, 1.7, 25.8, 0.5, 0.5, 20.8),
-    (&["tomato", "tomatoes"], "1 medium tomato", 123.0, 22.0, 1.1, 4.8, 0.2, 1.5, 3.2),
-    (&["black beans", "beans"], "1 cup cooked black beans", 172.0, 227.0, 15.2, 40.8, 0.9, 15.0, 0.6),
-    (&["tofu"], "100 g firm tofu", 100.0, 144.0, 17.3, 2.8, 8.7, 2.3, 0.6),
-    (&["french fries", "fries", "chips"], "1 medium serving french fries", 117.0, 365.0, 4.0, 48.0, 17.0, 4.4, 0.3),
-    (&["honey", "tablespoon of honey"], "1 tablespoon honey", 21.0, 64.0, 0.1, 17.3, 0.0, 0.0, 17.2),
-    (&["blueberries"], "1 cup blueberries", 148.0, 84.0, 1.1, 21.4, 0.5, 3.6, 14.7),
-    (&["spinach"], "1 cup raw spinach", 30.0, 7.0, 0.9, 1.1, 0.1, 0.7, 0.1),
-    (&["walnuts"], "1 ounce (28 g) walnuts", 28.0, 185.0, 4.3, 3.9, 18.5, 1.9, 0.7),
-    (&["bacon", "slice of bacon"], "1 slice cooked bacon", 8.0, 43.0, 3.0, 0.1, 3.3, 0.0, 0.0),
-];
-
-fn nutrition(l: &str) -> Option<Answer> {
-    let m = re!(r"^(?:how many\s+|amount of\s+|number of\s+)?(calories|kcal|protein|carbs|carbohydrates|fat|fiber|fibre|sugar|sugars|nutrition(?: facts)?|nutritional (?:value|information)|nutrients)\s+(?:are\s+|is\s+)?(?:there\s+)?(?:in|of|for)\s+(?:(?:an|a|one|1)\s+)?(?:(\d+(?:\.\d+)?)\s*(?:g|grams?)\s+(?:of\s+)?)?(.+?)$").captures(l)?;
-    let what = m[1].to_string();
-    let food = m[3].trim().trim_start_matches("a ").trim_start_matches("an ");
-    let f = FOODS.iter().find(|f| f.0.contains(&food))?;
-    let scale = m.get(2).and_then(|g| g.as_str().parse::<f64>().ok()).map_or(1.0, |g| g / f.2);
-    let serving = if scale == 1.0 { format!("{} ({} g)", f.1, n(f.2)) } else { format!("{} g", n(f.2 * scale)) };
-    let v = |x: f64| x * scale;
-    let rows = vec![
-        vec![text("calories"), text(format!("{} kcal ({} kJ)", n(v(f.3).round()), n((v(f.3) * 4.184).round())))],
-        vec![text("protein"), text(format!("{} g", n(v(f.4))))],
-        vec![text("carbohydrate"), text(format!("{} g", n(v(f.5))))],
-        vec![text("  of which sugars"), text(format!("{} g", n(v(f.8))))],
-        vec![text("  dietary fibre"), text(format!("{} g", n(v(f.7))))],
-        vec![text("fat"), text(format!("{} g", n(v(f.6))))],
-    ];
-    let (title, value) = match what.as_str() {
-        "protein" => ("Protein", format!("{} g", n(v(f.4)))),
-        "carbs" | "carbohydrates" => ("Carbohydrate", format!("{} g", n(v(f.5)))),
-        "fat" => ("Fat", format!("{} g", n(v(f.6)))),
-        "fiber" | "fibre" => ("Dietary fibre", format!("{} g", n(v(f.7)))),
-        "sugar" | "sugars" => ("Sugars", format!("{} g", n(v(f.8)))),
-        "calories" | "kcal" => ("Calories", format!("{} kcal", n(v(f.3).round()))),
-        _ => ("Nutrition facts", format!("{} kcal, {} g protein, {} g carbohydrate, {} g fat", n(v(f.3).round()), n(v(f.4)), n(v(f.5)), n(v(f.6)))),
-    };
-    Some(simple(
-        &format!("{} | {serving}", f.0[0]),
-        title,
-        value,
-        vec![pod("Facts", &format!("Nutrition facts per {serving}"), table(None, rows)), pod("Note", "Note", text("Approximate values after USDA FoodData Central; actual foods vary with size, variety and preparation."))],
-    ))
-}
-
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim();
     chemistry(q)
-        .or_else(|| nutrition(l))
         .or_else(|| sun(l))
         .or_else(|| holidays(l))
         .or_else(|| facts(l))

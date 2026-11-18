@@ -242,7 +242,24 @@ fn turkey(q: &Query) -> Option<Answer> {
     if !l.contains("turkey") {
         return None;
     }
-    let lb = get(l, re!(r"([\d.]+)\s*(?:-?\s*)(?:lbs?|pounds?)")).or_else(|| get(l, re!(r"([\d.]+)\s*kg")).map(|k| k / 0.45359237))?;
+    // "what size turkey is needed to feed 10 adults and 5 children"
+    if let Some(c) = re!(r"(?:what size|how big(?: of)?(?: a)?|how large(?: a)?|how many pounds of) turkey.*?(?:feed|serve|for) (\d+)(?: (?:adults?|people|guests|persons))?(?:,? and (\d+) (?:children|kids|child))?").captures(l) {
+        let adults: f64 = c[1].parse().ok()?;
+        let kids: f64 = c.get(2).and_then(|x| x.as_str().parse().ok()).unwrap_or(0.0);
+        let (lo, hi) = (adults * 1.0 + kids * 0.5, adults * 1.5 + kids * 0.75);
+        return Some(Answer::new("turkey", vec![
+            input(format!("turkey size for {} adults{}", n(adults), if kids > 0.0 { format!(" and {} children", n(kids)) } else { String::new() })),
+            primary(pod("Result", "Whole turkey needed", text(format!("{}–{} lb ({}–{} kg)", n(lo.ceil()), n(hi.ceil()), n((lo * 0.4536 * 10.0).round() / 10.0), n((hi * 0.4536 * 10.0).round() / 10.0))))),
+            pod("Rule", "Rule of thumb", text("1–1½ lb of whole bird per adult and ½–¾ lb per child, the larger amount leaving leftovers; for a boneless breast, ½ lb per person")),
+        ]));
+    }
+    let given = get(l, re!(r"([\d.]+)\s*(?:-?\s*)(?:lbs?|pounds?)")).or_else(|| get(l, re!(r"([\d.]+)\s*kg")).map(|k| k / 0.45359237));
+    // "how long does it take to fry a turkey": a typical 14 lb bird
+    let lb = match given {
+        Some(x) => x,
+        None if re!(r"\b(fry|deep fry|deep-fry|roast|cook|thaw|defrost)\b").is_match(l) && re!(r"\b(how long|time)\b").is_match(l) => 14.0,
+        None => return None,
+    };
     let feeds = l.contains("feed") || l.contains("serve") || l.contains("people");
     let thaw = l.contains("thaw") || l.contains("defrost");
     let fry = l.contains("fry") || l.contains("frying");
@@ -270,7 +287,7 @@ fn turkey(q: &Query) -> Option<Answer> {
         ("Roasting time", roast.clone())
     };
     Some(Answer::new("turkey", vec![
-        input(format!("{} lb turkey", n(lb))),
+        input(format!("{} lb turkey{}", n(lb), if given.is_none() { " (typical size)" } else { "" })),
         primary(pod("Result", title, text(head))),
         pod("Details", "Details", rows(vec![
             ("servings", serves),
@@ -283,6 +300,33 @@ fn turkey(q: &Query) -> Option<Answer> {
     ]))
 }
 
+/// "meat thawing time", "how long to thaw a 3 lb roast" (USDA safe thawing).
+fn thaw(q: &Query) -> Option<Answer> {
+    let l = q.lower.trim().trim_end_matches(['?', '.']);
+    if l.contains("turkey") || !re!(r"\b(thaw|thawing|defrost|defrosting)\b").is_match(l) || !re!(r"\b(meat|beef|chicken|pork|roast|steak|ground beef|lamb|fish|ham|poultry|frozen)\b").is_match(l) {
+        return None;
+    }
+    let lb = get(l, re!(r"([\d.]+)\s*(?:-?\s*)(?:lbs?|pounds?)")).or_else(|| get(l, re!(r"([\d.]+)\s*kg")).map(|k| k / 0.45359237));
+    let (title, head) = match lb {
+        Some(lb) => ("Thawing time in the refrigerator", format!("about {} hours ({} lb at 24 hours per 5 lb, at least a day)", n((lb / 5.0 * 24.0).max(24.0).round()), n(lb))),
+        None => ("Thawing time in the refrigerator", "about 24 hours per 5 lb (2.3 kg); at least one day for small cuts and ground meat".to_string()),
+    };
+    let water = match lb {
+        Some(lb) => format!("about {} hours (30 minutes per lb in cold water changed every 30 minutes)", n((lb / 2.0 * 10.0).round() / 10.0)),
+        None => "about 30 minutes per lb (1 hour per kg) in cold tap water, changed every 30 minutes; a 1 lb package takes an hour or less".to_string(),
+    };
+    Some(Answer::new("thawing", vec![
+        input(match lb { Some(lb) => format!("thawing time | {} lb of meat", n(lb)), None => "thawing time | frozen meat".to_string() }),
+        primary(pod("Result", title, text(head))),
+        pod("Details", "Safe thawing methods (USDA)", rows(vec![
+            ("refrigerator (40 °F / 4 °C)", "about 24 hours per 5 lb; ground meat, stew meat, poultry and seafood keep 1–2 days afterwards, roasts and steaks 3–5 days".into()),
+            ("cold water", water),
+            ("microwave", "a few minutes per lb on the defrost setting; cook immediately afterwards".into()),
+            ("never", "thaw on the counter or in hot water: the surface spends hours between 40 °F and 140 °F, where bacteria multiply".into()),
+        ])),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
-    bac(q).or_else(|| heart_rate(q)).or_else(|| pregnancy(q)).or_else(|| vision(q)).or_else(|| blood_pressure(q)).or_else(|| turkey(q))
+    thaw(q).or_else(|| bac(q)).or_else(|| heart_rate(q)).or_else(|| pregnancy(q)).or_else(|| vision(q)).or_else(|| blood_pressure(q)).or_else(|| turkey(q))
 }

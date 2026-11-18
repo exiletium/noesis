@@ -13,6 +13,7 @@ pub mod advanced;
 pub mod course;
 pub mod llm;
 pub mod rewrite;
+pub mod combine;
 pub mod sequences;
 pub mod analysis;
 pub mod toolbox;
@@ -430,6 +431,9 @@ fn run_handlers(input: &str, opts: &Options) -> QueryResult {
                 break;
             }
         }
+    }
+    if found.is_none() && budget::remaining() > 0.3 {
+        found = combine::combine(&q);
     }
     if found.is_none() {
         found = try_all(&q, &fallback);

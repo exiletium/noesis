@@ -1106,3 +1106,30 @@ fn travel_teeth_and_brain_areas() {
     assert_eq!(short("Brodmann area 4"), "primary motor cortex");
     assert!(short("nerve supply of gallbladder").contains("vagus"));
 }
+
+#[test]
+fn nutrition_meals_and_daily_values() {
+    assert_eq!(short("calories in a whole banana"), "105 kcal");
+    assert!(short("2 slices of swiss cheese").starts_with("213 kcal"));
+    assert_eq!(short("sodium in white bread vs wheat bread"), "1 slice white bread: 123 mg; 1 slice whole wheat bread: 144 mg");
+    assert_eq!(short("calories in 1 bowl of corn flakes + 1/2 cup of lowfat milk + a glass of OJ"), "263 kcal");
+    assert_eq!(short("Vitamin A in 250g sweet potato"), "1773 µg");
+    assert_eq!(short("iron DRI for 65 year old male"), "8 mg per day");
+    assert_eq!(short("fiber DRI for 30 year old female"), "25 g per day");
+    assert_eq!(short("daily value for vitamin C / vitamin c in an apple"), "10.8");
+    assert!(short("caffeine in 24 oz. coffee, 24 oz. soda").contains("284 mg"));
+    assert!(short("what size turkey is needed to feed 10 adults and 5 children").starts_with("13–19 lb"));
+    // a bare ambiguous word is not a food
+    assert!(!short("turkey").contains("kcal"));
+    assert!(!noesis::query("apple").short_answer().unwrap_or_default().contains("kcal"));
+}
+
+#[test]
+fn combined_lookups() {
+    assert_eq!(short("population Madrid / population Spain"), "0.07319 (7.319%)");
+    // the right side borrows the property from the left
+    assert_eq!(short("GDP per capita Norway / United States"), "1.155");
+    assert!(short("population Madrid").contains("3,506,730"));
+    // ordinary maths is untouched
+    assert_eq!(short("sin x / cos x"), "tan(x)");
+}
