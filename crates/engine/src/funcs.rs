@@ -1194,6 +1194,20 @@ fn evaluate(name: &str, args: &[Expr]) -> Option<Expr> {
             }
         }
         ("gamma", 1) => gamma_eval(x?),
+        ("beta", 2) => {
+            // B(a, b) = Γ(a) Γ(b) / Γ(a + b) when the gammas are exact
+            let (a, b) = (&args[0], &args[1]);
+            if !matches!(a, Num(_)) || !matches!(b, Num(_)) {
+                return None;
+            }
+            let ga = gamma_eval(a)?;
+            let gb = gamma_eval(b)?;
+            let gab = gamma_eval(&crate::simplify::simplify(&(a.clone() + b.clone())))?;
+            if [&ga, &gb, &gab].iter().any(|g| matches!(g, Const(K::CInf))) {
+                return None;
+            }
+            Some(crate::simplify::simplify(&(ga * gb / gab)))
+        }
         ("binomial", 2) => {
             let (a, b) = (&args[0], &args[1]);
             if let (Some(nn), Some(k)) = (a.as_int(), b.as_i64()) {

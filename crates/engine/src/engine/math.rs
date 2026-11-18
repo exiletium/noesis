@@ -113,11 +113,20 @@ pub fn number_pods(p: &Parsed, opts: &Options) -> Vec<Pod> {
     if p.has_decimal || v.has_float() {
         pods.push(primary(pod("Result", "Result", math_digits(&approx, digits))));
     } else {
-        pods.push(primary(pod("Result", "Result", math(&v))));
+        // a special function that does not simplify ("erf(3)"): the number is the answer
+        let unchanged = matches!(&v, Func(..)) && !is_complex(&v) && ptext(&v) == ptext(&p.expr);
         let gaussian_int = is_complex(&v) && crate::eval::const_c64(&v).map_or(false, |z| z.re.fract() == 0.0 && z.im.fract() == 0.0);
-        if !v.is_integer() && !gaussian_int && ptext(&approx) != ptext(&v) {
-            let more = crate::bigfloat::decimal(&v, 50).map(|s| text(format!("{s}…"))).unwrap_or_else(|| math_digits(&approx, 15));
-            pods.push(pod("DecimalApproximation", "Decimal approximation", more));
+        let decimal = (!v.is_integer() && !gaussian_int && ptext(&approx) != ptext(&v)).then(|| crate::bigfloat::decimal(&v, 50).map(|s| text(format!("{s}…"))).unwrap_or_else(|| math_digits(&approx, 15)));
+        match decimal {
+            Some(more) if unchanged && approx.to_f64_const().is_some() => {
+                pods.push(pod("Result", "Exact form", math(&v)));
+                pods.push(primary(pod("DecimalApproximation", "Decimal approximation", more)));
+            }
+            Some(more) => {
+                pods.push(primary(pod("Result", "Result", math(&v))));
+                pods.push(pod("DecimalApproximation", "Decimal approximation", more));
+            }
+            None => pods.push(primary(pod("Result", "Result", math(&v)))),
         }
     }
     let ve = v.clone();

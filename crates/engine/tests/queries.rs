@@ -1264,3 +1264,10 @@ fn word_problems_cousins_and_us_cities() {
     assert!(short("Springfield, MA").contains("42.10° N, 72.59° W"));
     assert!(short("Springfield, Illinois").contains("39.80° N"));
 }
+
+#[test]
+fn special_values_and_bare_matrices() {
+    assert_eq!(short("erf(3)"), "0.999977909503");
+    assert_eq!(short("Beta(5, 4)"), "1/280");
+    assert_eq!(short("{{6,-7},{0,3}}"), "18");
+}

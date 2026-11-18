@@ -257,7 +257,11 @@ pub fn matrix_pods(p: &Parsed) -> Option<Vec<Pod>> {
     let mut jobs: Vec<PodJob> = Vec::new();
     if r == c {
         let m1 = m.clone();
-        jobs.push(job1(move || Some(pod("Determinant", "Determinant", math(&det(&m1))))));
+        // a matrix typed on its own: the determinant is the headline number
+        jobs.push(job1(move || {
+            let d = pod("Determinant", "Determinant", math(&det(&m1)));
+            Some(if literal { crate::engine::primary(d) } else { d })
+        }));
         let m2 = m.clone();
         jobs.push(job1(move || Some(pod("Trace", "Trace", math(&trace(&m2))))));
         let m3 = m.clone();
