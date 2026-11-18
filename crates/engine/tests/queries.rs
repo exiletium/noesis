@@ -1485,3 +1485,16 @@ fn element_conductivity_and_magnetism() {
     assert_eq!(short("resistivity of copper"), "1.68×10^-8 Ω m");
     assert_eq!(short("thermal conductivity of copper"), "401 W/(m K)");
 }
+
+#[test]
+fn artworks_names_and_germination() {
+    assert_eq!(short("The Kiss by Rodin"), "Auguste Rodin | 1882 (marble carved 1888–1898) | Musée Rodin, Paris, France");
+    assert_eq!(short("which museum exhibits Pieta by Michelangelo?"), "St. Peter's Basilica, Vatican City");
+    assert_eq!(short("how big is the mona lisa"), "77 cm × 53 cm");
+    assert!(short("name William").starts_with("resolute protector"));
+    assert!(short("What does the name Cassandra mean?").contains("shining upon man"));
+    assert!(short("name Jones").starts_with("son of John"));
+    assert_eq!(short("5 most popular girl's names"), "Olivia | Emma | Amelia | Charlotte | Mia");
+    assert_eq!(short("germination time for garden peas"), "7–14 days (at 75 °F soil)");
+    assert_eq!(short("days to maturity for sweet corn"), "60–100 days from seed");
+}

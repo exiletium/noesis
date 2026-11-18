@@ -101,6 +101,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Integral tables and named constants | `integrals containing cos(u)`, `definite integrals with Si(x)`, `log 2 log (Khinchin's constant)` |
 | Geodesy and solvents | `Airy 1830, Modified Fischer 1960`, `NAD27, ITRF00`, `is ethanol soluble in benzene?`, `What solvents are miscible in acetone?` |
 | Element conductivity and magnetism | `conductivity sulfur, silicon, copper`, `elements sorted by conductivity`, `iron magnetism`, `is gold magnetic` |
+| Artworks, names and gardening | `The Kiss by Rodin`, `which museum exhibits Pieta by Michelangelo?`, `name William`, `5 most popular girl's names`, `germination time for garden peas` |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
