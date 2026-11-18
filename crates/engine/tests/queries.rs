@@ -1515,3 +1515,13 @@ fn arithmetic_on_looked_up_quantities() {
     assert_eq!(short("(mass Saturn+Uranus+Neptune) / (mass Jupiter)"), "0.399098");
     assert_eq!(short("(surface area Ceres) / (area India)"), "0.843283");
 }
+
+#[test]
+fn orbits_reagents_and_packing() {
+    assert_eq!(short("What is the semi major axis of an orbit with an apogee of 2000km and perigee of 275km?"), "1137.5 km");
+    assert_eq!(short("orbital radius with eccentricity 0.7 and semimajor axis 17.8 AU"), "5.34 AU to 30.26 AU");
+    assert_eq!(short("concentrated acetic acid"), "17.4 mol/L");
+    assert_eq!(short("concentrated sulfuric acid normality"), "36.8 N");
+    assert_eq!(short("How many marbles fit in 1000 cubic inches?"), "about 4,890");
+    assert_eq!(short("how many golf balls fit in a gallon"), "about 60");
+}
