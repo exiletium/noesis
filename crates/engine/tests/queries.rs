@@ -1466,3 +1466,12 @@ fn integral_tables_and_named_constants() {
     assert_eq!(short("log 2 log (Khinchin's constant)"), "0.684725");
     assert_eq!(short("Catalan's constant * 2"), "1.83193");
 }
+
+#[test]
+fn geodetic_lists_and_solvent_miscibility() {
+    assert_eq!(short("Airy 1830, Modified Fischer 1960"), "Airy 1830 ellipsoid: 6377563.396 m | Modified Fischer 1960 ellipsoid: 6378155 m");
+    assert!(short("NAD27, ITRF00").contains("International Terrestrial Reference Frame 2000"));
+    assert_eq!(short("is ethanol soluble in benzene?"), "yes: miscible in all proportions");
+    assert_eq!(short("is hexane miscible with methanol"), "no: immiscible (two layers)");
+    assert!(short("What solvents are miscible in acetone?").starts_with("water | methanol"));
+}

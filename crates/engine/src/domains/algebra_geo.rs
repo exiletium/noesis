@@ -162,6 +162,17 @@ const ELLIPSOIDS: &[(&[&str], &str, f64, f64, &str)] = &[
     (&["bessel 1841", "bessel ellipsoid"], "Bessel 1841 ellipsoid", 6377397.155, 299.1528128, "used by the Tokyo datum and in central Europe"),
     (&["international 1924", "hayford ellipsoid", "hayford 1910"], "International 1924 (Hayford) ellipsoid", 6378388.0, 297.0, "used by ED50"),
     (&["krassovsky 1940", "krasovsky 1940", "krassowsky 1940"], "Krassovsky 1940 ellipsoid", 6378245.0, 298.3, "used by Pulkovo 1942"),
+    (&["modified fischer 1960", "fischer 1960 modified", "south asia ellipsoid"], "Modified Fischer 1960 ellipsoid", 6378155.0, 298.3, "used in South Asia (Singapore and Malaysia)"),
+    (&["fischer 1960", "fischer 1960 mercury", "mercury 1960"], "Fischer 1960 (Mercury) ellipsoid", 6378166.0, 298.3, "fitted to satellite and gravity data for the Mercury programme"),
+    (&["fischer 1968", "modified mercury 1968"], "Fischer 1968 ellipsoid", 6378150.0, 298.3, "revision of Fischer 1960"),
+    (&["everest 1830", "everest ellipsoid"], "Everest 1830 ellipsoid", 6377276.345, 300.8017, "used in India and South Asia"),
+    (&["clarke 1880", "clarke 1880 rgs"], "Clarke 1880 ellipsoid", 6378249.145, 293.465, "used in much of Africa and in France"),
+    (&["wgs72", "wgs 72", "wgs72 ellipsoid", "wgs 72 ellipsoid"], "World Geodetic System 1972 ellipsoid", 6378135.0, 298.26, "predecessor of WGS84"),
+    (&["grs67", "grs 67", "geodetic reference system 1967"], "Geodetic Reference System of 1967", 6378160.0, 298.247167427, "adopted by the IUGG in 1967"),
+    (&["australian national", "australian national spheroid"], "Australian National Spheroid", 6378160.0, 298.25, "used by AGD66 and AGD84"),
+    (&["south american 1969", "sad69 ellipsoid"], "South American 1969 ellipsoid", 6378160.0, 298.25, "used by the South American Datum 1969"),
+    (&["helmert 1906"], "Helmert 1906 ellipsoid", 6378200.0, 298.3, "used in Egypt"),
+    (&["airy modified 1849", "modified airy", "airy 1849"], "Airy Modified 1849 ellipsoid", 6377340.189, 299.3249646, "used by the Irish datum TM65"),
 ];
 
 /// names | full name | ellipsoid | region | note
@@ -176,6 +187,13 @@ const DATUMS: &[(&[&str], &str, &str, &str, &str)] = &[
     (&["osgb36", "osgb 36", "ordnance survey great britain 1936"], "Ordnance Survey Great Britain 1936", "Airy 1830", "Great Britain", "basis of the British National Grid"),
     (&["tokyo datum", "tokyo 1918"], "Tokyo datum", "Bessel 1841", "Japan and Korea", "replaced by JGD2000"),
     (&["pulkovo 1942", "sk-42", "sk42"], "Pulkovo 1942", "Krassovsky 1940", "former Soviet Union and Eastern Europe", "origin at the Pulkovo Observatory"),
+    (&["itrf00", "itrf2000", "itrf 2000", "itrf 00"], "International Terrestrial Reference Frame 2000", "GRS80", "global", "realization of the ITRS from VLBI, SLR, GPS and DORIS; epoch 1997.0"),
+    (&["itrf2008", "itrf08", "itrf 2008"], "International Terrestrial Reference Frame 2008", "GRS80", "global", "epoch 2005.0"),
+    (&["itrf2014", "itrf14", "itrf 2014"], "International Terrestrial Reference Frame 2014", "GRS80", "global", "epoch 2010.0; models post-seismic deformation"),
+    (&["itrf2020", "itrf20", "itrf 2020"], "International Terrestrial Reference Frame 2020", "GRS80", "global", "epoch 2015.0; the current ITRS realization"),
+    (&["sad69", "sad 69", "south american datum 1969"], "South American Datum 1969", "South American 1969", "South America", "origin at Chua, Brazil"),
+    (&["agd66", "agd 66", "australian geodetic datum 1966"], "Australian Geodetic Datum 1966", "Australian National", "Australia", "origin at the Johnston Geodetic Station"),
+    (&["wgs72 datum", "world geodetic system 1972"], "World Geodetic System 1972", "WGS72", "global", "replaced by WGS84"),
 ];
 
 fn ellipsoid_rows(a: f64, inv_f: f64) -> Vec<Vec<Content>> {
@@ -193,7 +211,50 @@ fn ellipsoid_rows(a: f64, inv_f: f64) -> Vec<Vec<Content>> {
     ]
 }
 
+/// The ellipsoid a name gives, directly or through its datum.
+fn ellipsoid_of(n: &str) -> Option<(&'static str, &'static (&'static [&'static str], &'static str, f64, f64, &'static str))> {
+    let n = n.trim().trim_start_matches("the ").trim_end_matches(" datum").trim_end_matches(" ellipsoid").trim();
+    if let Some(e) = ELLIPSOIDS.iter().find(|e| e.0.contains(&n)) {
+        return Some((e.1, e));
+    }
+    let d = DATUMS.iter().find(|d| d.0.contains(&n))?;
+    let e = ELLIPSOIDS.iter().find(|e| e.1.starts_with(d.2) || e.0.iter().any(|x| x.eq_ignore_ascii_case(d.2)))?;
+    Some((d.1, e))
+}
+
+/// "Airy 1830, Modified Fischer 1960", "NAD27, ITRF00"
+fn geodesy_list(l: &str) -> Option<Answer> {
+    let parts: Vec<&str> = re!(r"\s*(?:,|\bvs\.?|\bversus\b|\band\b)\s*").split(l).filter(|p| !p.trim().is_empty()).collect();
+    if parts.len() < 2 || parts.len() > 6 {
+        return None;
+    }
+    let found: Option<Vec<_>> = parts.iter().map(|p| ellipsoid_of(p)).collect();
+    let found = found?;
+    let mut head = vec![""];
+    head.extend(found.iter().map(|f| f.0));
+    let row = |label: &str, f: &dyn Fn(f64, f64) -> String| -> Vec<Content> {
+        let mut r = vec![text(label)];
+        r.extend(found.iter().map(|x| text(f(x.1 .2, x.1 .3))));
+        r
+    };
+    let rows = vec![
+        row("reference ellipsoid", &|a, i| found.iter().find(|x| x.1 .2 == a && x.1 .3 == i).map(|x| x.1 .1.to_string()).unwrap_or_default()),
+        row("semimajor axis a", &|a, _| format!("{} m", fmt_float(a, 10))),
+        row("semiminor axis b", &|a, i| format!("{} m", fmt_float((a * (1.0 - 1.0 / i) * 10000.0).round() / 10000.0, 11))),
+        row("inverse flattening 1/f", &|_, i| fmt_float(i, 12)),
+        row("eccentricity e", &|_, i| fmt_float(((1.0 / i) * (2.0 - 1.0 / i)).sqrt(), 8)),
+    ];
+    Some(Answer::new("geodetic comparison", vec![
+        input(format!("{} | reference ellipsoids", found.iter().map(|f| f.0).collect::<Vec<_>>().join(", "))),
+        primary(pod("Result", "Semimajor axes", text(found.iter().map(|f| format!("{}: {} m", f.0, fmt_float(f.1 .2, 10))).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Comparison", table(Some(head), rows)),
+    ]))
+}
+
 fn geodesy(l: &str) -> Option<Answer> {
+    if let Some(a) = geodesy_list(l) {
+        return Some(a);
+    }
     let l = l.trim_start_matches("the ").trim_end_matches(" datum").trim_end_matches(" ellipsoid").trim();
     let l2 = format!("{l} ellipsoid");
     let exact = ELLIPSOIDS.iter().find(|e| e.0.contains(&l));
