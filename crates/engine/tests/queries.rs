@@ -1445,3 +1445,13 @@ fn reaction_products_and_compound_classes() {
     assert!(short("nucleosides").starts_with("adenosine | guanosine"));
     assert!(pod_text(&q("amino acids"), "Table").contains("C₁₁H₁₂N₂O₂"));
 }
+
+#[test]
+fn dog_and_horse_anatomy_and_bare_activities() {
+    assert!(short("dog femur").starts_with("long bone of the thigh"));
+    assert_eq!(short("horse short pastern homologous human structures"), "middle phalanx of the middle finger or toe");
+    assert!(short("what does the dog tibia connect to").starts_with("the femur at the stifle joint"));
+    assert!(short("how many bones are in the dog's left hindfoot").starts_with("about 23"));
+    assert!(pod_text(&q("horse left stifle joint image view from left"), "Table").contains("knee"));
+    assert_eq!(short("unicycling"), "350 kcal");
+}

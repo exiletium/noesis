@@ -212,7 +212,9 @@ fn exercise(l: &str) -> Option<Answer> {
     });
     let wants_fat = re!(r"\bfat\b").is_match(l);
     // an activity counts as a calculation only with a duration, a body mass or an energy word
-    if hours.is_none() && body_kg(l).is_none() && !wants_fat && !re!(r"\b(?:calories|energy|kcal|burn(?:ed|s)?)\b").is_match(l) {
+    // or a bare activity name: "unicycling"
+    let bare = ACTIVITIES.iter().any(|a| a.1 == l) && matches!(l, "unicycling" | "skateboarding" | "broomball" | "water jogging" | "jumping rope" | "rock climbing" | "hiking" | "aerobics" | "ice skating" | "downhill skiing" | "horseback riding" | "scuba diving" | "mowing the lawn" | "weight training" | "martial arts");
+    if hours.is_none() && body_kg(l).is_none() && !wants_fat && !bare && !re!(r"\b(?:calories|energy|kcal|burn(?:ed|s)?)\b").is_match(l) {
         return None;
     }
     // and nothing that looks like mathematics
