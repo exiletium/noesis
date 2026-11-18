@@ -1096,3 +1096,13 @@ fn sports_teams_venues_and_family() {
     // a bare plural animal is not a team
     assert!(!short("dolphins").contains("NFL"));
 }
+
+#[test]
+fn travel_teeth_and_brain_areas() {
+    assert_eq!(short("distance from Rome to Naples in kilometers"), "186.7 km");
+    assert_eq!(short("travel time from Tokyo to Sydney by aircraft"), "10 h 10 min");
+    assert!(short("time to travel from Hong Kong to Honolulu by ship").contains("days"));
+    assert_eq!(short("tooth #5"), "upper right first premolar");
+    assert_eq!(short("Brodmann area 4"), "primary motor cortex");
+    assert!(short("nerve supply of gallbladder").contains("vagus"));
+}

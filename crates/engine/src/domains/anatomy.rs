@@ -77,6 +77,7 @@ jejunum|organ|system=digestive;location=middle part of the small intestine, most
 ileum|organ|system=digestive;location=last part of the small intestine, mostly in the right lower abdomen, ending at the ileocecal valve;length=about 3.5 m;function=absorbs vitamin B12 and bile salts; Peyer's patches;blood supply=ileal branches of the superior mesenteric artery (short vasa recta, many arcades);venous drainage=ileal veins to the superior mesenteric vein;nerve supply=vagus and superior mesenteric plexus;features=thinner wall, fewer and lower folds, more fat in the mesentery
 small intestine|organ|system=digestive;location=central and lower abdomen;length=about 6–7 m (duodenum, jejunum, ileum);function=digestion and absorption of nutrients;blood supply=superior mesenteric artery (and celiac trunk for the upper duodenum);venous drainage=superior mesenteric vein, which joins the splenic vein to form the hepatic portal vein;nerve supply=vagus nerves and the superior mesenteric plexus (lesser splanchnic nerve T10–T11)
 large intestine;colon|organ|system=digestive;location=frames the abdomen: cecum, ascending, transverse, descending and sigmoid colon, rectum, anal canal;length=about 1.5 m;function=absorbs water and electrolytes; stores feces;blood supply=superior mesenteric artery (to the distal transverse colon) and inferior mesenteric artery;venous drainage=superior mesenteric vein (cecum to the proximal two-thirds of the transverse colon) and inferior mesenteric vein (distal third onward), both to the hepatic portal vein; the lower rectum drains through the middle and inferior rectal veins to the internal iliac veins;nerve supply=vagus to the splenic flexure, pelvic splanchnic nerves (S2–S4) beyond; sympathetic via the superior and inferior mesenteric plexuses
+gallbladder;gall bladder|organ|system=digestive;location=under the right lobe of the liver;capacity=about 30–50 mL;function=stores and concentrates bile, released into the duodenum after fatty meals;blood supply=cystic artery (usually from the right hepatic artery);venous drainage=cystic veins to the liver and portal vein;nerve supply=celiac plexus: sympathetic fibres (T7–T9 via the greater splanchnic nerve), parasympathetic fibres from the vagus nerve, and the right phrenic nerve (referred pain to the right shoulder)
 pancreas|organ|system=digestive and endocrine;location=behind the stomach, across the posterior abdominal wall;length=about 15 cm;function=digestive enzymes (exocrine); insulin and glucagon from the islets of Langerhans (endocrine);blood supply=splenic artery and pancreaticoduodenal arteries;venous drainage=splenic and superior mesenteric veins
 spleen|organ|system=lymphatic;location=left upper quadrant, under ribs 9–11;mass=about 150 g;function=filters blood, recycles old red cells, immune responses;blood supply=splenic artery;venous drainage=splenic vein to the hepatic portal vein
 kidneys;kidney|organ|system=urinary;location=retroperitoneal, at T12–L3, the right slightly lower;mass=about 150 g each;function=filter about 180 L of plasma a day, making about 1.5 L of urine; regulate blood pressure and pH;blood supply=renal arteries;venous drainage=renal veins to the inferior vena cava
@@ -264,11 +265,77 @@ fn lists(l: &str) -> Option<Answer> {
     Some(Answer::new("anatomy", vec![pod("Input", "Input interpretation", text(title)), primary(pod("Result", "Result", text(items)))]))
 }
 
+/// "tooth #5", "tooth 30", "brodmann area 4"
+fn numbered(l: &str) -> Option<Answer> {
+    if let Some(m) = re!(r"^(?:tooth|teeth) (?:number |no\.? |#)?(\d{1,2})$|^#(\d{1,2}) tooth$").captures(l) {
+        let n: u32 = m.get(1).or(m.get(2))?.as_str().parse().ok()?;
+        if !(1..=32).contains(&n) {
+            return None;
+        }
+        // universal numbering: 1–8 upper right (back to front), 9–16 upper left, 17–24 lower left, 25–32 lower right
+        let (quad, idx) = ((n - 1) / 8, (n - 1) % 8);
+        let from_back = if quad % 2 == 0 { idx } else { 7 - idx };
+        let names = ["third molar (wisdom tooth)", "second molar", "first molar", "second premolar", "first premolar", "canine", "lateral incisor", "central incisor"];
+        let side = ["upper right", "upper left", "lower left", "lower right"][quad as usize];
+        let fdi = (quad + 1) * 10 + (8 - from_back);
+        let name = format!("{side} {}", names[from_back as usize]);
+        return Some(Answer::new("tooth", vec![
+            pod("Input", "Input interpretation", text(format!("tooth #{n} (Universal Numbering System)"))),
+            primary(pod("Result", "Tooth", text(name.clone()))),
+            pod("Properties", "Numbering systems", table(None, vec![
+                vec![text("Universal (ADA)"), text(n.to_string())],
+                vec![text("FDI (ISO 3950)"), text(fdi.to_string())],
+                vec![text("Palmer"), text(format!("{} ({side} quadrant)", 8 - from_back))],
+                vec![text("arch"), text(if quad < 2 { "maxillary (upper)" } else { "mandibular (lower)" })],
+            ])),
+        ]));
+    }
+    let m = re!(r"^(?:brodmann )?(?:area|ba) ?(\d{1,2})(?: (?:associated cortical area|cortical area|function|location))?$|^brodmann area (\d{1,2}).*$").captures(l)?;
+    if !l.contains("brodmann") && !l.starts_with("ba") {
+        return None;
+    }
+    let n: u32 = m.get(1).or(m.get(2))?.as_str().parse().ok()?;
+    const AREAS: &[(&[u32], &str, &str)] = &[
+        (&[1, 2, 3], "primary somatosensory cortex", "postcentral gyrus (parietal lobe); touch, pressure, pain, temperature and position sense"),
+        (&[4], "primary motor cortex", "precentral gyrus (frontal lobe); voluntary movement"),
+        (&[5, 7], "somatosensory association cortex (superior parietal lobule)", "integrates touch and vision for reaching and spatial attention"),
+        (&[6], "premotor cortex and supplementary motor area", "planning of movement"),
+        (&[8], "frontal eye fields", "voluntary eye movements"),
+        (&[9, 46], "dorsolateral prefrontal cortex", "working memory and executive control"),
+        (&[10], "anterior prefrontal (frontopolar) cortex", "planning, multitasking and abstract reasoning"),
+        (&[11, 12], "orbitofrontal cortex", "reward value and decision making"),
+        (&[17], "primary visual cortex (V1)", "calcarine sulcus (occipital lobe); first cortical stage of vision"),
+        (&[18], "secondary visual cortex (V2)", "occipital lobe; visual processing"),
+        (&[19], "associative visual cortex (V3, V4, V5)", "occipital lobe; motion, colour and form"),
+        (&[20], "inferior temporal gyrus", "object and face recognition (ventral visual stream)"),
+        (&[21], "middle temporal gyrus", "language and semantic memory"),
+        (&[22], "superior temporal gyrus (posterior part: Wernicke's area)", "auditory association and language comprehension"),
+        (&[23, 31], "posterior cingulate cortex", "default mode network and memory"),
+        (&[24, 32, 33], "anterior cingulate cortex", "emotion, error monitoring and attention"),
+        (&[25], "subgenual cingulate cortex", "mood regulation"),
+        (&[28, 34], "entorhinal cortex", "gateway between the hippocampus and the neocortex; memory and navigation (grid cells)"),
+        (&[37], "fusiform gyrus", "face and word recognition"),
+        (&[38], "temporal pole", "semantic and social knowledge"),
+        (&[39], "angular gyrus", "reading, arithmetic and language"),
+        (&[40], "supramarginal gyrus", "phonological processing and body awareness"),
+        (&[41, 42], "primary and secondary auditory cortex", "transverse temporal (Heschl's) gyri; hearing"),
+        (&[43], "primary gustatory cortex (subcentral area)", "taste"),
+        (&[44, 45], "Broca's area (pars opercularis and pars triangularis)", "inferior frontal gyrus; speech production"),
+        (&[47], "pars orbitalis of the inferior frontal gyrus", "language and semantic processing"),
+    ];
+    let (_, name, func) = AREAS.iter().find(|a| a.0.contains(&n))?;
+    Some(Answer::new("brodmann area", vec![
+        pod("Input", "Input interpretation", text(format!("Brodmann area {n}"))),
+        primary(pod("Result", "Cortical area", text(*name))),
+        pod("Function", "Location and function", text(*func)),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
-    if let Some(a) = carnegie(l).or_else(|| lists(l)) {
+    if let Some(a) = numbered(l).or_else(|| carnegie(l)).or_else(|| lists(l)) {
         return Some(a);
     }
     // "insertion of soleus", "glenohumeral joint articulating bones",
