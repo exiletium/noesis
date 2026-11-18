@@ -1273,3 +1273,14 @@ fn special_values_and_bare_matrices() {
     assert!(short("OEIS A000217").starts_with("1, 3, 6, 10"));
     assert_eq!(short("230 grams/2 in ounces"), "4.0565056 ounces");
 }
+
+#[test]
+fn yoga_pilates_and_strength_exercises() {
+    assert!(short("Pincha Mayurasana").starts_with("yoga inversion (advanced)"));
+    assert!(short("hundred pilates primary contracted muscles").starts_with("abdominal"));
+    assert!(short("advanced Pilates exercises").contains("Teaser"));
+    assert!(short("isolated weight training exercises").contains("Biceps Curl"));
+    assert!(short("how do you do a squat").contains("thighs are about parallel"));
+    assert!(short("Sun Salutation A").starts_with("Mountain Pose (Tadasana)"));
+    assert!(short("yoga poses to strengthen abdominal muscles").starts_with("Plank Pose"));
+}

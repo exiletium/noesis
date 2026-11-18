@@ -87,6 +87,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Sports | `mass of a bowling ball vs. cricket ball`, `football field, soccer field, gaelic football field`, `Dallas Cowboys`, `Fenway Park`, `How much did it cost to build Metlife stadium?`, `How many medals has Michael Phelps won?`, `Karl Malone vs. Bill Russell`, `Prince William's parents` |
 | Travel | `distance from Rome to Naples in kilometers`, `travel time from Tokyo to Sydney by aircraft`, `estimated travel time by car from Toronto to Detroit`, `time to travel from Hong Kong to Honolulu by ship` |
 | Measuring instruments | `hydrometer`, `what does a ruler measure?`, `alternative names for an hourglass`, `device used to measure time`, `thermometer types`, `instances of a particle detector`, `crankshaft position sensor` |
+| Exercise | `Pincha Mayurasana`, `Sun Salutation A`, `Ashtanga Primary Series`, `double leg stretch`, `advanced Pilates exercises`, `how do you do a squat`, `what muscles does a plank work`, `exercises for the glutes`, `isolated weight training exercises` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
 | Country statistics | `life expectancy in New Zealand`, `life expectancy U.S., Sweden, Japan`, `unemployment rate Spain vs Italy`, `Russia vs China economy`, `United Kingdom rail transport`, `flag of Sri Lanka`, `countries with the highest inflation`, `Germany electricity consumption / population` |
@@ -282,7 +283,7 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 
 Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
 
-**Understood:** Noesis gives an answer to **66.5%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+**Understood:** Noesis gives an answer to **66.8%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
 **Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 189 that could be checked (WolframAlpha answered and the run finished), the answers agree on **53%** (100). On the rest, Noesis gives a different answer on 14% (27) and does not understand 33% (62). The automatic checker alone reports 35% agreement (66); the difference is 34 answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. Most of the questions Noesis does not understand need live or very large datasets: current economic indicators, US state, county and school-district statistics, elected officials, recent earthquakes, fuel prices.
 
