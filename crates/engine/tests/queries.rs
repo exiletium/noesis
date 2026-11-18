@@ -1422,3 +1422,15 @@ fn instrument_ranges_and_woods() {
     assert!(short("What are the longest board games?").starts_with("Risk (1–8 hours)"));
     assert!(short("what is air made of?").starts_with("nitrogen 78.08%"));
 }
+
+#[test]
+fn ac_voltage_tires_and_cryptograms() {
+    assert_eq!(short("110V AC"), "110 V RMS | peak 155.56 V | peak-to-peak 311.13 V");
+    assert_eq!(short("peak voltage of 120 V AC"), "169.71 V");
+    // a plain voltage is still a quantity
+    assert_eq!(short("110 V"), "110 V");
+    assert!(short("bicycle tire sizes").starts_with("700C / 29 in (ISO 622)"));
+    assert_eq!(short("imperial size 15 knitting needle"), "1.75 mm");
+    assert!(short("Mali declares independence").starts_with("22 September 1960"));
+    assert!(short("cryptograms calculus").contains("volvulus"));
+}

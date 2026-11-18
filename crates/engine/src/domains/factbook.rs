@@ -168,7 +168,7 @@ const PROPS: &[(&str, &str, &str, &str)] = &[
     ("municipal waste|waste|waste and recycling|recycling", "Waste and recycling", "", "waste and recycling"),
     ("environmental issues|environmental problems|environment issues", "Environmental issues", "=", "environmental issues"),
     ("government type|type of government|form of government|government system|political system", "Government type", "=", "government type"),
-    ("independence|independence day|date of independence", "Independence", "=", "independence"),
+    ("independence|independence day|date of independence|declares independence|declared independence|declare independence|declaration of independence", "Independence", "=", "independence"),
     ("national holiday|national day", "National holiday", "=", "national holiday"),
     ("constitution", "Constitution", "", "constitution"),
     ("legal system", "Legal system", "=", "legal system"),

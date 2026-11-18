@@ -447,6 +447,34 @@ fn subwords(l: &str) -> Option<Answer> {
     ]))
 }
 
+/// Letter pattern of a word: "calculus" → [0, 1, 2, 0, 3, 2, 3, 4]
+fn letter_pattern(w: &str) -> Vec<u8> {
+    let mut seen: Vec<u8> = Vec::new();
+    w.bytes().map(|b| match seen.iter().position(|&x| x == b) {
+        Some(i) => i as u8,
+        None => {
+            seen.push(b);
+            (seen.len() - 1) as u8
+        }
+    }).collect()
+}
+
+/// "cryptograms calculus": words with the same pattern of repeated letters,
+/// the candidates for a word in a substitution cipher
+fn cryptograms(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:cryptograms?|cryptogram matches|substitution cipher (?:matches|words))\s+(?:of\s+|for\s+)?([a-z]{2,20})$").captures(l)?;
+    let w = &m[1];
+    let pat = letter_pattern(w);
+    let found: Vec<&str> = words().iter().copied().filter(|x| x.len() == w.len() && *x != w && x.bytes().all(|b| b.is_ascii_lowercase()) && letter_pattern(x) == pat).collect();
+    let shape: String = pat.iter().map(|&i| (b'A' + i) as char).collect();
+    Some(Answer::new(format!("cryptograms of {w}"), vec![
+        pod("Input", "Input interpretation", text(format!("words with the letter pattern of \"{w}\" ({shape})"))),
+        primary(pod("Result", "Result", text(if found.is_empty() { "no words found".to_string() } else { word_list(&found) }))),
+        pod("Count", "Number of words", text(found.len().to_string())),
+        pod("Note", "Note", text("words that a simple substitution cipher could turn into the given letters: the same length with the same letters repeated in the same places")),
+    ]))
+}
+
 fn patterns(l: &str) -> Option<Answer> {
     // crossword patterns: letters with _ or ? for unknowns
     if let Some(m) = re!(r"^(?:words?\s+(?:matching|like|of the form|that match(?:es)?|fitting)\s+|crossword\s+)?([a-z]*[_?][a-z_?]*)$").captures(l) {
@@ -570,5 +598,5 @@ fn soundex_query(l: &str) -> Option<Answer> {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches('?').trim();
-    soundex_query(l).or_else(|| sounds(l)).or_else(|| related(l)).or_else(|| anagram_query(l)).or_else(|| subwords(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
+    soundex_query(l).or_else(|| sounds(l)).or_else(|| related(l)).or_else(|| anagram_query(l)).or_else(|| subwords(l)).or_else(|| cryptograms(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
 }

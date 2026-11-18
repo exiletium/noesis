@@ -149,6 +149,30 @@ fn tire(l: &str) -> Option<Answer> {
         let title = format!("bicycle tire {}-{} (ETRTO)", w, bead);
         return Some(Answer::new(title.clone(), vec![pod("Input", "Input interpretation", text(title)), primary(pod("Result", "Result", text(main))), pod("Dimensions", "Tire dimensions", table(None, rows))]));
     }
+    if re!(r"^(?:common |standard )?(?:bicycle|bike) (?:tire|tyre|wheel) sizes?(?: chart)?$").is_match(l) {
+        // (name, ISO bead seat diameter in mm, typical use)
+        let sizes: &[(&str, u32, &str)] = &[
+            ("29 in / 700C / 28 in", 622, "road, gravel, hybrid and 29er mountain bikes"),
+            ("27 in", 630, "older road bikes"),
+            ("27.5 in / 650B", 584, "mountain and gravel bikes"),
+            ("650C", 571, "small road and triathlon bikes"),
+            ("26 in (mountain)", 559, "older mountain bikes, cruisers"),
+            ("26 × 1 3/8 in", 590, "older English roadsters"),
+            ("24 in", 507, "children's and youth bikes"),
+            ("20 in (BMX)", 406, "BMX, folding and children's bikes"),
+            ("20 × 1 1/8 in", 451, "some folding and recumbent bikes"),
+            ("16 in", 305, "children's and folding bikes"),
+            ("16 × 1 3/8 in", 349, "Brompton folding bikes"),
+            ("12 in", 203, "toddlers' bikes"),
+        ];
+        let rows: Vec<Vec<Content>> = sizes.iter().map(|s| vec![text(s.0), text(format!("{} mm", s.1)), text(s.2)]).collect();
+        return Some(Answer::new("bicycle tire sizes", vec![
+            pod("Input", "Input interpretation", text("bicycle tire sizes")),
+            primary(pod("Result", "Most common sizes", text("700C / 29 in (ISO 622) | 27.5 in / 650B (ISO 584) | 26 in (ISO 559) | 24 in (ISO 507) | 20 in (ISO 406)"))),
+            pod("Table", "Sizes (ISO 5775 / ETRTO bead seat diameter)", table(Some(vec!["name", "bead seat diameter", "typical use"]), rows)),
+            pod("Note", "Note", text("an ETRTO size such as 37-622 gives the tire width and the bead seat diameter in mm; the traditional inch and French names are approximate outer diameters")),
+        ]));
+    }
     None
 }
 
