@@ -42,6 +42,15 @@ fn value(text: &str) -> Option<(f64, String)> {
     if &m[1] == "-" {
         v = -v;
     }
+    // a percentage or a rate ("per 1,000") is not a plain quantity
+    let after = &line[m.get(3)?.end()..];
+    if after.trim_start().starts_with('%') {
+        return Some((v, "%".to_string()));
+    }
+    let tok = after.split_whitespace().next().unwrap_or("");
+    if tok.contains('/') {
+        return Some((v, tok.to_string()));
+    }
     let unit = match (m.get(2), m.get(6)) {
         (Some(c), _) => c.as_str().to_string(),
         (None, Some(u)) if !["per", "and", "or", "to", "in", "at", "on", "from", "for"].contains(&u.as_str()) => u.as_str().to_string(),
@@ -85,6 +94,7 @@ pub fn combine(q: &Query) -> Option<Answer> {
         let (va, ua, ta) = lookup(&a, q.opts)?;
         let aw: Vec<&str> = a.split_whitespace().collect();
         let shares = b.split_whitespace().any(|w| w.len() > 2 && aw.iter().any(|x| x.eq_ignore_ascii_case(w)));
+        let divide = op == "/" || op == "divided by";
         let mut tries = vec![];
         if shares {
             tries.push(b.clone());
@@ -104,11 +114,14 @@ pub fn combine(q: &Query) -> Option<Answer> {
             }
             let (v, u, txt) = lookup(t, q.opts)?;
             // the borrowed property must give the same kind of quantity
-            (u == ua || t == &b).then(|| (v, u, txt, t.clone()))
+            (u == ua || t == &b || divide).then(|| (v, u, txt, t.clone()))
         })?;
-        let divide = op == "/" || op == "divided by";
         let (res, unit) = if divide {
             if vb == 0.0 {
+                return None;
+            }
+            let rate = |u: &str| u == "%" || u.contains('/');
+            if ua != ub && (rate(&ua) || rate(&ub)) {
                 return None;
             }
             let unit = if ua == ub { String::new() } else if ub.is_empty() { ua.clone() } else if ub == "people" { format!("{ua} per person") } else { format!("{ua}/{ub}") };

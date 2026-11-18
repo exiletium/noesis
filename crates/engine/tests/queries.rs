@@ -1143,3 +1143,15 @@ fn fixes_from_wolframalpha_comparison() {
     assert_eq!(short("GRS80"), "Geodetic Reference System of 1980");
     assert_eq!(short("GDA94"), "Geodetic Reference System of 1980");
 }
+
+#[test]
+fn country_statistics() {
+    assert_eq!(short("life expectancy in New Zealand"), "82.9 years (2024 est.)");
+    assert!(short("life expectancy U.S., Sweden, Japan").starts_with("United States: 80.9 years"));
+    assert!(short("flag of Sri Lanka").starts_with("yellow with two panels"));
+    assert!(short("unemployment rate Spain vs Italy").contains("Italy: 6.8%"));
+    assert!(short("countries with the highest inflation").starts_with("Venezuela"));
+    assert_eq!(short("Germany electricity consumption / population"), "6146 kWh per person");
+    // GDP per capita stays nominal, from the existing data
+    assert_eq!(short("GDP per capita Norway / United States"), "1.155");
+}
