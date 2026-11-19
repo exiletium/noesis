@@ -64,12 +64,103 @@ fn animal(l: &str) -> Option<&'static str> {
     }
 }
 
+/// Organ systems and limb muscles: "digestive system of dogs",
+/// "organs of the female dog body", "muscles of the left forelimb in horses".
+fn systems(a: &str, rest: &str) -> Option<Answer> {
+    let r = re!(r"^(?:what are |list |show |name )?(?:all )?").replace(rest, "").trim().to_string();
+    let (title, rows): (String, Vec<(&str, &str)>) = if re!(r"^(?:digestive (?:system|tract|organs|anatomy)|gastrointestinal (?:system|tract)|gi tract|alimentary (?:canal|tract))$").is_match(&r) {
+        let rows = if a == "dog" {
+            vec![
+                ("mouth", "42 permanent teeth (28 deciduous); carnassial teeth shear meat"),
+                ("salivary glands", "parotid, mandibular, sublingual and zygomatic"),
+                ("oesophagus", "carries food from the pharynx to the stomach"),
+                ("stomach", "simple, single-chambered (monogastric)"),
+                ("small intestine", "duodenum, jejunum and ileum"),
+                ("accessory organs", "liver, gallbladder and pancreas"),
+                ("large intestine", "caecum, colon (ascending, transverse, descending) and rectum"),
+                ("anus", "flanked by the two anal sacs"),
+            ]
+        } else {
+            vec![
+                ("mouth", "36–44 permanent teeth with long-crowned (hypsodont) cheek teeth for grinding forage"),
+                ("salivary glands", "parotid, mandibular and sublingual"),
+                ("oesophagus", "a strong cardiac sphincter means horses can hardly vomit"),
+                ("stomach", "small and simple (monogastric)"),
+                ("small intestine", "duodenum, jejunum and ileum"),
+                ("accessory organs", "liver and pancreas; horses have no gallbladder"),
+                ("large intestine", "caecum, large (ascending) colon, small (descending) colon and rectum; fibre is fermented here (hindgut fermenter)"),
+                ("anus", "end of the tract"),
+            ]
+        };
+        (format!("{a} digestive system"), rows)
+    } else if let Some(m) = re!(r"^(?:(female|male) )?(?:internal )?(?:organs|organ systems)(?: (female|male))?$").captures(&r) {
+        let sex = m.get(1).or(m.get(2)).map(|x| x.as_str());
+        let mut rows = vec![
+            ("nervous system", "brain, spinal cord and nerves"),
+            ("cardiovascular system", "heart (four chambers) and blood vessels; spleen"),
+            ("respiratory system", "nasal cavity, larynx, trachea and lungs"),
+            ("digestive system", if a == "dog" { "oesophagus, stomach, small and large intestine, liver, gallbladder, pancreas" } else { "oesophagus, stomach, small intestine, caecum and colon, liver, pancreas (no gallbladder)" }),
+            ("urinary system", "kidneys, ureters, urinary bladder and urethra"),
+            ("endocrine glands", "pituitary, thyroid, parathyroids, adrenals and pancreatic islets"),
+            ("integument", "skin, hair and claws or hooves"),
+        ];
+        match (sex, a) {
+            (Some("female"), "dog") => rows.push(("reproductive organs", "ovaries, uterus (a short body with two long horns), cervix, vagina and vulva; usually ten mammary glands in five pairs")),
+            (Some("female"), _) => rows.push(("reproductive organs", "ovaries, uterus (a large body with two short horns), cervix, vagina and vulva; two mammary glands (teats) between the hind legs")),
+            (Some("male"), "dog") => rows.push(("reproductive organs", "testes in the scrotum, epididymides, deferent ducts, the prostate (the dog's only accessory sex gland) and the penis with its bone (os penis)")),
+            (Some("male"), _) => rows.push(("reproductive organs", "testes in the scrotum, epididymides, deferent ducts, accessory glands (ampullae, seminal vesicles, prostate, bulbourethral glands) and the penis")),
+            _ => rows.push(("reproductive organs", "ovaries and uterus (female) or testes and prostate (male)")),
+        }
+        (format!("{}{a} organs", sex.map_or(String::new(), |s| format!("{s} "))), rows)
+    } else if let Some(m) = re!(r"^(?:muscles (?:of )?(forelimb|front ?leg|foreleg|front limb|hindlimb|hind ?leg|back leg|hind limb)|(forelimb|front ?leg|foreleg|front limb|hindlimb|hind ?leg|back leg|hind limb) muscles)$").captures(&r) {
+        let limb = m.get(1).or(m.get(2))?.as_str();
+        let fore = limb.starts_with("fore") || limb.starts_with("front");
+        let mut rows = if fore {
+            vec![
+                ("attaching the limb to the trunk", "trapezius, rhomboideus, brachiocephalicus, omotransversarius, latissimus dorsi, superficial and deep pectorals, serratus ventralis"),
+                ("shoulder", "supraspinatus, infraspinatus, deltoideus, teres major, teres minor, subscapularis"),
+                ("elbow", "biceps brachii and brachialis (flexors); triceps brachii, tensor fasciae antebrachii and anconeus (extensors)"),
+                ("carpus and digits, extensors", "extensor carpi radialis, common digital extensor, lateral digital extensor, ulnaris lateralis"),
+                ("carpus and digits, flexors", "flexor carpi radialis, flexor carpi ulnaris, superficial digital flexor, deep digital flexor"),
+            ]
+        } else {
+            vec![
+                ("hip and thigh", "gluteals (superficial, middle, deep), tensor fasciae latae, biceps femoris, semitendinosus, semimembranosus"),
+                ("thigh, medial", "gracilis, sartorius, pectineus, adductors"),
+                ("stifle", "quadriceps femoris (extensor); the hamstrings flex it"),
+                ("hock", "gastrocnemius and superficial digital flexor (via the common calcaneal tendon)"),
+                ("digits", "long and lateral digital extensors, deep digital flexor, cranial tibial and fibularis (peroneus) tertius"),
+            ]
+        };
+        if a == "dog" && fore {
+            rows.push(("forearm rotation", "pronator teres, pronator quadratus and supinator (dogs can rotate the forearm a little; horses cannot)"));
+        }
+        if a == "horse" {
+            rows.push(("below the knee or hock", "no muscle bellies: only tendons and the suspensory ligament, which keeps the lower limb light"));
+        }
+        if a == "horse" && !fore {
+            rows.push(("reciprocal apparatus", "fibularis tertius and the superficial digital flexor link stifle and hock so they flex and extend together"));
+        }
+        (format!("{a} {} muscles", if fore { "forelimb" } else { "hindlimb" }), rows)
+    } else {
+        return None;
+    };
+    let cap = |s: &str| { let mut c = s.chars(); c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str()) };
+    Some(Answer::new(title.clone(), vec![
+        pod("Input", "Input interpretation", text(title.clone())),
+        primary(pod("Result", &cap(&title), table(None, rows.into_iter().map(|(k, v)| vec![text(k), text(v)]).collect()))),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim().replace('’', "'");
     let a = animal(&l)?;
     // drop the animal, sides and view words
     let rest = re!(r"\b(?:dogs?|canine|canines|horses?|equine|pony)(?:'s|s')?\b|\b(?:the|a|an|of|for|in|left|right|image|regional|location|body|view(?:ed)? from(?: the)? (?:left|right|front|back|above|below)|view)\b").replace_all(&l, " ").to_string();
     let rest = re!(r"\s+").replace_all(rest.trim(), " ").to_string();
+    if let Some(x) = systems(a, &rest) {
+        return Some(x);
+    }
     // whole skeleton
     if re!(r"^(?:skeleton|bones|how many bones(?: are| does| do)?(?: have)?|number bones|skeletal system)$").is_match(&rest) {
         let (n, note) = if a == "dog" { ("about 320", "the count varies with tail length and dewclaws; humans have 206") } else { ("205", "about 205 in most horses (some breeds, such as Arabians, have fewer vertebrae); humans have 206") };

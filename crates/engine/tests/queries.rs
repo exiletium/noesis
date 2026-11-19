@@ -1829,3 +1829,12 @@ fn sky_time_order_small_places_birthstone_dates_and_child_bmi() {
     assert_eq!(short("birthstones 2004/5/6"), "emerald");
     assert!(short("a boy 10 years old, 132 centimeters and 28 kilograms").starts_with("16.07"));
 }
+
+#[test]
+fn animal_organ_systems_and_drug_classes() {
+    assert!(pod_text(&q("digestive system of dogs"), "Result").contains("gallbladder"));
+    assert!(pod_text(&q("organs of the female dog body"), "Result").contains("mammary"));
+    assert!(pod_text(&q("what are muscles of left forelimb in horses"), "Result").contains("deep digital flexor"));
+    assert!(short("drug categories for caffeine").contains("stimulant"));
+    assert!(short("drugs prescribed for type 2 diabetes").starts_with("metformin"));
+}
