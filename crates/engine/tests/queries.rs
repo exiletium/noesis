@@ -1789,3 +1789,15 @@ fn moire_patterns_stopping_power_and_minimum_wage() {
     assert!(short("minimum wage 1972 adjusted for inflation").contains("$1.60"));
     assert!(short("federal minimum wage in 1990").starts_with("$3.80"));
 }
+
+#[test]
+fn physical_systems_and_cognitive_tasks() {
+    assert!(pod_text(&q("charged disk"), "Formulas").contains("σ/(2ε₀)"));
+    assert!(pod_text(&q("electric charge density of a charged ellipsoid"), "Formulas").contains("x²/a⁴"));
+    assert!(pod_text(&q("Lienard-Wiechert potential"), "Formulas").contains("1 − n · β"));
+    assert!(pod_text(&q("flow around a cylinder"), "Formulas").contains("1 − 4 sin² θ"));
+    assert!(pod_text(&q("quantum particle in a time‐independent 1d potential"), "Formulas").contains("ψ″"));
+    assert!(short("tasks to measure decision making").starts_with("Iowa gambling task"));
+    assert!(short("what does Iowa gambling task measure").starts_with("decision making"));
+    assert!(short("what instruments measure current?").contains("ammeter"));
+}

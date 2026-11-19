@@ -206,7 +206,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         return find(s).map(|i| card(i, Some("names")));
     }
     // "device used to measure time", "how do you measure charges", "acceleration measurement devices"
-    if let Some(m) = re!(r"^(?:(?:an? |the )?(?:devices?|instruments?|tools?|equipment|sensors?|meters?) (?:used )?(?:to measure|for measuring|that measures?|which measures?|for) |how (?:do|can|does) (?:you|one|we|i) measure |what (?:measures|is used to measure|device measures|instrument measures) |measuring )(.+)$").captures(l) {
+    if let Some(m) = re!(r"^(?:(?:an? |the )?(?:devices?|instruments?|tools?|equipment|sensors?|meters?) (?:used )?(?:to measure|for measuring|that measures?|which measures?|for) |how (?:do|can|does) (?:you|one|we|i) measure |what (?:measures|is used to measure|device measures|instrument measures) |(?:what|which) (?:instruments?|devices?|tools?|sensors?|meters?) (?:can |are used to |do you use to |is used to )?measures? |measuring )(.+)$").captures(l) {
         return for_quantity(&m[1]);
     }
     if let Some(m) = re!(r"^(.+?) (?:measurement|measuring) (?:devices?|instruments?|tools?|equipment)$|^(.+?) (?:sensors|meters|gauges)$").captures(l) {
