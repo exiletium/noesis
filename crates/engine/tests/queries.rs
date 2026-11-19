@@ -1922,3 +1922,15 @@ fn comics_periodicals_and_networks() {
     assert!(short("ABC, NBC, CBS, FOX").starts_with("ABC"));
     assert!(short("image 52 comic").contains("DC Comics"));
 }
+
+#[test]
+fn institutions_elevations_characters_and_definitions() {
+    assert!(short("Harvard University, Princeton University").contains("1636"));
+    assert!(short("elevation Denver - Los Angeles").starts_with("about 1516 m"));
+    assert!(short("what is Metal Greymon's type?").contains("Cyborg"));
+    assert!(short("Snoopy's family").contains("Spike"));
+    assert!(short("name the poems about count roland").contains("Orlando Furioso"));
+    assert_eq!(short("diet of worms, vaccinations invented, spam debuts"), "1521 | 1796 | 1937");
+    assert!(short("MOM ether").contains("protecting group"));
+    assert_eq!(short("soi"), "s = 0");
+}

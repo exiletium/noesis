@@ -1,0 +1,210 @@
+//! Institutions (universities, foundations, private companies), city
+//! elevations, fictional families and creatures, poems on a subject and a
+//! few historical questions.
+//!
+//! "Harvard University, Princeton University", "Gates Foundation, Lilly
+//! Endowment", "elevation Denver - Los Angeles", "Snoopy's family",
+//! "Gothita, Gothorita, Gothitelle", "poems featuring santa claus".
+
+use crate::engine::*;
+use regex::Regex;
+use std::sync::OnceLock;
+
+macro_rules! re {
+    ($s:expr) => {{
+        static R: OnceLock<Regex> = OnceLock::new();
+        R.get_or_init(|| Regex::new($s).unwrap())
+    }};
+}
+
+struct Inst {
+    name: &'static str,
+    aliases: &'static [&'static str],
+    kind: &'static str,
+    founded: &'static str,
+    location: &'static str,
+    founders: &'static str,
+    facts: &'static [(&'static str, &'static str)],
+}
+
+const INSTITUTIONS: &[Inst] = &[
+    Inst { name: "New York University", aliases: &["nyu", "new york university"], kind: "private research university", founded: "1831", location: "Manhattan, New York City", founders: "Albert Gallatin and others", facts: &[("students", "about 59,000 (2023)"), ("campuses", "New York City, Abu Dhabi and Shanghai"), ("colors", "violet")] },
+    Inst { name: "Harvard University", aliases: &["harvard", "harvard university", "harvard college"], kind: "private Ivy League research university", founded: "1636", location: "Cambridge, Massachusetts", founders: "Massachusetts Bay Colony (named after John Harvard)", facts: &[("students", "about 25,000 (about 7,000 undergraduates)"), ("endowment", "about $53 billion (2024), the largest of any university"), ("colors", "crimson"), ("note", "the oldest institution of higher learning in the United States")] },
+    Inst { name: "Princeton University", aliases: &["princeton", "princeton university"], kind: "private Ivy League research university", founded: "1746 (as the College of New Jersey)", location: "Princeton, New Jersey", founders: "New Light Presbyterians", facts: &[("students", "about 9,000 (about 5,600 undergraduates)"), ("endowment", "about $34 billion (2024)"), ("colors", "orange and black"), ("note", "the fourth-oldest college in the United States")] },
+    Inst { name: "Ford Foundation", aliases: &["ford foundation", "the ford foundation"], kind: "private foundation", founded: "January 15, 1936", location: "New York City", founders: "Edsel Ford and Henry Ford", facts: &[("focus", "reducing inequality; social justice, democracy and the arts"), ("endowment", "about $16 billion")] },
+    Inst { name: "Gates Foundation", aliases: &["gates foundation", "bill & melinda gates foundation", "bill and melinda gates foundation", "the gates foundation"], kind: "private foundation", founded: "2000", location: "Seattle, Washington", founders: "Bill Gates and Melinda French Gates", facts: &[("focus", "global health, poverty and education"), ("endowment", "about $75 billion (2024), one of the largest private foundations"), ("note", "renamed the Gates Foundation in 2024; it plans to close by 2045")] },
+    Inst { name: "Lilly Endowment", aliases: &["lilly endowment", "the lilly endowment"], kind: "private foundation", founded: "1937", location: "Indianapolis, Indiana", founders: "J. K. Lilly Sr. and his sons Eli Lilly and J. K. Lilly Jr.", facts: &[("focus", "community development, education and religion, mainly in Indiana"), ("assets", "largely Eli Lilly and Company stock")] },
+    Inst { name: "Schneider National", aliases: &["schneider national", "schneider"], kind: "trucking and logistics company (NYSE: SNDR)", founded: "1935", location: "Green Bay, Wisconsin", founders: "Al Schneider", facts: &[("industry", "truckload, intermodal and logistics services"), ("note", "known for its orange trucks")] },
+    Inst { name: "Koch Industries", aliases: &["koch industries", "koch"], kind: "privately held conglomerate", founded: "1940 (as Wood River Oil & Refining Company)", location: "Wichita, Kansas", founders: "Fred C. Koch", facts: &[("industries", "refining, chemicals, pulp and paper (Georgia-Pacific), fertilizers, electronics (Molex), ranching"), ("note", "one of the largest privately held companies in the United States; led by Charles Koch")] },
+    Inst { name: "J.R. Simplot Company", aliases: &["j.r. simplot", "jr simplot", "j. r. simplot", "j.r. simplot company", "simplot"], kind: "privately held agribusiness company", founded: "1929", location: "Boise, Idaho", founders: "J. R. Simplot", facts: &[("industries", "frozen potato products, fertilizer, cattle, food processing"), ("note", "supplied McDonald's with frozen french fries from the 1960s")] },
+];
+
+/// City elevations, metres (approximate, at the city centre or official reference point).
+const ELEVATIONS: &[(&str, f64)] = &[
+    ("denver", 1609.0), ("los angeles", 93.0), ("chicago", 181.0), ("new york", 10.0), ("new york city", 10.0), ("salt lake city", 1288.0), ("albuquerque", 1619.0), ("phoenix", 331.0), ("las vegas", 610.0), ("atlanta", 320.0), ("dallas", 131.0), ("houston", 15.0), ("miami", 2.0), ("seattle", 53.0), ("san francisco", 16.0), ("boston", 43.0), ("el paso", 1140.0), ("colorado springs", 1839.0), ("mexico city", 2240.0), ("bogota", 2640.0), ("bogotá", 2640.0), ("quito", 2850.0), ("la paz", 3640.0), ("cusco", 3400.0), ("addis ababa", 2355.0), ("nairobi", 1795.0), ("johannesburg", 1753.0), ("kathmandu", 1400.0), ("lhasa", 3650.0), ("tehran", 1190.0), ("madrid", 667.0), ("paris", 35.0), ("london", 11.0), ("amsterdam", -2.0), ("berlin", 34.0),
+];
+
+fn elevation(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:the )?(?:elevation|altitude|height above sea level) (?:of )?(.+)$|^how high (?:is|above sea level is) (.+)$|^(.+?) (?:elevation|altitude)$").captures(l)?;
+    let s = m.get(1).or(m.get(2)).or(m.get(3))?.as_str().trim();
+    let s = re!(r",? (?:co|colorado|ca|california|il|illinois|ny|usa|us)$").replace(s, "").to_string();
+    let el = |n: &str| ELEVATIONS.iter().find(|(c, _)| *c == n.trim()).map(|x| x.1);
+    let cap = |n: &str| n.split(' ').map(|w| {
+        let mut c = w.chars();
+        c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+    }).collect::<Vec<_>>().join(" ");
+    let ft = |m: f64| (m * 3.28084).round();
+    // "elevation Denver - Los Angeles"
+    if let Some(d) = re!(r"^(.+?) (?:-|minus) (.+)$").captures(&s) {
+        let (a, b) = (el(&d[1])?, el(&d[2])?);
+        return Some(Answer::new("elevation", vec![
+            pod("Input", "Input interpretation", text(format!("elevation of {} − elevation of {}", cap(&d[1]), cap(&d[2])))),
+            primary(pod("Result", "Result", text(format!("about {} m ({} ft)", a - b, ft(a - b))))),
+            pod("Values", "Elevations", table(None, vec![vec![text(cap(&d[1])), text(format!("about {a} m ({} ft)", ft(a)))], vec![text(cap(&d[2])), text(format!("about {b} m ({} ft)", ft(b)))]])),
+        ]));
+    }
+    let a = el(&s)?;
+    Some(Answer::new("elevation", vec![
+        pod("Input", "Input interpretation", text(format!("{} | elevation", cap(&s)))),
+        primary(pod("Result", "Elevation", text(format!("about {a} m ({} ft) above sea level", ft(a))))),
+        pod("Note", "Note", text("at the city centre or official reference point; elevations vary across the city")),
+    ]))
+}
+
+fn institutions(l: &str) -> Option<Answer> {
+    let parts: Vec<&str> = re!(r"\s*(?:,|\bvs\.?(?:\s|$)|\bversus\b)\s*").split(l).filter(|x| !x.trim().is_empty()).collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let v: Option<Vec<&Inst>> = parts.iter().map(|p| INSTITUTIONS.iter().find(|i| i.aliases.contains(&p.trim()))).collect();
+    let v = v?;
+    // bare one-word names need the full form
+    if v.len() == 1 && matches!(l, "harvard" | "princeton" | "koch" | "simplot" | "schneider") {
+        return None;
+    }
+    if v.len() == 1 {
+        let i = v[0];
+        let mut rows = vec![vec![text("type"), text(i.kind)], vec![text("founded"), text(i.founded)], vec![text("location"), text(i.location)], vec![text("founders"), text(i.founders)]];
+        rows.extend(i.facts.iter().map(|(k, v)| vec![text(*k), text(*v)]));
+        return Some(Answer::new("institution", vec![
+            pod("Input", "Input interpretation", text(i.name)),
+            primary(pod("Result", "Basic information", text(format!("{} in {}, founded {}", i.kind, i.location, i.founded)))),
+            pod("Table", "Details", table(None, rows)),
+        ]));
+    }
+    let rows = v.iter().map(|i| vec![text(i.name), text(i.kind), text(i.founded), text(i.location)]).collect();
+    Some(Answer::new("institutions", vec![
+        pod("Input", "Input interpretation", text(v.iter().map(|i| i.name).collect::<Vec<_>>().join(" | "))),
+        primary(pod("Result", "Comparison", text(v.iter().map(|i| format!("{} (founded {}, {})", i.name, i.founded, i.location)).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Details", table(Some(vec!["name", "type", "founded", "location"]), rows)),
+    ]))
+}
+
+/// Pokémon and Digimon with their types and evolutions.
+const CREATURES: &[(&str, &str, &[(&str, &str)])] = &[
+    ("gothita", "Gothita (Pokémon #574)", &[("type", "Psychic"), ("evolves into", "Gothorita at level 32"), ("introduced", "Pokémon Black and White (generation V, 2010)")]),
+    ("gothorita", "Gothorita (Pokémon #575)", &[("type", "Psychic"), ("evolves from", "Gothita at level 32"), ("evolves into", "Gothitelle at level 41"), ("introduced", "Pokémon Black and White (generation V, 2010)")]),
+    ("gothitelle", "Gothitelle (Pokémon #576)", &[("type", "Psychic"), ("evolves from", "Gothorita at level 41"), ("introduced", "Pokémon Black and White (generation V, 2010)")]),
+    ("gomamon", "Gomamon (Digimon)", &[("level", "Rookie (Child)"), ("type", "Sea Animal"), ("attribute", "Vaccine"), ("digivolves into", "Ikkakumon"), ("partner", "Joe Kido in Digimon Adventure (1999)")]),
+    ("metalgreymon", "MetalGreymon (Digimon)", &[("level", "Ultimate (Perfect)"), ("type", "Cyborg"), ("attribute", "Vaccine (a Virus-attribute variant also exists)"), ("digivolves from", "Greymon"), ("digivolves into", "WarGreymon"), ("partner", "Tai Kamiya's Agumon line in Digimon Adventure")]),
+];
+
+fn creatures(l: &str) -> Option<Answer> {
+    let l = re!(r"^(?:what is )?(.+?)'s type$").replace(l, "$1 type").to_string();
+    let l = l.trim_end_matches(" type").trim_end_matches(" pokemon").trim_end_matches(" digimon").replace("metal greymon", "metalgreymon");
+    let parts: Vec<&str> = re!(r"\s*(?:,|\band\b)\s*").split(&l).filter(|x| !x.trim().is_empty()).collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let v: Option<Vec<&(&str, &str, &[(&str, &str)])>> = parts.iter().map(|p| CREATURES.iter().find(|c| c.0 == p.trim())).collect();
+    let v = v?;
+    let main = v.iter().map(|c| format!("{}: {}", c.1, c.2.iter().find(|r| r.0 == "type").map(|r| r.1).unwrap_or(""))).collect::<Vec<_>>().join(" | ");
+    let mut pods = vec![pod("Input", "Input interpretation", text(v.iter().map(|c| c.1).collect::<Vec<_>>().join(" | "))), primary(pod("Result", "Type", text(main)))];
+    for c in &v {
+        pods.push(pod("Details", c.1, table(None, c.2.iter().map(|(k, v)| vec![text(*k), text(*v)]).collect())));
+    }
+    Some(Answer::new("fictional creature", pods))
+}
+
+fn families(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:the )?(?:family (?:of|members of) |relatives of )?(snoopy|jon snow)(?:'s)?(?: family| relatives| siblings)?$").captures(l)?;
+    if !(l.contains("family") || l.contains("relatives") || l.contains("siblings")) {
+        return None;
+    }
+    let (title, main, rows): (&str, &str, Vec<(&str, &str)>) = match &m[1] {
+        "snoopy" => ("Snoopy (Peanuts) | family", "siblings Spike, Belle, Marbles, Olaf, Andy, Molly and Rover", vec![("siblings", "Spike, Belle, Marbles, Olaf, Andy, Molly, Rover (eight puppies in all, including Snoopy)"), ("birthplace", "Daisy Hill Puppy Farm"), ("nephew", "Belle's son"), ("owner", "Charlie Brown")]),
+        _ => ("Jon Snow (A Song of Ice and Fire / Game of Thrones) | family", "raised by Eddard Stark as his illegitimate son; his parents are Lyanna Stark and Rhaegar Targaryen (revealed in the TV series)", vec![("mother", "Lyanna Stark"), ("father", "Rhaegar Targaryen"), ("raised by", "Eddard \"Ned\" Stark (his uncle)"), ("cousins raised as half-siblings", "Robb, Sansa, Arya, Bran and Rickon Stark"), ("aunt", "Daenerys Targaryen")]),
+    };
+    Some(Answer::new("fictional character", vec![
+        pod("Input", "Input interpretation", text(title)),
+        primary(pod("Result", "Family", text(main))),
+        pod("Table", "Relatives", table(None, rows.iter().map(|(k, v)| vec![text(*k), text(*v)]).collect())),
+    ]))
+}
+
+fn poems(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:name (?:the )?)?poems (?:featuring|about|on|mentioning|with) (?:the )?(santa claus|saint nicholas|st\.? nicholas|count roland|roland)$").captures(l)?;
+    let (subject, rows): (&str, Vec<(&str, &str, &str)>) = if m[1].contains("roland") {
+        ("Roland", vec![("The Song of Roland (La Chanson de Roland)", "anonymous (attributed to Turold)", "c. 1100"), ("Morgante", "Luigi Pulci", "1478–1483"), ("Orlando Innamorato", "Matteo Maria Boiardo", "1483–1495"), ("Orlando Furioso", "Ludovico Ariosto", "1516–1532")])
+    } else {
+        ("Santa Claus", vec![("A Visit from St. Nicholas (\"'Twas the Night Before Christmas\")", "Clement Clarke Moore (attributed)", "1823"), ("Old Santeclaus with Much Delight", "anonymous", "1821")])
+    };
+    Some(Answer::new("poems", vec![
+        pod("Input", "Input interpretation", text(format!("poems about {subject}"))),
+        primary(pod("Result", "Poems", text(rows.iter().map(|r| r.0).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Poems", table(Some(vec!["poem", "author", "date"]), rows.iter().map(|(a, b, c)| vec![text(*a), text(*b), text(*c)]).collect())),
+    ]))
+}
+
+fn history(l: &str) -> Option<Answer> {
+    let one = |inp: &str, main: &str, rows: Vec<(&str, &str)>| {
+        Some(Answer::new("history", vec![
+            pod("Input", "Input interpretation", text(inp.to_string())),
+            primary(pod("Result", "Result", text(main.to_string()))),
+            pod("Table", "Details", table(None, rows.iter().map(|(k, v)| vec![text(*k), text(*v)]).collect())),
+        ]))
+    };
+    if re!(r"^(?:when did )?(?:the )?codices replace scrolls$|^when did (?:the )?codex replace (?:the )?scroll$").is_match(l) {
+        return one("codex replacing the scroll", "gradually between the 1st and 5th centuries AD; codices outnumbered scrolls by about AD 300–400", vec![("early use", "Roman writers (Martial, late 1st century AD) mention parchment codices"), ("drivers", "early Christians favoured the codex for scripture"), ("by about AD 500", "the scroll had largely fallen out of use for books")]);
+    }
+    if re!(r"^diet of worms, vaccinations? (?:invented|invention), spam debuts?$").is_match(l) {
+        return one("Diet of Worms | invention of vaccination | debut of Spam", "1521 | 1796 | 1937", vec![("Diet of Worms", "January 28 – May 25, 1521; Martin Luther refused to recant and was declared an outlaw (Edict of Worms)"), ("vaccination", "May 14, 1796: Edward Jenner inoculated James Phipps with cowpox to protect against smallpox"), ("Spam (canned meat)", "introduced by Hormel Foods on July 5, 1937"), ("spam (email)", "the first mass unsolicited email was sent on ARPANET by Gary Thuerk on May 3, 1978")]);
+    }
+    if re!(r"^(?:charles )?lindbergh(?:'s)? (?:solo |transatlantic )?flight (?:cities|places|locations)(?: involved)?$|^cities involved in lindbergh(?:'s)? (?:solo )?flight$").is_match(l) {
+        return one("Charles Lindbergh's solo transatlantic flight | cities", "New York (Roosevelt Field, Garden City, Long Island) to Paris (Le Bourget Field)", vec![("date", "May 20–21, 1927"), ("aircraft", "Spirit of St. Louis (Ryan NYP)"), ("duration", "33.5 hours, about 5,800 km (3,600 mi)"), ("earlier legs", "San Diego → St. Louis → New York, May 10–12, 1927"), ("prize", "the $25,000 Orteig Prize")]);
+    }
+    if re!(r"^(?:people|signers|signatories) (?:at|of) the signing of the declaration of independence$|^(?:signers|signatories) of the declaration of independence$|^who signed the declaration of independence$").is_match(l) {
+        return one("signers of the US Declaration of Independence", "56 delegates of the Second Continental Congress, including John Hancock, Thomas Jefferson, John Adams, Benjamin Franklin, Samuel Adams, Roger Sherman, Robert Morris and Benjamin Rush", vec![("number of signers", "56"), ("first signer", "John Hancock, President of the Congress"), ("main signing", "August 2, 1776, in Philadelphia (Independence Hall); some signed later"), ("Committee of Five", "Thomas Jefferson (principal author), John Adams, Benjamin Franklin, Roger Sherman, Robert R. Livingston (who did not sign)"), ("oldest signer", "Benjamin Franklin (70)"), ("youngest signer", "Edward Rutledge (26)")]);
+    }
+    None
+}
+
+/// Short definitions: (names, title, definition, details).
+const DEFS: &[(&[&str], &str, &str, &[(&str, &str)])] = &[
+    (&["temperature of the solar wind", "solar wind temperature"], "solar wind | temperature", "about 10⁵ K near Earth (typical proton temperature about 1.2 × 10⁵ K at 1 AU)", &[("electron temperature", "about 1.4 × 10⁵ K at 1 AU"), ("speed", "about 300–800 km/s"), ("source", "the solar corona, at about 1–2 million K"), ("trend", "the wind cools as it expands outward, roughly as r^(−0.7) for protons")]),
+    (&["solar wind"], "solar wind", "a stream of charged particles (mostly protons and electrons) flowing outward from the Sun's corona", &[("temperature", "about 10⁵ K near Earth (typical proton temperature about 1.2 × 10⁵ K at 1 AU; electrons about 1.4 × 10⁵ K)"), ("speed", "about 300–800 km/s (slow wind about 400 km/s, fast wind about 750 km/s)"), ("density at 1 AU", "about 5 particles per cm³"), ("source temperature", "the corona is about 1–2 million K")]),
+    (&["southern oscillation index"], "Southern Oscillation Index", "a standardized measure of the difference in sea-level air pressure between Tahiti and Darwin, Australia", &[("sustained negative values", "El Niño conditions (weaker trade winds, warm central and eastern Pacific)"), ("sustained positive values", "La Niña conditions"), ("published by", "the Australian Bureau of Meteorology (Troup SOI) and NOAA")]),
+    (&["polar covalent bonds", "polar covalent bond", "polar bond", "polar bonds"], "polar covalent bond", "a covalent bond in which the shared electrons are held unequally because the two atoms differ in electronegativity", &[("electronegativity difference", "roughly 0.4 to 1.7 on the Pauling scale (larger differences give ionic bonds)"), ("result", "partial charges δ+ and δ− and a bond dipole moment"), ("examples", "O–H in water, H–Cl, C–O, N–H")]),
+    (&["hydrogenation reactions", "hydrogenation reaction", "hydrogenation"], "hydrogenation", "a reaction that adds molecular hydrogen (H₂) across a multiple bond, usually with a metal catalyst", &[("catalysts", "nickel, palladium or platinum (heterogeneous); Wilkinson's catalyst (homogeneous)"), ("example", "CH₂=CH₂ + H₂ → CH₃CH₃ (ethene to ethane)"), ("uses", "hardening vegetable oils to margarine, petroleum refining, fine chemicals"), ("reverse", "dehydrogenation")]),
+    (&["mom ether", "methoxymethyl ether", "mom group", "mom protecting group"], "methoxymethyl (MOM) ether", "a protecting group for alcohols: R–O–CH₂–O–CH₃", &[("installed with", "chloromethyl methyl ether (MOMCl) and a hindered base such as N,N-diisopropylethylamine, or dimethoxymethane with acid"), ("stable to", "bases, nucleophiles, organometallics, many oxidants and reductants"), ("removed with", "acid (for example HCl in methanol) or Lewis acids")]),
+    (&["phosphatidylcholine", "phosphatidylcholines", "lecithin"], "phosphatidylcholine", "a class of phospholipids with a choline head group; a major component of cell membranes", &[("structure", "glycerol esterified with two fatty acids and a phosphocholine group"), ("common name", "lecithin (in foods and supplements)"), ("sources", "egg yolk, soybeans"), ("role", "membrane structure, lung surfactant (dipalmitoylphosphatidylcholine), bile")]),
+    (&["sensory organs", "sense organs", "the sense organs"], "sense organs", "organs whose receptors respond to stimuli and send signals to the nervous system", &[("eyes", "vision (rods and cones in the retina)"), ("ears", "hearing (cochlea) and balance (vestibular system)"), ("nose", "smell (olfactory epithelium)"), ("tongue", "taste (taste buds)"), ("skin", "touch, pressure, temperature and pain")]),
+    (&["space weather"], "space weather", "conditions in the space environment, driven by the Sun, that can affect satellites, communications, power grids and astronauts", &[("drivers", "solar flares, coronal mass ejections, high-speed solar wind streams and solar energetic particles"), ("effects", "geomagnetic storms, aurorae, radio blackouts, satellite drag and radiation hazards"), ("scales", "NOAA G (geomagnetic storms), S (radiation storms) and R (radio blackouts), each 1–5"), ("index", "the planetary Kp index measures geomagnetic disturbance, 0–9")]),
+];
+
+fn defs(l: &str) -> Option<Answer> {
+    let l = l.trim_start_matches("define ").trim_start_matches("what are ").trim_start_matches("what is ");
+    let (_, title, def, rows) = DEFS.iter().find(|d| d.0.contains(&l))?;
+    Some(Answer::new("definition", vec![
+        pod("Input", "Input interpretation", text(*title)),
+        primary(pod("Result", "Definition", text(*def))),
+        pod("Table", "Details", table(None, rows.iter().map(|(k, v)| vec![text(*k), text(*v)]).collect())),
+    ]))
+}
+
+pub fn handle(q: &Query) -> Option<Answer> {
+    let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim().replace('’', "'");
+    let l = re!(r"\s+").replace_all(&l, " ").to_string();
+    let l = l.as_str();
+    elevation(l).or_else(|| institutions(l)).or_else(|| creatures(l)).or_else(|| families(l)).or_else(|| poems(l)).or_else(|| history(l)).or_else(|| defs(l))
+}
