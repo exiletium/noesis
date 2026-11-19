@@ -146,6 +146,16 @@ pub fn fold_accents(s: &str) -> String {
     }).collect()
 }
 
+/// The user's place for questions that name none: the city in NOESIS_LOCATION, else London.
+/// (name, latitude, longitude, time zone)
+pub fn home() -> (String, f64, f64, String) {
+    let c = std::env::var("NOESIS_LOCATION").ok().and_then(|s| find_city(s.trim())).or_else(|| find_city("London"));
+    match c {
+        Some(c) => (format!("{}, {}", c.name, countries().get(&c.country).map_or(c.country.clone(), |x| x.name.clone())), c.lat, c.lon, c.timezone.clone()),
+        None => ("London, United Kingdom".into(), 51.5074, -0.1278, "Europe/London".into()),
+    }
+}
+
 pub fn find_city(q: &str) -> Option<&'static City> {
     let l = q.trim().to_lowercase();
     let (name, cc) = match l.split_once(',') {

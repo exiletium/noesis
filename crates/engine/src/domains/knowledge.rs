@@ -99,6 +99,11 @@ fn chemistry(q: &Query) -> Option<Answer> {
             pod("Count", "Elements", text(format!("{} known elements, arranged by atomic number in 7 periods and 18 groups", els.len()))),
         ]));
     }
+    let block = re!(r"^(?:the )?[spdf][- ]?block(?: elements)?$").is_match(bare).then(|| super::chem::element_group(bare)).flatten();
+    if let Some((series, els)) = block {
+        let rows: Vec<Vec<Content>> = els.iter().map(|e| vec![text(e.z.to_string()), text(e.symbol.clone()), text(e.name.clone()), text(format!("{} u", fmt_float(e.mass, 6)))]).collect();
+        return Some(simple(series, "Elements", els.iter().map(|e| e.name.clone()).collect::<Vec<_>>().join(", "), vec![pod("Table", "Members", table(Some(vec!["Z", "symbol", "name", "atomic mass"]), rows)), pod("Count", "Count", text(els.len().to_string()))]));
+    }
     if let Some((_, series)) = GROUPS.iter().find(|(names, _)| names.contains(&bare) || names.iter().any(|n| bare == format!("{n} elements"))) {
         let els: Vec<_> = elements().iter().filter(|e| e.series.as_deref() == Some(*series)).collect();
         if els.is_empty() {
@@ -383,9 +388,12 @@ fn prayer_times(l: &str) -> Option<Answer> {
 }
 
 fn sun(l: &str) -> Option<Answer> {
-    let m = re!(r"^(?:(?:what time is|when is)\s+)?(?:the\s+)?(sunrise|sunset|sun ?rise|sun ?set|daylight hours|day length|length of (?:the )?day|hours of daylight)\s+(?:time\s+)?(?:in|at|for)\s+(.+?)(?:\s+(today|tomorrow|on .+))?$").captures(l)?;
-    let place = m[2].trim();
-    let (name, lat, lon, tz) = if let Some(c) = find_city(place) {
+    let m = re!(r"^(?:(?:what time is|when is)\s+)?(?:the\s+)?(sunrise|sunset|sun ?rise|sun ?set|daylight hours|day length|length of (?:the )?day|hours of daylight)(?:\s+time)?(?:\s+(?:in|at|for)\s+(.+?))?(?:\s+(today|tomorrow|on .+|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d.*|\d.*))?$").captures(l)?;
+    let assumed = m.get(2).is_none();
+    let place = m.get(2).map_or("", |x| x.as_str().trim());
+    let (name, lat, lon, tz) = if assumed {
+        geo::home()
+    } else if let Some(c) = find_city(place) {
         (format!("{}, {}", c.name, countries().get(&c.country).map_or(c.country.clone(), |x| x.name.clone())), c.lat, c.lon, c.timezone.clone())
     } else {
         let c = find_country(place)?;
@@ -397,6 +405,7 @@ fn sun(l: &str) -> Option<Answer> {
     let date = match m.get(3).map(|g| g.as_str()) {
         Some("tomorrow") => local_today + Duration::days(1),
         Some(s) if s.starts_with("on ") => super::misc::parse_date(&s[3..])?,
+        Some(s) if s != "today" => super::misc::parse_date(s)?,
         _ => local_today,
     };
     let at = |utc_hours: f64| -> Option<chrono::DateTime<chrono_tz::Tz>> {
@@ -441,6 +450,9 @@ fn sun(l: &str) -> Option<Answer> {
         extra.push(pod("Sun", "Sun times", table(None, rows)));
     }
     extra.push(pod("Location", "Location", text(format!("{:.2}° {}, {:.2}° {}", lat.abs(), if lat >= 0.0 { "N" } else { "S" }, lon.abs(), if lon >= 0.0 { "E" } else { "W" }))));
+    if assumed {
+        extra.push(pod("Assumption", "Assumption", text(format!("location: {name} (no place given; set NOESIS_LOCATION to a city name to change)"))));
+    }
     extra.push(pod("Note", "Note", text("Computed with the NOAA sunrise equation (accurate to about a minute; ignores terrain and local refraction).")));
     Some(simple(&label, if what == "sunrise" { "Sunrise" } else if what == "sunset" { "Sunset" } else { "Day length" }, value, extra))
 }

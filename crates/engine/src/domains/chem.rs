@@ -732,13 +732,26 @@ fn element_question(q: &Query) -> Option<Answer> {
 }
 
 /// "lanthanides", "alkaline earth metals" → the members.
-fn element_group(t: &str) -> Option<(&'static str, Vec<&'static Element>)> {
+pub(super) fn element_group(t: &str) -> Option<(&'static str, Vec<&'static Element>)> {
     let t = t.trim().trim_start_matches("the ").trim_end_matches(" elements").trim();
     let by_group = |g: u32| -> Vec<&'static Element> { elements().iter().filter(|e| e.group == Some(g) && e.z <= 118).collect() };
     if matches!(t, "metals" | "metal" | "metallic elements") {
         const METAL_SERIES: [&str; 6] = ["Alkali metals", "Alkaline earth metals", "Transition metals", "Lanthanides", "Actinides", "Poor metals"];
         let list: Vec<&Element> = elements().iter().filter(|e| e.z <= 103 && e.series.as_deref().is_some_and(|s| METAL_SERIES.contains(&s))).collect();
         return (!list.is_empty()).then_some(("Metals", list));
+    }
+    // blocks of the periodic table (He is s-block by its configuration)
+    if let Some(b) = re!(r"^([spdf])[- ]?block$").captures(t).map(|m| m[1].to_string()) {
+        let in_block = |e: &&Element| match (b.as_str(), e.group) {
+            ("s", Some(g)) => g <= 2 || e.z == 2,
+            ("p", Some(g)) => g >= 13 && e.z != 2,
+            ("d", Some(g)) => (3..=12).contains(&g),
+            ("f", None) => true,
+            _ => false,
+        };
+        let list: Vec<&Element> = elements().iter().filter(|e| e.z <= 118).filter(in_block).collect();
+        let title = match b.as_str() { "s" => "s-block elements", "p" => "p-block elements", "d" => "d-block elements", _ => "f-block elements" };
+        return (!list.is_empty()).then_some((title, list));
     }
     if t == "coinage metals" || t == "coinage metal" {
         return Some(("Coinage metals", by_group(11).into_iter().filter(|e| e.z < 100).collect()));

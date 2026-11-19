@@ -42,6 +42,24 @@ fn dms(deg: f64) -> String {
     format!("{sign}{}° {}′ {}″", dd as i64, mm as i64, ss.round() as i64)
 }
 
+/// Geocentric J2000 right ascension and declination (degrees) and distance (au) of the Sun or a planet.
+pub fn radec(body: &str, at: chrono::DateTime<Utc>) -> Option<(f64, f64, f64)> {
+    let t = super::ephem::centuries(at);
+    let earth = super::ephem::heliocentric("Earth", t)?;
+    let p = if body == "sun" {
+        [0.0, 0.0, 0.0]
+    } else {
+        let mut c = body.chars();
+        let name = c.next()?.to_uppercase().collect::<String>() + c.as_str();
+        super::ephem::heliocentric(&name, t)?
+    };
+    let g = [p[0] - earth[0], p[1] - earth[1], p[2] - earth[2]];
+    let dist = (g[0] * g[0] + g[1] * g[1] + g[2] * g[2]).sqrt();
+    let eps = 23.439_291_f64.to_radians();
+    let (x, y, z) = (g[0], g[1] * eps.cos() - g[2] * eps.sin(), g[1] * eps.sin() + g[2] * eps.cos());
+    Some((y.atan2(x).to_degrees().rem_euclid(360.0), (z / dist).asin().to_degrees(), dist))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();

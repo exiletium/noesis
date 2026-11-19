@@ -1734,3 +1734,16 @@ fn finite_field_factoring_quaternion_rotations_and_packing() {
     assert!(short("how wet would you get jogging in the rain").ends_with("mL"));
     assert!(short("Can you fail the Turing test?").contains("pass"));
 }
+
+#[test]
+fn planet_rise_times_default_location_and_blocks() {
+    std::env::remove_var("NOESIS_LOCATION");
+    assert_eq!(short("sunrise January 31, 2005"), "7:41 AM GMT");
+    assert!(pod_text(&q("sunset"), "Assumption").contains("London"));
+    let r = short("next rise of Venus from Rome");
+    assert!(r.ends_with("CET") || r.ends_with("CEST"), "{r}");
+    assert!(short("Jupiter transit time in Tokyo").ends_with("JST"));
+    assert!(short("local hour angle of Mars").contains('h'));
+    assert!(short("d-block elements").starts_with("Scandium"));
+    assert!(pod_text(&q("s block ions"), "Result").contains("Magnesium"));
+}
