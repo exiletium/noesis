@@ -151,6 +151,22 @@ Kidd Mine|mine|Timmins, Ontario|Canada|1966|depth=2900|the deepest base-metal mi
 Three Mile Island;three mile island nuclear generating station;tmi|nuclear power plant|Londonderry Township, Pennsylvania|United States|1974|power=819|two pressurized-water reactors; Unit 2 partly melted down on March 28, 1979, the worst US commercial nuclear accident; Unit 1 shut down in 2019 (power is Unit 1's net output)
 Diablo Canyon Power Plant;diablo canyon;diablo canyon nuclear power plant|nuclear power plant|Avila Beach, California|United States|1985|power=2256|two Westinghouse pressurized-water reactors of about 1,100 MW each (Unit 2 entered service in 1986); California's last nuclear plant
 Angra 1;angra-1;angra-1 reactor;angra 1 reactor|nuclear power plant|Angra dos Reis, Rio de Janeiro|Brazil|1985|power=640|a Westinghouse pressurized-water reactor, Brazil's first nuclear power unit
+Broadway;broadway (manhattan);broadway new york|street|Manhattan, New York City|United States|17th century (as a Native American trail)|length=21000|runs about 13 mi (21 km) through Manhattan from Bowling Green to Inwood, then continues through the Bronx and Westchester County; the oldest north–south main thoroughfare in New York City; its theater district gives Broadway theatre its name
+8th Avenue;eighth avenue;8th avenue manhattan|avenue|Manhattan, New York City|United States|1811 (Commissioners' Plan)||runs north from Abingdon Square in Greenwich Village to Columbus Circle at 59th Street, continuing as Central Park West and then Frederick Douglass Boulevard; one-way northbound below 59th Street
+Rue de Rivoli|street|1st and 4th arrondissements, Paris|France|1802||about 3 km long, from the Rue de Sévigné in the Marais past the Louvre and the Tuileries Garden to the Place de la Concorde; begun under Napoleon and named after his victory at Rivoli (1797)
+Interstate 64;i-64;i 64;interstate highway 64|interstate highway|Wentzville, Missouri to Chesapeake, Virginia|United States|1956 (Interstate Highway System)|length=1533860|953 mi (1,534 km) through Missouri, Illinois, Indiana, Kentucky, West Virginia and Virginia, by St. Louis, Louisville, Lexington, Charleston, Richmond and Norfolk
+U.S. Route 1;us1;us 1;us route 1;u.s. route 1;us-1|US highway|Key West, Florida to Fort Kent, Maine|United States|1926|length=3813000|2,369 mi (3,813 km) along the East Coast through 14 states and Washington, D.C.; the longest north–south US route
+Fukushima Daiichi Nuclear Power Plant;fukushima daiichi;fukushima i;fukushima daiichi nuclear plant;fukushima nuclear power plant|nuclear power plant|Ōkuma and Futaba, Fukushima Prefecture|Japan|1971|power=4696|six General Electric boiling-water reactors; the March 11, 2011 earthquake and tsunami caused meltdowns in units 1–3 and hydrogen explosions in units 1, 3 and 4; being decommissioned
+Fukushima Daiichi Unit 4;fukushima daiichi reactor 4;fukushima daiichi 4;fukushima daiichi-4;fukushima i-4;fukushima daiichi unit 4 reactor|boiling-water reactor (BWR-4)|Ōkuma, Fukushima Prefecture|Japan|1978|power=784|its core had been unloaded for maintenance in March 2011, but hydrogen from unit 3 exploded in its reactor building on March 15, 2011; the spent fuel was removed by 2014
+Kewaunee Power Station;kewaunee;kewaunee nuclear reactor;kewaunee nuclear power plant;kewaunee reactor|pressurized-water reactor|Carlton, Kewaunee County, Wisconsin|United States|1974||a single Westinghouse pressurized-water reactor on Lake Michigan; shut down in May 2013 for economic reasons
+Pickering Nuclear Generating Station;pickering nuclear;pickering-4;pickering-4 reactor;pickering 4|CANDU pressurized heavy-water reactor|Pickering, Ontario|Canada|1971||eight CANDU reactors on Lake Ontario (units 2 and 3 are shut down); Pickering-4 began commercial operation in 1973
+Darlington Nuclear Generating Station;darlington nuclear;darlington-3;darlington-3 reactor;darlington 3|CANDU pressurized heavy-water reactor|Clarington, Ontario|Canada|1990|power=3512|four CANDU reactors of about 878 MW each on Lake Ontario
+Bruce Nuclear Generating Station;bruce nuclear;bruce-8;bruce-8 reactor;bruce 8|CANDU pressurized heavy-water reactor|Tiverton (Kincardine), Ontario|Canada|1977||eight CANDU reactors on Lake Huron, the largest operating nuclear plant in the world by net capacity; Bruce-8 entered service in 1987
+Changjiang Nuclear Power Plant;changjiang-2;changjiang-2 reactor;changjiang 2;changjiang nuclear|pressurized-water reactor (CNP-600)|Changjiang, Hainan|China|2015||two CNP-600 pressurized-water reactors of about 650 MW each; unit 2 began commercial operation in 2016
+Piqua Nuclear Power Facility;piqua reactor;piqua nuclear reactor|organic-cooled and organic-moderated reactor|Piqua, Ohio|United States|1963|power=11.4|a small demonstration reactor cooled and moderated by an organic liquid (terphenyl); it ran from 1963 to 1966
+Braidwood Generating Station;braidwood nuclear|nuclear power plant|Braceville, Will County, Illinois|United States|1988|power=2386|two Westinghouse pressurized-water reactors
+Prairie Island Nuclear Generating Station;prairie island;prairie island nuclear|nuclear power plant|Red Wing, Minnesota|United States|1973|power=1100|two Westinghouse pressurized-water reactors on the Mississippi River
+Monticello Nuclear Generating Plant;monticello nuclear|nuclear power plant|Monticello, Minnesota|United States|1971|power=671|a single General Electric boiling-water reactor on the Mississippi River
 La Crosse Boiling Water Reactor;lacrosse reactor;la crosse reactor;lacbwr|nuclear power plant|Genoa, Wisconsin|United States|1969|power=50|a small boiling-water reactor that ran from 1969 to 1987
 Large Hadron Collider;lhc|particle accelerator|CERN, near Geneva|Switzerland and France|2008|length=26659|the world's largest and most powerful collider: protons at 6.8 TeV per beam, 100 m underground; found the Higgs boson in 2012
 Relativistic Heavy Ion Collider;rhic|particle accelerator|Brookhaven National Laboratory, Upton, New York|United States|2000|length=3834|collides gold ions at up to 100 GeV per nucleon and polarized protons at up to 255 GeV; made the quark–gluon plasma
@@ -384,6 +400,39 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = l.as_str();
     if let Some(a) = country_lists(l).or_else(|| deep_mines(l)) {
         return Some(a);
+    }
+    // "Pickering-4 reactor location", "Darlington-3 reactor type"
+    if let Some(m) = re!(r"^(?:(?:the )?(location|reactor type|type) of (.+)|(.+?) (location|reactor type|type))$").captures(l) {
+        let (p, who) = match m.get(1) {
+            Some(p) => (p.as_str(), &m[2]),
+            None => (&m[4], &m[3]),
+        };
+        if let Some(x) = find(who) {
+            let (label, v) = if p == "location" { ("Location", format!("{}, {}", x.location, x.country)) } else { ("Type", x.kind.clone()) };
+            return Some(Answer::new("structure", vec![pod("Input", "Input interpretation", text(format!("{} | {}", x.name(), label.to_lowercase()))), primary(pod("Result", label, text(v))), pod("Properties", "Properties", props(x))]));
+        }
+    }
+    // "nuclear reactors in Minnesota", "Will County, Illinois nuclear reactors"
+    if let Some(m) = re!(r"^(?:nuclear (?:reactors|power plants|power stations|plants) in (.+)|(.+?) nuclear (?:reactors|power plants|power stations|plants))$").captures(l) {
+        let place = m.get(1).or(m.get(2))?.as_str().trim_start_matches("the ");
+        let words: Vec<&str> = place.split(|c: char| c == ',' || c.is_whitespace()).filter(|w| !w.is_empty() && *w != "county").collect();
+        let v: Vec<&Structure> = all()
+            .iter()
+            .filter(|x| x.kind.contains("reactor") || x.kind.contains("nuclear"))
+            .filter(|x| {
+                let loc = format!("{}, {}", x.location, x.country).to_lowercase();
+                words.iter().all(|w| loc.contains(w))
+            })
+            .collect();
+        if v.is_empty() {
+            return None;
+        }
+        return Some(Answer::new("structure", vec![
+            pod("Input", "Input interpretation", text(format!("nuclear power plants in {place}"))),
+            primary(pod("Result", "Result", text(v.iter().map(|x| x.name()).collect::<Vec<_>>().join(" | ")))),
+            pod("Table", "Plants", table(Some(vec!["plant", "type", "location", "opened"]), v.iter().map(|x| vec![text(x.name()), text(x.kind.clone()), text(x.location.clone()), text(x.opened.clone())]).collect())),
+            pod("Note", "Note", text("plants in Noesis's built-in list; the list may not be complete")),
+        ]));
     }
     // "Great Buddha of Thailand / Big Lobster height": the property may come last
     let moved;

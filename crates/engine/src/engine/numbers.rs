@@ -629,7 +629,95 @@ pub fn handle(q: &Query) -> Option<Answer> {
     }
     let l = q.clean.trim().trim_end_matches(['?', '.']).to_lowercase();
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
+    if let Some(a) = express_pi_e(&l) {
+        return Some(a);
+    }
     base_literals(&l).or_else(|| conversions(&l)).or_else(|| figurates(&l)).or_else(|| mayan(&l))
+}
+
+/// "express 4.8675 through pi and e": small closed forms in π and e that
+/// agree with the decimal, ranked by error.
+fn express_pi_e(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:express|write|represent|approximate) (-?\d+\.\d+|-?\d+) (?:through|in terms of|using|with|by|via) (?:pi|π) and e$").captures(l)?;
+    let x: f64 = m[1].parse().ok()?;
+    let decimals = m[1].split('.').nth(1).map_or(0, |d| d.len()) as i32;
+    let tol = 0.5 * 10f64.powi(-decimals);
+    let (pi, e) = (std::f64::consts::PI, std::f64::consts::E);
+    let pow = |s: &str, k: i32| if k == 1 { s.to_string() } else { format!("{s}^{k}") };
+    let mut c: Vec<(f64, i32, String, f64)> = Vec::new();
+    // k π^a e^b with k = p/q
+    for a in -3i32..=3 {
+        for b in -3i32..=3 {
+            let base = pi.powi(a) * e.powi(b);
+            for q in 1i64..=12 {
+                let p = (x * q as f64 / base).round() as i64;
+                if p < 1 || p > 200 || num_integer::gcd(p, q) != 1 {
+                    continue;
+                }
+                let v = p as f64 / q as f64 * base;
+                let mut top: Vec<String> = Vec::new();
+                let mut bot: Vec<String> = Vec::new();
+                if p != 1 || (a <= 0 && b <= 0) {
+                    top.push(p.to_string());
+                }
+                if q != 1 {
+                    bot.push(q.to_string());
+                }
+                if a > 0 { top.push(pow("π", a)) } else if a < 0 { bot.push(pow("π", -a)) }
+                if b > 0 { top.push(pow("e", b)) } else if b < 0 { bot.push(pow("e", -b)) }
+                let t = top.join(" ");
+                let s = match bot.len() {
+                    0 => t,
+                    1 => format!("{t}/{}", bot[0]),
+                    _ => format!("{t}/({})", bot.join(" ")),
+                };
+                c.push(((v - x).abs(), a.abs() + b.abs() + (p.to_string().len() + q.to_string().len()) as i32, s, v));
+            }
+        }
+    }
+    // (a π + b e + k)/q
+    for a in -6i64..=6 {
+        for b in -6i64..=6 {
+            if a == 0 && b == 0 {
+                continue;
+            }
+            for q in 1i64..=6 {
+                let k = (x * q as f64 - a as f64 * pi - b as f64 * e).round() as i64;
+                if k.abs() > 20 || num_integer::gcd(num_integer::gcd(a.abs(), b.abs()), num_integer::gcd(k.abs(), q)) != 1 {
+                    continue;
+                }
+                let v = (a as f64 * pi + b as f64 * e + k as f64) / q as f64;
+                let mut s = String::new();
+                for (coef, sym) in [(a, "π"), (b, "e"), (k, "")] {
+                    if coef == 0 {
+                        continue;
+                    }
+                    let mag = if coef.abs() == 1 && !sym.is_empty() { sym.to_string() } else { format!("{}{sym}", coef.abs()) };
+                    if s.is_empty() {
+                        s = if coef < 0 { format!("-{mag}") } else { mag };
+                    } else {
+                        s = format!("{s} {} {mag}", if coef < 0 { "-" } else { "+" });
+                    }
+                }
+                if q != 1 {
+                    s = format!("({s})/{q}");
+                }
+                c.push(((v - x).abs(), (a.abs() + b.abs() + k.abs() / 4 + q) as i32, s, v));
+            }
+        }
+    }
+    c.sort_by(|p, r| p.0.total_cmp(&r.0).then(p.1.cmp(&r.1)));
+    c.dedup_by(|p, r| (p.3 - r.3).abs() < 1e-12);
+    let best: Vec<_> = c.into_iter().take(6).collect();
+    let fmt = |v: f64| format!("{:.10}", v).trim_end_matches('0').to_string();
+    let exact = best[0].0 < tol;
+    let rows = best.iter().map(|(err, _, s, v)| vec![text(s.clone()), text(fmt(*v)), text(format!("{:.2e}", err))]).collect();
+    Some(Answer::new("closed forms", vec![
+        pod("Input", "Input interpretation", text(format!("express {} in terms of π and e", &m[1]))),
+        primary(pod("Result", "Possible closed form", text(format!("{} ≈ {}", best[0].2, fmt(best[0].3))))),
+        pod("Table", "Candidates", table(Some(vec!["form", "value", "|error|"]), rows)),
+        pod("Note", "Note", text(if exact { format!("the best form agrees with {} to the {decimals} decimals given", &m[1]) } else { format!("no form searched (k π^a e^b with |a|, |b| ≤ 3, and (a π + b e + k)/q) matches all {decimals} decimals; these are the closest") })),
+    ]))
 }
 
 #[cfg(test)]

@@ -1884,3 +1884,17 @@ fn heun_d_hyperbolic_limsup_and_instruments() {
     assert!(short("quantum physical systems").contains("driven harmonic oscillator"));
     assert!(short("copper alloy").contains("brass"));
 }
+
+#[test]
+fn storms_reactors_pathways_and_roads() {
+    assert!(short("Hurricane Andrew, hurricane hugo duration").contains("12 days"));
+    assert_eq!(short("When did Typhoon Angela start?"), "October 25, 1995");
+    assert!(short("Hurricane Katrina max wind speed").starts_with("175 mph"));
+    assert_eq!(short("Pickering-4 reactor location"), "Pickering, Ontario, Canada");
+    assert!(short("nuclear reactors in Minnesota").contains("Prairie Island"));
+    assert!(short("Will County, Illinois nuclear reactors").contains("Braidwood"));
+    assert!(short("optic radiation").contains("visual"));
+    assert!(short("express 4.8675 through pi and e").contains("π"));
+    assert!(short("length of US1").starts_with("3813 km"));
+    assert!(short("cone").contains("volume"));
+}
