@@ -65,7 +65,12 @@ static METALS: &[Metal] = &[
     m(&["aluminum 6061-t6", "6061 aluminum", "aluminum 6061", "6061-t6", "6061"], 2.70, 167.0, 896.0, 617.0, 68.9, 310.0, 276.0, 3.99e-8, 23.6, X, "the most common structural aluminium alloy"),
     m(&["iron"], 7.874, 80.4, 449.0, 1538.0, 211.0, 350.0, 130.0, 9.71e-8, 11.8, 4.0, "pure iron, annealed"),
     m(&["carbon steel", "mild steel", "steel", "1020 steel", "aisi 1020", "low carbon steel"], 7.87, 51.9, 486.0, 1515.0, 200.0, 420.0, 350.0, 1.59e-7, 11.7, X, "AISI 1020, cold drawn"),
-    m(&["stainless steel", "304 stainless steel", "stainless steel 304", "304 stainless", "18-8 stainless steel"], 8.00, 16.2, 500.0, 1425.0, 193.0, 505.0, 215.0, 7.2e-7, 17.3, X, "AISI 304, annealed"),
+    m(&["1018 steel", "aisi 1018", "aisi 1018 steel", "sae 1018", "uns g10180", "1018 carbon steel", "c1018"], 7.87, 51.9, 486.0, X, 205.0, 440.0, 370.0, 1.59e-7, 11.5, X, "AISI 1018, cold drawn"),
+    m(&["1050 steel", "aisi 1050", "aisi 1050 steel", "sae 1050", "uns g10500"], 7.85, 49.8, 486.0, X, 205.0, 620.0, 340.0, 1.6e-7, 11.0, X, "AISI 1050, hot rolled; a medium-carbon steel"),
+    m(&["1080 steel", "aisi 1080", "aisi 1080 steel", "sae 1080", "uns g10800"], 7.85, 47.8, 486.0, X, 205.0, X, X, 1.8e-7, 11.0, X, "AISI 1080, a high-carbon (eutectoid) steel; strength depends strongly on heat treatment"),
+    m(&["aluminum 2024-t3", "2024 aluminum", "aluminum 2024", "2024 aluminium", "aluminium 2024", "2024-t3", "aa 2024", "aa2024", "uns a92024", "al 2024"], 2.78, 121.0, 875.0, 638.0, 73.1, 483.0, 345.0, 5.82e-8, 23.2, X, "2024-T3, an aircraft alloy (Al–Cu–Mg); melting range 502–638 °C"),
+    m(&["316 stainless steel", "stainless steel 316", "316 stainless", "aisi 316", "uns s31600"], 8.00, 16.3, 500.0, 1400.0, 193.0, 515.0, 205.0, 7.4e-7, 16.0, X, "AISI 316, annealed; molybdenum improves corrosion resistance"),
+    m(&["stainless steel", "304 stainless steel", "stainless steel 304", "304 stainless", "18-8 stainless steel", "aisi 304", "uns s30400"], 8.00, 16.2, 500.0, 1425.0, 193.0, 505.0, 215.0, 7.2e-7, 17.3, X, "AISI 304, annealed"),
     m(&["cast iron", "gray cast iron", "grey cast iron"], 7.15, 52.0, 460.0, 1175.0, 110.0, 200.0, X, 1.0e-6, 10.8, X, "gray iron, ASTM class 30"),
     m(&["brass", "cartridge brass", "c260 brass"], 8.53, 120.0, 375.0, 930.0, 110.0, 315.0, 105.0, 6.2e-8, 20.0, 3.0, "C260 cartridge brass (70/30), annealed"),
     m(&["bronze", "phosphor bronze"], 8.86, 69.0, 380.0, 1000.0, 110.0, 340.0, 140.0, 1.15e-7, 17.8, 3.0, "C510 phosphor bronze, annealed"),
@@ -82,6 +87,12 @@ static METALS: &[Metal] = &[
     m(&["platinum"], 21.45, 71.6, 133.0, 1768.3, 168.0, 165.0, X, 1.06e-7, 8.8, 3.5, "annealed"),
     m(&["chromium"], 7.19, 93.9, 449.0, 1907.0, 279.0, 282.0, X, 1.25e-7, 4.9, 8.5, ""),
     m(&["invar"], 8.05, 10.15, 515.0, 1427.0, 141.0, 517.0, 276.0, 8.2e-7, 1.2, X, "Fe–36 % Ni; nearly zero thermal expansion"),
+];
+
+/// Shear modulus (modulus of rigidity), GPa, by a metal's first name.
+const SHEAR_MODULUS: &[(&str, f64)] = &[
+    ("copper", 48.0), ("aluminum", 26.0), ("aluminum 6061-t6", 26.0), ("aluminum 2024-t3", 28.0), ("iron", 82.0), ("carbon steel", 80.0), ("1018 steel", 80.0), ("1050 steel", 80.0), ("1080 steel", 80.0),
+    ("stainless steel", 77.0), ("316 stainless steel", 82.0), ("brass", 40.0), ("titanium", 45.0), ("ti-6al-4v", 44.0), ("gold", 27.0), ("silver", 30.0), ("lead", 5.6), ("nickel", 76.0), ("tungsten", 161.0), ("magnesium", 17.0), ("platinum", 61.0),
 ];
 
 /// Clear wood at 12 % moisture content.
@@ -161,6 +172,9 @@ fn metal_rows(x: &Metal) -> Vec<(&'static str, String)> {
     add("specific heat", x.heat, &|v| format!("{} J/(kg K)", n(v)));
     add("melting point", x.melting, &|v| format!("{} °C", n(v)));
     add("Young's modulus", x.modulus, &|v| format!("{} GPa", n(v)));
+    if let Some(g) = SHEAR_MODULUS.iter().find(|g| g.0 == x.names[0]) {
+        add("shear modulus", g.1, &|v| format!("{} GPa", n(v)));
+    }
     add("tensile strength", x.tensile, &|v| format!("{} MPa", n(v)));
     add("yield strength", x.yield_, &|v| format!("{} MPa", n(v)));
     add("electrical resistivity", x.resistivity, &|v| format!("{} Ω m", fmt_float(v, 3)));
@@ -193,6 +207,7 @@ fn prop_key(p: &str) -> Option<&'static str> {
         "specific heat" | "specific heat capacity" | "heat capacity" => "specific heat",
         "melting point" | "melting temperature" => "melting point",
         "young's modulus" | "young’s modulus" | "youngs modulus" | "elastic modulus" | "modulus of elasticity" | "stiffness" => "Young's modulus",
+        "shear modulus" | "modulus of rigidity" | "rigidity modulus" => "shear modulus",
         "tensile strength" | "ultimate tensile strength" | "strength" => "tensile strength",
         "yield strength" | "yield stress" => "yield strength",
         "resistivity" | "electrical resistivity" => "electrical resistivity",

@@ -219,7 +219,7 @@ fn eclipses(l: &str) -> Option<Answer> {
         let e = list.first()?.clone();
         return Some(eclipse_answer(&e, &format!("next {}{}eclipse", kind.map(|k| k + " ").unwrap_or_default(), match solar { Some(true) => "solar ", Some(false) => "lunar ", None => "" }), list));
     }
-    if let Some(m) = re!(r"^(?:the\s+)?(lunar|solar)?\s*eclipses\s+(?:in|of|during)\s+(\d{4})$").captures(l) {
+    if let Some(m) = re!(r"^(?:the\s+)?(lunar|solar)?\s*eclipses?\s+(?:(?:in|of|during)\s+)?(\d{4})$").captures(l) {
         let y: i32 = m[2].parse().ok()?;
         let solar = m.get(1).map(|s| s.as_str() == "solar");
         let start = jd_of(NaiveDate::from_ymd_opt(y, 1, 1)?);
@@ -1243,11 +1243,15 @@ fn position_at(l: &str) -> Option<Answer> {
     // "NGC 5906 at 7:00pm on Jan 12, 1988": move the date in front of the time
     let swapped = re!(r"^(.+?) (at \d{1,2}(?::\d{2})? ?(?:am|pm)?) on (.+?)((?: (?:from|in|over) .+)?)$").replace(l, "$1 on $3 $2$4").to_string();
     let l = swapped.as_str();
+    // "current location of Ursa Minor", "where is Vega now"
+    let current = re!(r"^(?:the )?(?:current|present) (?:location|position) of |^where is .+ (?:right )?now$| (?:right )?now$").is_match(l);
+    let trimmed = re!(r" (?:right )?now$").replace(&re!(r"^(?:the )?(?:current|present) (?:location|position) of ").replace(l, "position of "), "").to_string();
+    let l = trimmed.as_str();
     let m = re!(r"^(?:where (?:is|will) |position of |altitude of |where's )?(?:the )?(.+?)(?: (?:on|for) (.+?))?(?: (?:at )?(\d{1,2}(?::\d{2})? ?(?:am|pm|a\.m\.|p\.m\.)?|midnight|noon))?( tonight| today| this evening)?(?: be)?(?: (?:from|in|over|as seen from) (.+))?$").captures(l)?;
     let time_s = m.get(3).map(|x| x.as_str().trim());
     let tonight = m.get(4).is_some();
     // a clock time, or "tonight", must be given; a bare number alone is not a time
-    if time_s.is_none() && !tonight {
+    if time_s.is_none() && !tonight && !current {
         return None;
     }
     if let Some(t) = time_s {
@@ -1255,7 +1259,13 @@ fn position_at(l: &str) -> Option<Answer> {
             return None;
         }
     }
-    let s = find_star(m[1].trim())?;
+    // a catalogued star or object, or a constellation's centre
+    let target = m[1].trim();
+    let cons = CONSTELLATIONS.iter().find(|c| c.0 == target);
+    let s: &Star = match cons {
+        Some(_) => &STARS[0],
+        None => find_star(target)?,
+    };
     let (place, lat, lon, tz, assumed) = match m.get(5) {
         Some(p) => {
             let (n, la, lo, tz) = sky_place(p.as_str().trim())?;
@@ -1273,6 +1283,7 @@ fn position_at(l: &str) -> Option<Answer> {
         None => today,
     };
     let time = match time_s {
+        None if current => Utc::now().with_timezone(&tz).time(),
         None => NaiveTime::from_hms_opt(21, 0, 0)?,
         Some("midnight") => NaiveTime::from_hms_opt(0, 0, 0)?,
         Some("noon") => NaiveTime::from_hms_opt(12, 0, 0)?,
@@ -1295,7 +1306,7 @@ fn position_at(l: &str) -> Option<Answer> {
     let utc = local.with_timezone(&Utc);
     let jd = utc.timestamp() as f64 / 86400.0 + 2440587.5;
     let lst = (280.46061837 + 360.98564736629 * (jd - 2451545.0) + lon).rem_euclid(360.0);
-    let (ra, dec) = (ra_deg(s), dec_deg(s));
+    let (ra, dec) = match cons { Some(c) => (c.1 * 15.0, c.2), None => (ra_deg(s), dec_deg(s)) };
     let h = (lst - ra + 540.0).rem_euclid(360.0) - 180.0;
     let alt = (sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(h)).asin().to_degrees();
     let az = (sin(h).atan2(cos(h) * sin(lat) - dec.to_radians().tan() * cos(lat)).to_degrees() + 180.0).rem_euclid(360.0);
@@ -1305,13 +1316,13 @@ fn position_at(l: &str) -> Option<Answer> {
     let transit = local + Duration::seconds((to_transit * 3600.0) as i64);
     let max_alt = 90.0 - (lat - dec).abs();
     let state = if alt > 0.0 { "above the horizon" } else { "below the horizon" };
-    let name = capitalize(s.names[0]);
+    let name = match cons { Some(c) => c.0.split(' ').map(capitalize).collect::<Vec<_>>().join(" "), None => capitalize(s.names[0]) };
     let when = local.format("%A, %B %-d, %Y, %-I:%M %p %Z").to_string();
     let mut r = vec![
         ("altitude", format!("{}° ({state})", fmt_float((alt * 10.0).round() / 10.0, 4))),
         ("azimuth", format!("{}° ({compass})", fmt_float((az * 10.0).round() / 10.0, 4))),
         ("hour angle", format!("{}h ({})", fmt_float((h / 15.0 * 100.0).round() / 100.0, 4), if h < 0.0 { "east of the meridian, rising" } else { "west of the meridian, setting" })),
-        ("right ascension, declination", format!("{}h {}m {}s, {}°", s.ra.0, s.ra.1, s.ra.2, fmt_float((dec * 100.0).round() / 100.0, 5))),
+        ("right ascension, declination", match cons { Some(c) => format!("about {}h, {}° (centre of the constellation)", fmt_float(c.1, 3), fmt_float(c.2, 3)), None => format!("{}h {}m {}s, {}°", s.ra.0, s.ra.1, s.ra.2, fmt_float((dec * 100.0).round() / 100.0, 5)) }),
         ("next transit", format!("{} (altitude {}°)", transit.format("%-I:%M %p"), fmt_float((max_alt * 10.0).round() / 10.0, 4))),
     ];
     r.push(("visibility", if max_alt <= 0.0 { "never rises at this latitude".into() } else if lat.abs() + dec.abs() >= 90.0 && lat * dec > 0.0 { "circumpolar (never sets) at this latitude".into() } else { "rises and sets daily".into() }));

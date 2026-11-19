@@ -86,6 +86,13 @@ const WORKS: &[Work] = &[
     w!(&["nighthawks"], "Nighthawks", true, "Edward Hopper", "1942", "painting", "oil on canvas", "84.1 cm × 152.4 cm", "Art Institute of Chicago, Chicago, United States"),
     w!(&["christina's world", "christinas world"], "Christina's World", true, "Andrew Wyeth", "1948", "painting", "tempera on panel", "81.9 cm × 121.3 cm", "Museum of Modern Art, New York City, United States"),
     w!(&["washington crossing the delaware"], "Washington Crossing the Delaware", true, "Emanuel Leutze", "1851", "painting", "oil on canvas", "378.5 cm × 647.7 cm", "Metropolitan Museum of Art, New York City, United States"),
+    w!(&["marilyn diptych", "warhol's marilyn monroe", "warhols marilyn monroe", "marilyn monroe diptych"], "Marilyn Diptych", true, "Andy Warhol", "1962", "painting (diptych)", "acrylic paint and silkscreen ink on canvas", "205.4 cm × 289.6 cm", "Tate Modern, London, United Kingdom"),
+    w!(&["eight elvises", "8 elvises"], "Eight Elvises", true, "Andy Warhol", "1963", "painting", "silkscreen ink and spray paint on canvas", "", "private collection"),
+    w!(&["the two fridas", "two fridas", "las dos fridas"], "The Two Fridas", true, "Frida Kahlo", "1939", "painting", "oil on canvas", "173.5 cm × 173 cm", "Museo de Arte Moderno, Mexico City, Mexico"),
+    w!(&["the broken column", "broken column", "la columna rota"], "The Broken Column", true, "Frida Kahlo", "1944", "painting", "oil on masonite", "39.8 cm × 30.6 cm", "Museo Dolores Olmedo, Mexico City, Mexico"),
+    w!(&["chicago picasso", "the chicago picasso", "untitled (chicago picasso)"], "The Chicago Picasso", true, "Pablo Picasso", "1967", "sculpture", "Cor-ten steel", "15.2 m high", "Daley Plaza, Chicago, United States"),
+    w!(&["bull's head", "bulls head", "tête de taureau", "tete de taureau"], "Bull's Head", false, "Pablo Picasso", "1942", "sculpture", "bicycle seat and handlebars", "33.5 cm × 43.5 cm × 19 cm", "Musée Picasso, Paris, France"),
+    w!(&["guitar (picasso)", "picasso guitar"], "Guitar", false, "Pablo Picasso", "1914", "sculpture", "sheet metal and wire", "77.5 cm × 35 cm × 19.3 cm", "Museum of Modern Art, New York City, United States"),
     w!(&["campbell's soup cans", "campbells soup cans", "campbell's soup"], "Campbell's Soup Cans", true, "Andy Warhol", "1962", "32 paintings", "synthetic polymer paint on canvas", "51 cm × 41 cm each", "Museum of Modern Art, New York City, United States"),
     w!(&["the great wave off kanagawa", "great wave off kanagawa", "the great wave"], "The Great Wave off Kanagawa", true, "Katsushika Hokusai", "c. 1831", "woodblock print", "ink and colour on paper", "25.7 cm × 37.9 cm", "many impressions; e.g. Metropolitan Museum of Art, British Museum"),
     w!(&["venus de milo", "aphrodite of milos"], "Venus de Milo", true, "attributed to Alexandros of Antioch", "c. 150–125 BC", "sculpture", "Parian marble", "204 cm tall", "Louvre, Paris, France"),
@@ -188,6 +195,43 @@ pub fn handle(q: &Query) -> Option<Answer> {
             primary(pod("Result", "Notable works", text(ws.iter().map(|w| w.title).collect::<Vec<_>>().join(" | ")))),
             pod("Table", "Details", table(Some(vec!["work", "date", "type", "location"]), rows)),
         ]));
+    }
+
+    // "What is the tallest painting by Frida Kahlo?", "largest painting by Picasso"
+    if let Some(m) = re!(r"^(?:what is |what's |which is )?(?:the )?(tallest|largest|biggest|widest|smallest|shortest) (painting|sculpture|work|artwork) (?:by|of) (.+)$").captures(&l) {
+        let sculpt = &m[2] == "sculpture";
+        let dims = |w: &Work| -> Option<(f64, f64)> {
+            let v: Vec<f64> = re!(r"(\d+(?:\.\d+)?) ?(cm|m)\b").captures_iter(w.size).map(|c| c[1].parse::<f64>().unwrap_or(0.0) * if &c[2] == "m" { 100.0 } else { 1.0 }).collect();
+            Some((*v.first()?, *v.get(1).unwrap_or(&v[0])))
+        };
+        let ws: Vec<(&Work, (f64, f64))> = WORKS.iter().filter(|w| by_artist(w, &m[3]) && (w.kind.contains("sculpture") == sculpt || &m[2] == "work" || &m[2] == "artwork")).filter_map(|w| Some((w, dims(w)?))).collect();
+        if ws.len() < 2 {
+            return None;
+        }
+        let key = |d: &(f64, f64)| match &m[1] { "tallest" | "shortest" => d.0, "widest" => d.1, _ => d.0 * d.1 };
+        let small = matches!(&m[1], "smallest" | "shortest");
+        let best = ws.iter().max_by(|a, b| { let o = key(&a.1).partial_cmp(&key(&b.1)).unwrap(); if small { o.reverse() } else { o } })?;
+        let rows = ws.iter().map(|(w, _)| vec![text(w.title), text(w.date), text(w.size)]).collect();
+        return Some(Answer::new(format!("{} {} by {}", &m[1], &m[2], best.0.artist), vec![
+            pod("Input", "Input interpretation", text(format!("{} {} by {}", &m[1], &m[2], best.0.artist))),
+            primary(pod("Result", "Result", text(format!("{} ({}; {})", best.0.title, best.0.date, best.0.size)))),
+            pod("Table", "Works compared", table(Some(vec!["work", "date", "size"]), rows)),
+            pod("Note", "Note", text("among the works in Noesis's list of notable artworks")),
+        ]));
+    }
+
+    // "Warhol's Marilyn Monroe, Campbell's Soup Cans, Eight Elvises"
+    let parts: Vec<&str> = re!(r"\s*,\s*(?:and\s+)?|\s+(?:vs\.?|versus)\s+").split(&l).filter(|p| !p.is_empty()).collect();
+    if parts.len() >= 2 && parts.len() <= 6 {
+        let hits: Option<Vec<&Work>> = parts.iter().map(|p| lookup(p, true).into_iter().next()).collect();
+        if let Some(hits) = hits {
+            let rows = hits.iter().map(|w| vec![text(w.title), text(w.artist), text(w.date), text(w.size), text(w.location)]).collect();
+            return Some(Answer::new("artworks", vec![
+                pod("Input", "Input interpretation", text(hits.iter().map(|w| w.title).collect::<Vec<_>>().join(" | "))),
+                primary(pod("Result", "Artworks", text(hits.iter().map(|w| format!("{}: {}, {}", w.title, w.artist, w.date)).collect::<Vec<_>>().join(" | ")))),
+                pod("Table", "Details", table(Some(vec!["work", "artist", "date", "size", "location"]), rows)),
+            ]));
+        }
     }
 
     // property questions

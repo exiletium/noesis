@@ -227,6 +227,7 @@ const CHARACTER_ALIASES: &[(&str, &str)] = &[
     ("dracula", "count dracula"), ("pooh", "winnie the pooh"), ("pooh bear", "winnie the pooh"),
     ("spongebob", "spongebob squarepants"), ("dumbledore", "albus dumbledore"), ("steve rogers", "captain america"),
     ("tony stark", "iron man"), ("peter parker", "spider man"), ("clark kent", "superman"), ("bruce wayne", "batman"),
+    ("gandalf the grey", "gandalf"), ("gandalf the white", "gandalf"), ("mithrandir", "gandalf"),
 ];
 
 /// Creator lists in the data repeat names ("Tex Avery; Tex Avery").
@@ -830,10 +831,13 @@ fn works_by(l: &str) -> Option<Answer> {
     if who_words.is_empty() {
         return None;
     }
+    // "Ursula K LeGuin" = "Ursula K. Le Guin": initials, spaces and dots aside
+    let squash = |s: &str| s.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| w.chars().count() > 1).collect::<String>();
+    let who_key = squash(&who);
     let matches = |names: &str| {
         names.split("; ").any(|n| {
             let n = n.to_lowercase();
-            n == who || (who_words.len() == 1 && n.split_whitespace().last() == Some(who.as_str())) || (who_words.len() > 1 && n.contains(&who))
+            n == who || (who_words.len() == 1 && n.split_whitespace().last() == Some(who.as_str())) || (who_words.len() > 1 && (n.contains(&who) || (who_key.len() > 6 && squash(&n) == who_key)))
         })
     };
     let mut seen = std::collections::HashSet::new();

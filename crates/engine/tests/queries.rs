@@ -1854,3 +1854,19 @@ fn colour_mixes_formulas_benzene_names_and_visible_sky() {
     assert!(!short("stars visible tonight").is_empty());
     assert!(short("Mount Rushmore").contains("1941") || pod_text(&q("Mount Rushmore"), "Input").contains("Rushmore"));
 }
+
+#[test]
+fn exoplanets_alloys_artworks_and_constellation_positions() {
+    assert!(short("books by Ursula K LeGuin").contains("Earthsea"));
+    assert!(short("What is the tallest painting by Frida Kahlo?").starts_with("The Two Fridas"));
+    assert!(short("Warhol's Marilyn Monroe, Campbell's Soup Cans, Eight Elvises").contains("Eight Elvises"));
+    assert!(short("Where did Achilles die?").contains("Troy"));
+    assert!(short("lunar eclipse 1966").contains("May 4, 1966"));
+    assert!(short("current location of Ursa Minor").contains("altitude"));
+    assert!(short("mass Iota Draconis b / Jupiter").starts_with("16.4"));
+    assert!(short("how was CoRoT-1b discovered?").starts_with("transit"));
+    assert!(short("55 Cancri d, 55 Cancri e, 55 Cancri f").contains("55 Cancri e"));
+    assert!(short("shear modulus of 1018 steel vs. AA 2024").contains("80 GPa"));
+    assert!(short("RHIC, LHC").contains("Large Hadron Collider"));
+    assert_eq!(short("2024"), "2024");
+}

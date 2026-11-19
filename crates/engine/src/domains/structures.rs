@@ -148,6 +148,14 @@ Disneyland Paris;disneyland park paris|theme park|Marne-la-Vallée|France|1992|a
 Mponeng Gold Mine;mponeng|mine|Gauteng|South Africa|1986|depth=4000|the deepest mine in the world
 TauTona Mine;tautona|mine|Gauteng|South Africa|1962|depth=3900|
 Kidd Mine|mine|Timmins, Ontario|Canada|1966|depth=2900|the deepest base-metal mine in the world
+Three Mile Island;three mile island nuclear generating station;tmi|nuclear power plant|Londonderry Township, Pennsylvania|United States|1974|power=819|two pressurized-water reactors; Unit 2 partly melted down on March 28, 1979, the worst US commercial nuclear accident; Unit 1 shut down in 2019 (power is Unit 1's net output)
+Diablo Canyon Power Plant;diablo canyon;diablo canyon nuclear power plant|nuclear power plant|Avila Beach, California|United States|1985|power=2256|two Westinghouse pressurized-water reactors of about 1,100 MW each (Unit 2 entered service in 1986); California's last nuclear plant
+Angra 1;angra-1;angra-1 reactor;angra 1 reactor|nuclear power plant|Angra dos Reis, Rio de Janeiro|Brazil|1985|power=640|a Westinghouse pressurized-water reactor, Brazil's first nuclear power unit
+La Crosse Boiling Water Reactor;lacrosse reactor;la crosse reactor;lacbwr|nuclear power plant|Genoa, Wisconsin|United States|1969|power=50|a small boiling-water reactor that ran from 1969 to 1987
+Large Hadron Collider;lhc|particle accelerator|CERN, near Geneva|Switzerland and France|2008|length=26659|the world's largest and most powerful collider: protons at 6.8 TeV per beam, 100 m underground; found the Higgs boson in 2012
+Relativistic Heavy Ion Collider;rhic|particle accelerator|Brookhaven National Laboratory, Upton, New York|United States|2000|length=3834|collides gold ions at up to 100 GeV per nucleon and polarized protons at up to 255 GeV; made the quark–gluon plasma
+Stanford Linear Collider;slc|particle accelerator|SLAC, Menlo Park, California|United States|1989|length=3200|electron–positron collisions at about 91 GeV (the Z boson) from 1989 to 1998, using the 3.2 km SLAC linear accelerator
+Tevatron|particle accelerator|Fermilab, Batavia, Illinois|United States|1983|length=6280|proton–antiproton collider at 0.98 TeV per beam; found the top quark in 1995; closed in 2011
 Mount Rushmore;mount rushmore national memorial|memorial|Keystone, South Dakota|United States|1941|height=18|the heads of Washington, Jefferson, Theodore Roosevelt and Lincoln, each about 18 m (60 ft) tall, carved 1927–1941 under Gutzon and Lincoln Borglum
 The Motherland Calls;motherland calls;rodina-mat zovyot|statue|Mamayev Kurgan, Volgograd|Russia|1967|height=85|commemorates the Battle of Stalingrad; 85 m to the tip of the sword
 Great Buddha of Thailand;the great buddha of thailand;big buddha of thailand|statue|Wat Muang, Ang Thong Province|Thailand|2008|height=92|a seated Buddha painted gold, the tallest statue in Thailand
