@@ -487,6 +487,10 @@ fn same_dim(a: &Dim, b: &Dim) -> bool {
 }
 
 fn solve_formula(f: &Formula, text: &str) -> Solved {
+    // "2 in by 6 in by 10 ft": a list of dimensions
+    let listed = re!(r"(\d(?:\.\d+)?\s*[A-Za-z\x22']*)\s+(?:by|x|×)\s+(\d)").replace_all(text, "$1, $2").to_string();
+    let listed = re!(r"(\d(?:\.\d+)?\s*[A-Za-z\x22']*)\s+(?:by|x|×)\s+(\d)").replace_all(&listed, "$1, $2").to_string();
+    let text = listed.as_str();
     let lower = text.to_lowercase();
     let mut values: HashMap<String, f64> = HashMap::new();
     let mut given: Vec<(usize, String)> = Vec::new();

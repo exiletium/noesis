@@ -129,6 +129,7 @@ static UNITS: &[UnitDef] = &[
     u!(&["bu", "bushel", "bushels"], 0.03523907016688, VOL, "US bushels"),
     u!(&["pk", "peck", "pecks"], 0.00880976754172, VOL, "US pecks"),
     u!(&["cc", "ccs"], 1e-6, VOL, "cubic centimeters"),
+    u!(&["board foot", "board feet", "board-foot", "board-feet", "fbm"], 0.002_359_737_216, VOL, "board feet"),
     u!(&["imperial gallon", "imperial gallons", "uk gallon", "uk gallons"], 4.54609e-3, VOL, "imperial gallons"),
     u!(&["imperial pint", "imperial pints", "uk pint", "uk pints"], 5.6826125e-4, VOL, "imperial pints"),
     u!(&["acre foot", "acre feet", "acre-foot", "acre-feet"], 1233.48183754752, VOL, "acre-feet"),

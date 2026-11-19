@@ -1111,3 +1111,21 @@ var At; horizontal (top) area of the body; m^2; top area; 0.1
 var Af; vertical (front) area of the body; m^2; front area; 0.7
 var vt; falling speed of the raindrops; m/s; drop speed, fall speed, terminal velocity; 6
 note Vertical rain and no wind: the top of the body catches rain for the time d/v, and the front sweeps through the rain filling the air (R/vt per unit volume) over the distance d, whatever the speed. Moving faster only cuts the first term, so running helps, but not by much.
+
+== board feet | lumber volume | board footage | board foot calculator | volume of lumber in board feet
+eq V = T*W*L
+var V; lumber volume; board feet; volume, board feet, board footage
+var T; thickness; in; thickness; 2
+var W; width; in; width; 4
+var L; length; ft; length; 8
+note One board foot is 1 in × 12 in × 1 ft = 144 cubic inches. Lumber is sold by nominal size, so a nominal 2×4 counts as 2 in × 4 in even though it measures 1.5 in × 3.5 in.
+
+== altitude of a rainbow | rainbow altitude | height of a rainbow in the sky | how high is a rainbow | elevation of a rainbow
+eq a = R - hs
+eq a2 = R2 - hs
+var a; altitude of the top of the primary bow; deg; altitude, top altitude, height, elevation
+var a2; altitude of the top of the secondary bow; deg; secondary altitude
+var hs; altitude of the Sun; deg; sun altitude, solar altitude, sun elevation, sun angle; 20
+var R; angular radius of the primary bow (red edge); deg; primary radius; 42
+var R2; angular radius of the secondary bow (red edge); deg; secondary radius; 51
+note A rainbow is a circle centred on the antisolar point, which lies as far below the horizon as the Sun is above it; a primary bow is visible from the ground only while the Sun is lower than about 42°.

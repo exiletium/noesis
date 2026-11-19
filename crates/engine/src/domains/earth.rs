@@ -156,6 +156,48 @@ fn latitude_line(l: &str) -> Option<Answer> {
     Some(Answer::new("latitude", vec![input(format!("latitude {}° {}", n(lat), if &m[2] == "north" { "N" } else { "S" })), primary(pod("Result", "Parallel", rows(r)))]))
 }
 
+/// Normal gravity on the WGS 84 ellipsoid (Somigliana's formula) with the
+/// second-order free-air correction for height: "geogravity 21.28N 157.60W",
+/// "gravity in Denver", "acceleration due to gravity at 45N 0E at 3000 m".
+fn gravity_at(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:geogravity|(?:what is )?(?:the )?(?:local |normal |theoretical )?(?:gravity|gravitational acceleration|acceleration (?:due to|of) gravity|value of g|g)\s+(?:at|in|for|of))\s+(.+?)(?:\s+(?:at|elevation|altitude|height)\s+(\d+(?:\.\d+)?)\s*(m|meters|metres|km|ft|feet))?$").captures(l)?;
+    let place = m[1].trim();
+    let (lat, lon, name) = match position(place) {
+        Some((a, b)) => (a, b, format!("{}, {}", dms(a, 'N', 'S'), dms(b, 'E', 'W'))),
+        None => {
+            let c = find_city(place).filter(|c| c.population >= 100_000 || place.contains(','))?;
+            (c.lat, c.lon, c.name.clone())
+        }
+    };
+    let h: f64 = match m.get(2) {
+        Some(v) => v.as_str().parse::<f64>().ok()? * match &m[3] {
+            "km" => 1000.0,
+            "ft" | "feet" => 0.3048,
+            _ => 1.0,
+        },
+        None => 0.0,
+    };
+    let s2 = lat.to_radians().sin().powi(2);
+    let g0 = 9.780_325_335_9 * (1.0 + 0.001_931_852_652_41 * s2) / (1.0 - 0.006_694_379_990_13 * s2).sqrt();
+    let (a, f, mm) = (6_378_137.0, 1.0 / 298.257_223_563, 0.003_449_786_506_84);
+    let gh = g0 * (1.0 - 2.0 / a * (1.0 + f + mm - 2.0 * f * s2) * h + 3.0 * h * h / (a * a));
+    let mut r = vec![
+        ("normal gravity at sea level", format!("{} m/s²  ({} mGal)", fmt_float(g0, 8), n((g0 * 1e5).round()))),
+    ];
+    if h != 0.0 {
+        r.push(("at the given height", format!("{} m/s²  ({} m above the ellipsoid)", fmt_float(gh, 8), n(h))));
+    }
+    r.push(("relative to standard gravity 9.80665 m/s²", format!("{}%", fmt_float((gh / 9.80665 - 1.0) * 100.0, 4))));
+    r.push(("weight of a 70 kg person", format!("{} N", fmt_float(70.0 * gh, 5))));
+    Some(Answer::new("gravity", vec![
+        input(format!("gravitational acceleration at {name}{}", if h != 0.0 { format!(", height {} m", n(h)) } else { String::new() })),
+        primary(pod("Result", "Normal gravity", text(format!("{} m/s²", fmt_float(gh, 6))))),
+        pod("Details", "Details", rows(r)),
+        pod("Location", "Location", text(format!("{}, {}", dms(lat, 'N', 'S'), dms(lon, 'E', 'W')))),
+        pod("Note", "Model", text("WGS 84 ellipsoid (Somigliana's closed formula) with the second-order free-air correction; local gravity anomalies of up to a few hundred mGal from terrain and density are not included")),
+    ]))
+}
+
 fn routes(l: &str) -> Option<Answer> {
     let l = l.trim_start_matches("distance from ").trim_start_matches("route from ").trim_start_matches("flight from ");
     let parts: Vec<&str> = l.split(" to ").map(|s| s.trim()).collect();
@@ -163,7 +205,12 @@ fn routes(l: &str) -> Option<Answer> {
         return None;
     }
     // bare words like "salt" or "nice" are towns too: insist on sizeable places
-    let cs: Option<Vec<&City>> = parts.iter().map(|p| find_city(p).filter(|c| c.population >= 200_000 || p.contains(','))).collect();
+    // a country stands for its capital ("La Paz to Panama")
+    let capital = |p: &str| -> Option<&'static City> {
+        let c = super::geo::find_country(p)?;
+        super::geo::cities().iter().filter(|x| x.country == c.iso2 && x.capital).max_by_key(|x| x.population)
+    };
+    let cs: Option<Vec<&City>> = parts.iter().map(|p| find_city(p).filter(|c| c.population >= 200_000 || p.contains(',')).or_else(|| capital(p))).collect();
     let cs = cs?;
     let mut legs = Vec::new();
     let mut total = 0.0;
@@ -735,6 +782,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         .or_else(|| functional_groups(l))
         .or_else(|| cosmic_origins(l))
         .or_else(|| latitude_line(l))
+        .or_else(|| gravity_at(l))
         .or_else(|| coordinates(l))
         .or_else(|| routes(l))
 }

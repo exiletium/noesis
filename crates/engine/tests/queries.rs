@@ -1747,3 +1747,13 @@ fn planet_rise_times_default_location_and_blocks() {
     assert!(short("d-block elements").starts_with("Scandium"));
     assert!(pod_text(&q("s block ions"), "Result").contains("Magnesium"));
 }
+
+#[test]
+fn normal_gravity_routes_via_countries_and_lumber() {
+    assert_eq!(short("geogravity 21.28N 157.60W"), "9.78713 m/s²");
+    assert_eq!(short("acceleration due to gravity at 45N 0E at 3000 m"), "9.79695 m/s²");
+    assert!(short("Buenos Aires to Sao Paulo to La Paz to Panama").starts_with("7150.8 km"));
+    assert_eq!(short("lumber volume"), "5.33333 board feet");
+    assert_eq!(short("board feet 2 in by 6 in by 10 ft"), "10 board feet");
+    assert_eq!(short("altitude of a rainbow"), "22°");
+}
