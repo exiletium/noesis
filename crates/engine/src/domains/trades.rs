@@ -106,6 +106,57 @@ fn inflation(l: &str) -> Option<Answer> {
     ))
 }
 
+/// US federal minimum wage (Fair Labor Standards Act): year it took effect, $/hour.
+const MIN_WAGE: &[(i32, f64)] = &[
+    (1938, 0.25), (1939, 0.30), (1945, 0.40), (1950, 0.75), (1956, 1.00), (1961, 1.15), (1963, 1.25), (1967, 1.40), (1968, 1.60),
+    (1974, 2.00), (1975, 2.10), (1976, 2.30), (1978, 2.65), (1979, 2.90), (1980, 3.10), (1981, 3.35), (1990, 3.80), (1991, 4.25),
+    (1996, 4.75), (1997, 5.15), (2007, 5.85), (2008, 6.55), (2009, 7.25),
+];
+
+fn min_wage_in(y: i32) -> Option<f64> {
+    MIN_WAGE.iter().rev().find(|w| w.0 <= y).map(|w| w.1)
+}
+
+fn min_wage(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:what (?:was|is) )?(?:the )?(?:(?:us|u\.s\.|united states|american|federal|us federal) )*minimum wage(?: history| over time| by year|(?: in| for| of)? (\d{4}))?(?: (adjusted for inflation|inflation[- ]adjusted|in today'?s dollars|in (?:current|real) dollars|in (\d{4}) dollars|real))?$").captures(l)?;
+    let latest = last_cpi_year();
+    let to = m.get(3).and_then(|x| x.as_str().parse::<i32>().ok()).unwrap_or(latest);
+    cpi(to)?;
+    let real = |y: i32, w: f64| cpi(y).map(|c| w * cpi(to).unwrap_or(c) / c);
+    // history plot: nominal and real wage each year
+    let years: Vec<i32> = (1938..=latest).collect();
+    let xs: Vec<f64> = years.iter().map(|y| *y as f64).collect();
+    let nominal: Vec<f64> = years.iter().map(|y| min_wage_in(*y).unwrap_or(f64::NAN)).collect();
+    let realv: Vec<f64> = years.iter().map(|y| min_wage_in(*y).and_then(|w| real(*y, w)).unwrap_or(f64::NAN)).collect();
+    let real_label = format!("{to} dollars");
+    let pl = crate::plot::lines(vec![("nominal", xs.clone(), nominal), (real_label.as_str(), xs, realv.clone())], "year", "$/hour");
+    let hist: Vec<Vec<Content>> = MIN_WAGE.iter().map(|(y, w)| vec![text(y.to_string()), text(money(*w)), text(real(*y, *w).map_or("—".into(), money))]).collect();
+    let peak = years.iter().zip(&realv).filter(|(_, v)| v.is_finite()).max_by(|a, b| a.1.total_cmp(b.1)).map(|(y, v)| (*y, *v))?;
+    let mut pods = Vec::new();
+    if let Some(y) = m.get(1).and_then(|x| x.as_str().parse::<i32>().ok()) {
+        let w = min_wage_in(y)?;
+        let r = real(y, w)?;
+        let adjusted = m.get(2).is_some();
+        pods.push(pod("Input", "Input interpretation", text(format!("US federal minimum wage | {y}{}", if adjusted { format!(" | in {to} dollars") } else { String::new() }))));
+        pods.push(primary(pod("Result", "Result", text(if adjusted { format!("{} per hour ({} per hour in {y} dollars)", money(r), money(w)) } else { format!("{} per hour", money(w)) }))));
+        pods.push(pod("Details", "Details", rows(vec![
+            ("nominal wage", format!("{} per hour", money(w))),
+            ("in today's money", format!("{} per hour in {to} dollars (CPI-U)", money(r))),
+            ("full-time annual (2,080 h)", format!("{} ({} in {to} dollars)", money(w * 2080.0), money(r * 2080.0))),
+            ("current federal minimum", format!("{} per hour (since July 24, 2009)", money(min_wage_in(latest)?))),
+            ("ratio to current", format!("{}× the current minimum in real terms", fmt_float((r / min_wage_in(latest)? * 100.0).round() / 100.0, 4))),
+        ])));
+    } else {
+        pods.push(pod("Input", "Input interpretation", text("US federal minimum wage | history")));
+        pods.push(primary(pod("Result", "Current federal minimum wage", text(format!("{} per hour (since July 24, 2009)", money(min_wage_in(latest)?))))));
+    }
+    pods.push(pod("Plot", &format!("Federal minimum wage, nominal and in {to} dollars"), plot(pl)));
+    pods.push(pod("History", "History", table(Some(vec!["effective", "nominal", format!("in {to} dollars").as_str()]), hist)));
+    pods.push(pod("Peak", "Highest real value", text(format!("{} per hour in {to} dollars ({})", money(peak.1), peak.0))));
+    pods.push(pod("Source", "Note", text(format!("Fair Labor Standards Act rates for covered nonexempt workers; many states set higher minimums. Adjusted with the BLS CPI-U annual averages ({latest} latest)."))));
+    Some(Answer::new("US federal minimum wage", pods))
+}
+
 // ---------------------------------------------------------------------------
 // shoe sizes
 // ---------------------------------------------------------------------------
@@ -469,7 +520,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
-    inflation(l).or_else(|| sea_absorption(l)).or_else(|| sound_absorption(l)).or_else(|| shoe_sizes(l)).or_else(|| bolts(l)).or_else(|| log_rules(l)).or_else(|| psychrometrics(l))
+    inflation(l).or_else(|| min_wage(l)).or_else(|| sea_absorption(l)).or_else(|| sound_absorption(l)).or_else(|| shoe_sizes(l)).or_else(|| bolts(l)).or_else(|| log_rules(l)).or_else(|| psychrometrics(l))
 }
 
 #[cfg(test)]

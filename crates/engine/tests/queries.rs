@@ -1778,3 +1778,14 @@ fn solstice_dates_and_letter_searches() {
     assert!(short("words with qsp").starts_with("qophs"));
     assert!(short("words containing the letters q, s and p").starts_with("qophs"));
 }
+
+#[test]
+fn moire_patterns_stopping_power_and_minimum_wage() {
+    assert!(pod_text(&q("moire pattern at 30 degrees"), "Properties").contains("= 1.932"));
+    assert!(pod_text(&q("moire pattern with a 0.2 spacing shift"), "Properties").contains("= 6"));
+    assert!(pod_text(&q("hexagonal moire pattern"), "Properties").contains("5.737"));
+    assert!(short("stopping power air 0.5MeV electron").starts_with("1.80"));
+    assert!(short("stopping power of water for 10 MeV protons").starts_with("45.9"));
+    assert!(short("minimum wage 1972 adjusted for inflation").contains("$1.60"));
+    assert!(short("federal minimum wage in 1990").starts_with("$3.80"));
+}
