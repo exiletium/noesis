@@ -1091,9 +1091,56 @@ pub fn early(q: &Query) -> Option<Answer> {
     dist_properties(&l)
 }
 
+/// The hyperbolic distribution (α shape, β skewness, δ scale, μ location):
+/// "hyperbolic distribution shape=1 skewness=0 scale=1 location=0".
+fn hyperbolic(l: &str) -> Option<Answer> {
+    let rest = re!(r"^(?:the )?hyperbolic distribution\b(.*)$").captures(l)?.get(1)?.as_str().to_string();
+    let kw = |k: &str| -> Option<f64> { Regex::new(&format!(r"(?:{k})\s*=?\s*(-?\d*\.?\d+)")).ok()?.captures(&rest).and_then(|c| c[1].parse().ok()) };
+    let pos: Vec<f64> = re!(r"-?\d*\.?\d+").find_iter(&rest).filter_map(|m| m.as_str().parse().ok()).collect();
+    let (a, b, d, mu) = if rest.contains('=') || rest.contains("shape") {
+        (kw("shape|alpha|α")?, kw("skewness|beta|β").unwrap_or(0.0), kw("scale|delta|δ").unwrap_or(1.0), kw("location|mu|μ").unwrap_or(0.0))
+    } else if pos.len() == 4 {
+        (pos[0], pos[1], pos[2], pos[3])
+    } else {
+        return None;
+    };
+    if !(a > b.abs() && d > 0.0) {
+        return None;
+    }
+    let g = (a * a - b * b).sqrt();
+    let k = |n: f64| crate::special::bessel_k(n, d * g);
+    let (k1, k2, k3) = (k(1.0), k(2.0), k(3.0));
+    let norm = g / (2.0 * a * d * k1);
+    let pdf = |x: f64| norm * (-a * (d * d + (x - mu).powi(2)).sqrt() + b * (x - mu)).exp();
+    let mean = mu + d * b * k2 / (g * k1);
+    let var = d * k2 / (g * k1) + b * b * d * d / (g * g) * (k3 / k1 - k2 * k2 / (k1 * k1));
+    let mode = mu + d * b / g;
+    let sd = var.sqrt();
+    let (lo, hi) = (mean - 5.0 * sd, mean + 5.0 * sd);
+    let xs: Vec<f64> = (0..=300).map(|i| lo + (hi - lo) * i as f64 / 300.0).collect();
+    let ys: Vec<f64> = xs.iter().map(|&x| pdf(x)).collect();
+    let f = |v: f64| num6(if v.abs() < 1e-14 { 0.0 } else { v });
+    Some(Answer::new("hyperbolic distribution", vec![
+        input(format!("hyperbolic distribution | shape α = {}, skewness β = {}, scale δ = {}, location μ = {}", f(a), f(b), f(d), f(mu))),
+        primary(pod("PDF", "Probability density function", text(format!("f(x) = √(α² − β²) / (2 α δ K₁(δ √(α² − β²))) · exp(−α √(δ² + (x − μ)²) + β (x − μ)); here normalisation {}", f(norm))))),
+        pod("Moments", "Properties", table(None, vec![
+            vec![text("mean"), text(f(mean))],
+            vec![text("mode"), text(f(mode))],
+            vec![text("variance"), text(f(var))],
+            vec![text("standard deviation"), text(f(sd))],
+            vec![text("density at the mode"), text(f(pdf(mode)))],
+        ])),
+        pod("Plot", "Probability density", plot(crate::plot::lines(vec![("f(x)", xs, ys)], "x", "f(x)"))),
+        pod("Note", "Note", text("K₁, K₂, K₃ are modified Bessel functions of the second kind; the mean is μ + δβK₂(δγ)/(γK₁(δγ)) with γ = √(α² − β²)")),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let raw = q.clean.trim().trim_end_matches(['?', '.']);
     let l = re!(r"\s+").replace_all(&raw.to_lowercase(), " ").to_string();
+    if let Some(a) = hyperbolic(&l) {
+        return Some(a);
+    }
     rules(&l)
         .or_else(|| descriptive(&l))
         .or_else(|| birthday(&l))

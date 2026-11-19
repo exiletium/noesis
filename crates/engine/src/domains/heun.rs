@@ -25,6 +25,7 @@ enum Kind {
     C,
     B,
     T,
+    D,
 }
 
 impl Kind {
@@ -34,6 +35,7 @@ impl Kind {
             Kind::C => "HeunC",
             Kind::B => "HeunB",
             Kind::T => "HeunT",
+            Kind::D => "HeunD",
         }
     }
     fn title(self) -> &'static str {
@@ -42,6 +44,7 @@ impl Kind {
             Kind::C => "confluent Heun function",
             Kind::B => "biconfluent Heun function",
             Kind::T => "triconfluent Heun function",
+            Kind::D => "double-confluent Heun function",
         }
     }
     fn params(self) -> &'static [&'static str] {
@@ -56,6 +59,7 @@ impl Kind {
             Kind::C => "z(z − 1) y″ + [γ(z − 1) + δ z + ε z(z − 1)] y′ + (α z − q) y = 0",
             Kind::B => "z y″ + (γ + δ z + ε z²) y′ + (α z − q) y = 0",
             Kind::T => "y″ + (γ + δ z + ε z²) y′ + (α z − q) y = 0",
+            Kind::D => "z² y″ + (γ z² + δ z + ε) y′ + (α z − q) y = 0",
         }
     }
 }
@@ -102,6 +106,7 @@ fn coeffs(kind: Kind, p: &[C], n: usize) -> Option<Vec<C>> {
                 };
             }
         }
+        Kind::D => return None,
         Kind::T => {
             let (q, al, ga, de, ep) = (p[0], p[1], p[2], p[3], p[4]);
             for k in 0..n {
@@ -124,8 +129,45 @@ fn radius(kind: Kind, p: &[C]) -> f64 {
     }
 }
 
+/// HeunD: integrate z² y″ + (γ z² + δ z + ε) y′ + (α z − q) y = 0 from
+/// y(1) = 1, y′(1) = 0 along the straight path to z (classical RK4).
+fn value_d(p: &[C], z: C, deriv: bool) -> Option<C> {
+    let (q, al, ga, de, ep) = (p[0], p[1], p[2], p[3], p[4]);
+    let one = C::new(1.0, 0.0);
+    let d = z - one;
+    // the path must keep clear of the irregular singular point z = 0
+    let t0 = (-(d.re) / d.norm_sqr().max(1e-300)).clamp(0.0, 1.0);
+    if d.norm() > 0.0 && (one + d * t0).norm() < 1e-2 {
+        return None;
+    }
+    let f = |x: C, y: C, yp: C| -> C { -((ga * x * x + de * x + ep) * yp + (al * x - q) * y) / (x * x) };
+    let n = 20000;
+    let h = d / n as f64;
+    let (mut y, mut yp, mut x) = (one, C::new(0.0, 0.0), one);
+    for _ in 0..n {
+        let k1y = yp;
+        let k1p = f(x, y, yp);
+        let k2y = yp + k1p * h * 0.5;
+        let k2p = f(x + h * 0.5, y + k1y * h * 0.5, yp + k1p * h * 0.5);
+        let k3y = yp + k2p * h * 0.5;
+        let k3p = f(x + h * 0.5, y + k2y * h * 0.5, yp + k2p * h * 0.5);
+        let k4y = yp + k3p * h;
+        let k4p = f(x + h, y + k3y * h, yp + k3p * h);
+        y += (k1y + k2y * 2.0 + k3y * 2.0 + k4y) * h / 6.0;
+        yp += (k1p + k2p * 2.0 + k3p * 2.0 + k4p) * h / 6.0;
+        x += h;
+        if !(y.re.is_finite() && y.im.is_finite() && yp.re.is_finite() && yp.im.is_finite()) {
+            return None;
+        }
+    }
+    Some(if deriv { yp } else { y })
+}
+
 /// The function (or its derivative) at z, summing the series.
 fn value(kind: Kind, p: &[C], z: C, deriv: bool) -> Option<C> {
+    if kind == Kind::D {
+        return value_d(p, z, deriv);
+    }
     if z.norm() >= radius(kind, p) * 0.98 {
         return None;
     }
@@ -211,13 +253,15 @@ pub fn handle(q: &Query) -> Option<Answer> {
     if !l.contains("heun") {
         return None;
     }
-    let m = re!(r"^(?:(evaluate|compute|calculate|find|plot|graph|series|series expansion of|taylor series of|power series of)\s+)?(?:the\s+)?(general heun function|confluent heun function|biconfluent heun function|triconfluent heun function|heun ?function|heun([gcbt]))\s*(prime|'|derivative|′)?\s*(?:of\s+)?[\[(]\s*([^\[\]()]+?)\s*[\])]\s*(?:(series|plot|derivative))?$").captures(&l)?;
+    let m = re!(r"^(?:(evaluate|compute|calculate|find|plot|graph|series|series expansion of|taylor series of|power series of)\s+)?(?:the\s+)?(general heun function|confluent heun function|biconfluent heun function|triconfluent heun function|double[- ]confluent heun function|heun ?function|heun([gcbtd]))\s*(prime|'|derivative|′)?\s*(?:of\s+)?[\[(]\s*([^\[\]()]+?)\s*[\])]\s*(?:(series|plot|derivative))?$").captures(&l)?;
     let mode = m.get(1).map(|x| x.as_str()).or(m.get(6).map(|x| x.as_str())).unwrap_or("");
     let kind = match (m.get(3).map(|x| x.as_str()), m.get(2).map_or("", |x| x.as_str())) {
         (Some("g"), _) => Kind::G,
         (Some("c"), _) => Kind::C,
         (Some("b"), _) => Kind::B,
         (Some("t"), _) => Kind::T,
+        (Some("d"), _) => Kind::D,
+        (_, n) if n.starts_with("double") => Kind::D,
         (_, n) if n.starts_with("confluent") => Kind::C,
         (_, n) if n.starts_with("biconfluent") => Kind::B,
         (_, n) if n.starts_with("triconfluent") => Kind::T,
@@ -299,6 +343,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
         _ => return None,
     }
-    pods.push(pod("Equation", "Differential equation", text(format!("{} (y(0) = 1{})", kind.equation(), if kind == Kind::T { ", y′(0) = 0" } else { "" }))));
+    let init = match kind { Kind::T => "y(0) = 1, y′(0) = 0", Kind::D => "y(1) = 1, y′(1) = 0", _ => "y(0) = 1" };
+    pods.push(pod("Equation", "Differential equation", text(format!("{} ({init})", kind.equation()))));
     Some(Answer::new(call, pods))
 }

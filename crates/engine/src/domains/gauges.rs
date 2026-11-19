@@ -320,6 +320,19 @@ fn misc(l: &str) -> Option<Answer> {
         let rows = vec![vec![text("external dimensions"), text(ext)], vec![text("internal dimensions (typical)"), text(int)], vec![text("capacity"), text(format!("{} m³ ({} ft³)", n(vol), n(vol * 35.3147)))], vec![text("tare mass (typical)"), text(format!("{} kg", n(tare)))], vec![text("maximum gross mass"), text(format!("{} kg", n(gross)))], vec![text("maximum payload"), text(format!("≈ {} kg", n(gross - tare)))], vec![text("equivalent units"), text(if forty { "2 TEU" } else { "1 TEU" })]];
         return Some(Answer::new("shipping container", vec![input(format!("{} ft {}ISO shipping container", &m[1], if hc { "high-cube " } else { "" })), primary(pod("Result", "Capacity", text(format!("{} m³", n(vol))))), pod("Properties", "Typical properties (ISO 668)", table(None, rows))]));
     }
+    // watch cells: "voltage Energizer 341"
+    if let Some(m) = re!(r"^(?:(voltage|nominal voltage) (?:of )?)?(?:an? )?energizer (341|357|377|371|364|392)(?: battery| cell)?(?: (voltage))?$").captures(t) {
+        let (iec, dims) = match &m[2] {
+            "341" => ("SR714SW", "7.9 mm × 1.4 mm"),
+            "357" => ("SR44", "11.6 mm × 5.4 mm"),
+            "377" => ("SR626SW", "6.8 mm × 2.6 mm"),
+            "371" => ("SR920SW", "9.5 mm × 2.1 mm"),
+            "364" => ("SR621SW", "6.8 mm × 2.1 mm"),
+            _ => ("SR41", "7.9 mm × 3.6 mm"),
+        };
+        let rows = vec![vec![text("chemistry"), text("silver oxide")], vec![text("nominal voltage"), text("1.55 V")], vec![text("IEC designation"), text(iec)], vec![text("dimensions (diameter × height)"), text(dims)]];
+        return Some(Answer::new("battery", vec![input(format!("Energizer {} | voltage", &m[2])), primary(pod("Result", "Nominal voltage", text("1.55 V"))), pod("Properties", "Properties", table(None, rows))]));
+    }
     if let Some(m) = re!(r"^(?:alkaline |lithium |nimh )?(aaa|aa|c|d|9v|9 volt|cr2032|lr44) (?:battery|batteries|cell)$|^(?:alkaline |nimh )?battery (aaa|aa|c|d|9v)$").captures(t) {
         let k = m.get(1).or(m.get(2))?.as_str();
         let (size, v, cap, dims, mass) = match k {

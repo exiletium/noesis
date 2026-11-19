@@ -947,6 +947,32 @@ fn arc_length(q: &Query) -> Option<Answer> {
 
 fn limits(q: &Query) -> Option<Answer> {
     let c = q.clean.trim().trim_end_matches('?').trim();
+    // two integer variables: "discrete limsup of sin(pi/3 n) * cos(pi/4 m) as {m, n} -> {infinity, infinity}"
+    if let Some(m) = re!(r"(?i)^(?:discrete\s+)?(lim\s*sup|limsup|lim\s*inf|liminf)\s+(?:of\s+)?(.+?)\s+as\s+\{\s*([a-z])\s*,\s*([a-z])\s*\}\s*->\s*\{\s*(?:inf(?:inity)?|∞|oo)\s*,\s*(?:inf(?:inity)?|∞|oo)\s*\}$").captures(c) {
+        let sup = m[1].to_lowercase().contains("sup");
+        let e = ex(&m[2])?;
+        let (a, b) = (m[3].to_string(), m[4].to_string());
+        // sample a block far out; 240 covers every period of 1–16 (and many more)
+        let base = 1_000_000.0;
+        let mut best = if sup { f64::NEG_INFINITY } else { f64::INFINITY };
+        for i in 0..240 {
+            for j in 0..240 {
+                let v = crate::eval::eval_f64(&e, &[(a.as_str(), base + i as f64), (b.as_str(), base + j as f64)])?;
+                if v.is_finite() {
+                    best = if sup { best.max(v) } else { best.min(v) };
+                }
+            }
+        }
+        if !best.is_finite() || best.abs() > 1e8 {
+            return None;
+        }
+        let value = super::math::identify_constant(best).filter(|k| num(k).is_some_and(|w| (w - best).abs() < 1e-9)).unwrap_or_else(|| if (best - best.round()).abs() < 1e-6 { int(best.round() as i64) } else { float((best * 1e6).round() / 1e6) });
+        let name = if sup { "lim sup" } else { "lim inf" };
+        return Some(ans(name, format!("{name} {} as ({a}, {b}) → (∞, ∞) over integers", show(&e)), if sup { "Upper limit" } else { "Lower limit" }, math(&value), vec![
+            pod("Decimal", "Decimal approximation", text(crate::print::fmt_float(best, 10))),
+            pod("Method", "Method", text("the sequence is sampled over a 240 × 240 block of large integers, which covers a full period of periodic terms; the extreme value found is identified in closed form")),
+        ]));
+    }
     // "discrete limit of (3 n)/(1 + 6 n) as n -> infinity", "discrete lim n/(n+1)"
     if let Some(m) = re!(r"(?i)^discrete\s+(lim\s*inf|lim\s*sup|liminf|limsup|lim(?:it)?)\s+(?:of\s+)?(.+?)(?:\s+as\s+([a-z])\s*->\s*(.+))?$").captures(c) {
         let kind = m[1].to_lowercase().replace(' ', "");

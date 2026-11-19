@@ -422,7 +422,12 @@ pub fn bessel_k(nu: f64, x: f64) -> f64 {
     if x <= 0.0 {
         return if x == 0.0 { f64::INFINITY } else { f64::NAN };
     }
-    quad(&|t| (-x * t.cosh()).exp() * (nu * t).cosh(), 0.0, f64::INFINITY, 1e-13).value
+    // the integrand dies off doubly exponentially; stop where x cosh t − ν t passes 800
+    let mut t_max = 1.0;
+    while x * f64::cosh(t_max) - nu.abs() * t_max < 800.0 && t_max < 60.0 {
+        t_max += 0.5;
+    }
+    quad(&|t| (-x * t.cosh() + nu.abs() * t).exp() * 0.5 * (1.0 + (-2.0 * nu.abs() * t).exp()), 0.0, t_max, 1e-13).value
 }
 
 fn airy_series(x: f64) -> (f64, f64) {

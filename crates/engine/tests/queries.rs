@@ -1870,3 +1870,17 @@ fn exoplanets_alloys_artworks_and_constellation_positions() {
     assert!(short("RHIC, LHC").contains("Large Hadron Collider"));
     assert_eq!(short("2024"), "2024");
 }
+
+#[test]
+fn heun_d_hyperbolic_limsup_and_instruments() {
+    assert_eq!(short("evaluate heund'(1.2, -0.6, -0.7 , -0.18, 0.3, .12)"), "-59.2118624");
+    let r = q("hyperbolic distribution shape=1 skewness=0 scale=1 location=0");
+    assert!(r.pods.iter().any(|p| format!("{p:?}").contains("2.6994839")));
+    assert_eq!(short("discrete limsup of sin(pi/3 n) * cos(pi/4 m) as {m, n} -> {infinity, infinity}"), "sqrt(3)/2");
+    assert!(short("tangram").contains("seven"));
+    assert!(short("eponymous people of the ABC effect").contains("Abashian"));
+    assert_eq!(short("voltage Energizer 341"), "1.55 V");
+    assert!(short("measurement range of a bimetallic strip thermometer").contains("500 °C"));
+    assert!(short("quantum physical systems").contains("driven harmonic oscillator"));
+    assert!(short("copper alloy").contains("brass"));
+}

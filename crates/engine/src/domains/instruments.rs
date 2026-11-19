@@ -108,6 +108,20 @@ const INSTRUMENTS: &[(&str, &str, &str, &str)] = &[
     ("oxygen sensor;lambda sensor;o2 sensor", "oxygen concentration;air-fuel ratio", "vehicle sensor", "measures oxygen in the exhaust so the engine can hold the air–fuel ratio near stoichiometric"),
 ];
 
+/// Typical specifications (instrument's first name, property, value).
+const SPECS: &[(&str, &str, &str)] = &[
+    ("bimetallic strip thermometer", "range", "about −70 °C to 500 °C (typical dial thermometers; some to 600 °C)"),
+    ("bimetallic strip thermometer", "precision", "about ±1 % of full scale"),
+    ("mercury thermometer", "range", "−38 °C to about 350 °C"),
+    ("alcohol thermometer", "range", "about −110 °C to 78 °C"),
+    ("thermocouple", "range", "type K: about −200 °C to 1,260 °C"),
+    ("resistance thermometer", "range", "Pt100: about −200 °C to 850 °C"),
+    ("resistance thermometer", "precision", "class A Pt100: ±(0.15 + 0.002 |t|) °C"),
+    ("thermistor", "range", "about −50 °C to 150 °C"),
+    ("inclinometer", "precision", "about ±0.5° (mechanical clinometer); ±0.05°–0.1° (digital MEMS); about 0.001° (servo / force-balance)"),
+    ("inclinometer", "range", "±90° (single axis) or ±180°"),
+];
+
 struct Inst {
     names: Vec<&'static str>,
     bare: bool,
@@ -218,6 +232,24 @@ pub fn handle(q: &Query) -> Option<Answer> {
         let s = m.get(1).or(m.get(2))?.as_str().trim_end_matches('s');
         let items: Vec<&'static Inst> = all().iter().filter(|i| i.category == s && i.names[0] != s).collect();
         return listing(format!("types of {s}"), items);
+    }
+    // "measurement range of a bimetallic strip thermometer", "inclinometer precision"
+    if let Some(m) = re!(r"^(?:(?:typical )?(measurement range|measuring range|range|precision|accuracy|resolution) (?:of|for) (.+)|(.+?) (measurement range|measuring range|range|precision|accuracy|resolution))$").captures(l) {
+        let (p, s) = match m.get(1) {
+            Some(p) => (p.as_str(), &m[2]),
+            None => (&m[4], &m[3]),
+        };
+        if let Some(i) = find(s) {
+            let key = if p.contains("range") { "range" } else { "precision" };
+            if let Some((_, _, v)) = SPECS.iter().find(|(n, k, _)| *n == i.names[0] && *k == key) {
+                let label = if key == "range" { "measurement range" } else { "precision" };
+                return Some(Answer::new("measuring instrument", vec![
+                    input(format!("{} | {label}", i.names[0])),
+                    primary(pod("Result", "Result", text(*v))),
+                    pod("Notes", "Notes", text("typical values; individual instruments vary with design and calibration")),
+                ]));
+            }
+        }
     }
     // a bare instrument: "hydrometer", "crankshaft position sensor"
     let i = find(l)?;

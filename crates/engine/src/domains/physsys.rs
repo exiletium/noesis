@@ -229,7 +229,42 @@ const SYSTEMS: &[Sys] = &[
             ("uniform field B", "Landau levels E_n = ħ ω_c (n + 1/2), ω_c = |q| B/m"),
         ],
     },
+    Sys {
+        names: &["propagator for a driven harmonic oscillator", "driven harmonic oscillator propagator", "forced harmonic oscillator propagator", "propagator of a forced harmonic oscillator", "propagator for a forced harmonic oscillator", "driven harmonic oscillator kernel"],
+        title: "propagator of a driven harmonic oscillator",
+        field: "quantum mechanics",
+        desc: "L = (m/2) ẋ² − (m ω²/2) x² + f(t) x; the kernel K(x_b, t_b; x_a, t_a) for T = t_b − t_a (Feynman and Hibbs, problem 3-11).",
+        rows: &[
+            ("kernel", "K = √(m ω / (2π i ħ sin ωT)) · exp(i S_cl / ħ)"),
+            ("classical action", "S_cl = (m ω / (2 sin ωT)) [ (x_a² + x_b²) cos ωT − 2 x_a x_b + (2 x_b/(m ω)) ∫ f(t) sin ω(t − t_a) dt + (2 x_a/(m ω)) ∫ f(t) sin ω(t_b − t) dt − (2/(m² ω²)) ∫∫_{s<t} f(t) f(s) sin ω(t_b − t) sin ω(s − t_a) ds dt ]"),
+            ("integration range", "t and s run from t_a to t_b"),
+            ("f = 0", "reduces to the Mehler kernel of the free oscillator"),
+            ("ω → 0", "K → √(m/(2π i ħ T)) exp(i m (x_b − x_a)²/(2ħT)) for f = 0 (free particle)"),
+        ],
+    },
 ];
+
+/// Systems by field: "quantum physical systems", "electromagnetic physical systems".
+fn listing(l: &str) -> Option<Answer> {
+    let m = re!(r"^(quantum|quantum mechanical|electromagnetic|electrostatic|fluid|fluid mechanics|mechanical|classical)? ?physical systems$").captures(l)?;
+    let want = m.get(1).map(|x| x.as_str()).unwrap_or("");
+    let field = |f: &str| match want {
+        "" => true,
+        w if w.starts_with("quantum") => f == "quantum mechanics",
+        w if w.starts_with("electro") => f.contains("electro") || f.contains("magneto"),
+        w if w.starts_with("fluid") => f.contains("fluid"),
+        _ => f.contains("mechanics") && f != "quantum mechanics",
+    };
+    let v: Vec<&Sys> = SYSTEMS.iter().filter(|s| field(s.field)).collect();
+    if v.is_empty() {
+        return None;
+    }
+    Some(Answer::new("physical systems", vec![
+        pod("Input", "Input interpretation", text(format!("{}physical systems", if want.is_empty() { String::new() } else { format!("{want} ") }))),
+        primary(pod("Result", "Systems", text(v.iter().map(|s| s.title).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Systems by field", table(Some(vec!["system", "field"]), v.iter().map(|s| vec![text(s.title), text(s.field)]).collect())),
+    ]))
+}
 
 fn norm(s: &str) -> String {
     let s = s.replace(['–', '—', '‐', '‑'], "-").replace('é', "e");
@@ -239,6 +274,9 @@ fn norm(s: &str) -> String {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = norm(&q.lower);
+    if let Some(a) = listing(&l) {
+        return Some(a);
+    }
     let s = SYSTEMS.iter().find(|s| s.names.iter().any(|n| norm(n) == l))?;
     let mut pods = vec![
         pod("Input", "Input interpretation", text(format!("{} | {}", s.title, s.field))),

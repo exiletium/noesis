@@ -337,5 +337,34 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
-    mohs(l).or_else(|| materials(l))
+    mohs(l).or_else(|| alloy_class(l)).or_else(|| materials(l))
+}
+
+/// Overview of a family of alloys: "copper alloy".
+fn alloy_class(l: &str) -> Option<Answer> {
+    if !re!(r"^(?:types of )?copper(?:-base| base|-based)? alloys?$").is_match(l) {
+        return None;
+    }
+    let rows: Vec<Vec<Content>> = [
+        ("brass", "Cu–Zn (5–45 % Zn)", "cartridge brass C260, 70/30; plumbing, instruments, ammunition"),
+        ("bronze", "Cu–Sn (typically up to 12 % Sn)", "phosphor bronze C510; springs, bearings, bells, statues"),
+        ("aluminium bronze", "Cu–Al (5–12 % Al)", "marine hardware, pump parts"),
+        ("cupronickel", "Cu–Ni (10–30 % Ni)", "coins, seawater piping"),
+        ("nickel silver", "Cu–Ni–Zn (about 18 % Ni, 17 % Zn)", "cutlery, keys, musical instruments"),
+        ("beryllium copper", "Cu–Be (0.5–3 % Be)", "non-sparking tools, springs, connectors"),
+        ("gunmetal", "Cu–Sn–Zn", "valves, castings"),
+    ]
+    .iter()
+    .map(|(a, b, c)| vec![text(*a), text(*b), text(*c)])
+    .collect();
+    Some(Answer::new("copper alloy", vec![
+        pod("Input", "Input interpretation", text("copper alloy")),
+        primary(pod("Result", "Definition", text("an alloy whose principal component is copper; the main families are brasses (copper–zinc) and bronzes (copper–tin and other copper alloys)"))),
+        pod("Table", "Families", table(Some(vec!["family", "composition", "examples and uses"]), rows)),
+        pod("Comparison", "Typical properties", table(Some(vec!["alloy", "density", "tensile strength", "thermal conductivity"]), vec![
+            vec![text("copper (annealed)"), text("8.96 g/cm³"), text("210 MPa"), text("401 W/(m K)")],
+            vec![text("brass C260"), text("8.53 g/cm³"), text("315 MPa"), text("120 W/(m K)")],
+            vec![text("phosphor bronze C510"), text("8.86 g/cm³"), text("340 MPa"), text("69 W/(m K)")],
+        ])),
+    ]))
 }
