@@ -341,7 +341,8 @@ pub fn parse_unit(s: &str) -> Option<Unit> {
         return Some(u);
     }
     // natural-language powers and "per"
-    let mut t = format!(" {} ", s.to_lowercase().replace(" per ", " / ").replace('·', " ").replace('*', " "));
+    // two-word unit names keep their power: "cubic light year" → "light-year^3"
+    let mut t = format!(" {} ", s.to_lowercase().replace(" per ", " / ").replace('·', " ").replace('*', " ").replace("light year", "light-year"));
     for (w, p) in [("square ", "^2"), ("sq ", "^2"), ("cubic ", "^3"), ("cu ", "^3")] {
         while let Some(k) = t.find(w) {
             // move the power after the next word

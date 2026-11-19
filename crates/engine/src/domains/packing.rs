@@ -33,21 +33,44 @@ const OBJECTS: &[(&[&str], &str, f64, f64, &str)] = &[
     (&["skittle", "skittles"], "Skittles", 0.75, 0.68, "oblate ellipsoid about 14 mm × 14 mm × 7.5 mm"),
     (&["bb", "bbs", "bb pellet", "bb pellets"], "BBs", 0.0382, 0.64, "4.5 mm sphere"),
     (&["penny", "pennies"], "US pennies", 0.36, 0.60, "19.05 mm × 1.52 mm disk (random fill)"),
+    (&["starburst", "starbursts", "starburst candy", "starburst candies", "starburst fruit chews", "starburst chews"], "Starburst candies", 3.8, 0.62, "wrapped fruit chew about 23 mm × 19 mm × 9 mm (5 g)"),
+    (&["lego brick", "lego bricks", "legos", "lego"], "LEGO 2×4 bricks", 3.6, 0.45, "31.8 mm × 15.8 mm × 11.4 mm brick (hollow, random fill)"),
+    (&["candy corn", "candy corns"], "candy corns", 1.6, 0.6, "about 20 mm × 15 mm × 8 mm wedge"),
+];
+
+/// names | display | volume cm³ | note
+const CONTAINERS: &[(&[&str], &str, f64, &str)] = &[
+    (&["christmas stocking", "stocking", "xmas stocking"], "a Christmas stocking", 6000.0, "typical 18-inch (46 cm) stocking, about 6 L"),
+    (&["mason jar", "quart mason jar", "quart jar"], "a quart mason jar", 946.0, "1 US quart"),
+    (&["pint mason jar", "pint jar"], "a pint mason jar", 473.0, "1 US pint"),
+    (&["shoebox", "shoe box"], "a shoebox", 6900.0, "about 33 cm × 19 cm × 11 cm"),
+    (&["bathtub", "bath tub", "bath"], "a bathtub", 300000.0, "about 300 L to the overflow"),
+    (&["school bus", "bus"], "a school bus", 5.66e7, "about 2,000 cubic feet of interior space"),
+    (&["olympic swimming pool", "olympic pool", "swimming pool"], "an Olympic swimming pool", 2.5e9, "50 m × 25 m × 2 m (2,500 m³)"),
+    (&["car", "sedan"], "a car", 3.0e6, "about 3 m³ of passenger space"),
+    (&["fishbowl", "fish bowl"], "a fishbowl", 3785.0, "about 1 US gallon"),
+    (&["coffee mug", "mug"], "a coffee mug", 350.0, "about 12 fl oz"),
 ];
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim().replace('’', "'");
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
-    let m = re!(r"^(?:how many |number of |approximate number of |estimated number of )?(.+?) (?:can |will |would |that |could )*(?:fit|go|fill|be packed) (?:in|into|inside) (?:a |an |one |the )?(.+)$").captures(&l)?;
+    let m = re!(r"^(?:how many |number of |approximate number of |estimated number of )?(.+?) (?:can |will |would |that |could |it takes |does it take |needed |required )*(?:(?:fit|go|fill|be packed) (?:in|into|inside)|to fill|fill) (?:a |an |one |the )?(.+)$").captures(&l)?;
     let obj = OBJECTS.iter().find(|o| o.0.contains(&m[1].trim()))?;
     let cont = m[2].trim();
-    // "a pint" → "1 pint"
-    let cont_q = if cont.starts_with(|c: char| c.is_ascii_digit()) { cont.to_string() } else { format!("1 {cont}") };
-    let (n, u, _) = crate::domains::units::parse_quantity(&cont_q)?;
-    if u.dim != [3, 0, 0, 0, 0, 0, 0, 0] {
-        return None;
-    }
-    let cm3 = crate::domains::units::to_si(n, &u) * 1e6;
+    let (cm3, cont, cont_note) = if let Some(c) = CONTAINERS.iter().find(|c| c.0.contains(&cont)) {
+        (c.2, c.1.to_string(), Some(c.3))
+    } else {
+        // "a 1 gallon jar" → "1 gallon"
+        let cont = re!(r"^(.*?\d.*?)[ -](?:jar|container|bucket|box|bottle|tank|bag|vase|bowl|tub)$").captures(cont).map_or(cont.to_string(), |m| m[1].to_string());
+        // "a pint" → "1 pint"
+        let cont_q = if cont.starts_with(|c: char| c.is_ascii_digit()) { cont.clone() } else { format!("1 {cont}") };
+        let (n, u, _) = crate::domains::units::parse_quantity(&cont_q)?;
+        if u.dim != [3, 0, 0, 0, 0, 0, 0, 0] {
+            return None;
+        }
+        (crate::domains::units::to_si(n, &u) * 1e6, cont, None)
+    };
     let count = cm3 * obj.3 / obj.2;
     if !(count.is_finite() && count >= 1.0) {
         return None;
@@ -57,7 +80,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         pod("Input", "Input interpretation", text(format!("number of {} that fit in {cont}", obj.1))),
         primary(pod("Result", "Estimate", text(format!("about {shown}")))),
         pod("Table", "Assumptions", table(None, vec![
-            vec![text("container volume"), text(format!("{} cm³", fmt_float((cm3 * 10.0).round() / 10.0, 7)))],
+            vec![text("container volume"), text(format!("{} cm³{}", fmt_float((cm3 * 10.0).round() / 10.0, 7), cont_note.map_or(String::new(), |n| format!(" ({n})"))))],
             vec![text("object"), text(obj.4)],
             vec![text("object volume"), text(format!("{} cm³", fmt_float(obj.2, 5)))],
             vec![text("random packing fraction"), text(fmt_float(obj.3, 3))],

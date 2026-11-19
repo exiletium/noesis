@@ -1100,3 +1100,14 @@ var L; sound level at the reference distance (dB); ; sound level, level, loudnes
 var r0; reference distance; m; reference; 1
 var Lth; threshold of hearing (dB); ; threshold; 0
 note Free-field inverse-square spreading (−6 dB per doubling of distance) with no air absorption, ground effect or background noise; real ranges are much shorter.
+
+== wetness from moving through rain | how wet would you get jogging in the rain | how wet would you get running in the rain | how wet do you get walking in the rain | how wet would you get walking in the rain | walk or run in the rain | getting wet in the rain
+eq W = R*d*(At/v + Af/vt)
+var W; water collected on the body; mL; water, wetness, how wet
+var R; rainfall rate; mm/h; rain rate, rainfall rate, rainfall, rain; 10
+var d; distance travelled; m; distance; 1000
+var v; your speed; m/s; speed, jogging speed, running speed, walking speed; 3
+var At; horizontal (top) area of the body; m^2; top area; 0.1
+var Af; vertical (front) area of the body; m^2; front area; 0.7
+var vt; falling speed of the raindrops; m/s; drop speed, fall speed, terminal velocity; 6
+note Vertical rain and no wind: the top of the body catches rain for the time d/v, and the front sweeps through the rain filling the air (R/vt per unit volume) over the distance d, whatever the speed. Moving faster only cuts the first term, so running helps, but not by much.

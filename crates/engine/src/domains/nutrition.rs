@@ -212,12 +212,17 @@ fn nutrient(s: &str) -> Option<usize> {
 }
 
 /// Round to three significant figures (whole numbers from 100 up).
+/// A rounded whole number, in scientific form when astronomically large.
+fn whole(v: f64) -> String {
+    if v.abs() >= 1e12 { crate::print::fmt_float(v, 4) } else { format!("{}", v.round()) }
+}
+
 fn sig(v: f64) -> String {
     if v == 0.0 || !v.is_finite() {
         return "0".into();
     }
     if v.abs() >= 100.0 {
-        return format!("{}", v.round() as i64);
+        return whole(v);
     }
     let d = (2 - v.abs().log10().floor() as i32).max(0) as usize;
     let s = format!("{:.*}", d, v);
@@ -231,7 +236,7 @@ fn sig(v: f64) -> String {
 fn amount_text(i: usize, v: f64) -> String {
     let (_, _, unit, _) = NUTRIENTS[i];
     if i == 0 {
-        format!("{} kcal", v.round())
+        format!("{} kcal", whole(v))
     } else {
         format!("{} {unit}", sig(v))
     }
@@ -277,8 +282,8 @@ fn resolve_unit(f: &'static Food, u: &str) -> Option<(String, f64)> {
             None => ("oz", food_unit(f, "oz").unwrap_or(28.3495)),
         },
         "fl oz" | "fluid ounce" | "fluid ounces" | "fl. oz" => ("fl oz", fl?),
-        "ml" | "milliliter" | "milliliters" | "millilitre" | "millilitres" => ("mL", fl? / 29.5735),
-        "l" | "liter" | "liters" | "litre" | "litres" => ("L", fl? / 0.0295735),
+        "ml" | "milliliter" | "milliliters" | "millilitre" | "millilitres" => ("mL", fl.map(|g| g / 29.5735).or_else(|| by_volume(f, "mL"))?),
+        "l" | "liter" | "liters" | "litre" | "litres" => ("L", fl.map(|g| g / 0.0295735).or_else(|| by_volume(f, "L"))?),
         "tbsp" | "tablespoon" | "tablespoons" | "tbs" | "tbsps" => ("tbsp", tbsp?),
         "tsp" | "teaspoon" | "teaspoons" | "tsps" => ("tsp", food_unit(f, "tsp").or(tbsp.map(|t| t / 3.0))?),
         "glass" | "glasses" => ("glass", food_unit(f, "glass").or(food_unit(f, "cup"))?),
@@ -308,10 +313,22 @@ fn resolve_unit(f: &'static Food, u: &str) -> Option<(String, f64)> {
                     return Some((c, g));
                 }
             }
-            return None;
+            // any other volume ("gallon", "cubic light year") through the density of a cup
+            return by_volume(f, u).map(|g| (u.to_string(), g));
         }
     };
     Some((r.0.to_string(), r.1))
+}
+
+/// Grams in one `u` of a food, from its density per fluid ounce or cup.
+fn by_volume(f: &'static Food, u: &str) -> Option<f64> {
+    let per_ml = food_unit(f, "fl oz").map(|g| g / 29.5735).or_else(|| food_unit(f, "cup").map(|g| g / 236.588))?;
+    let (n, unit, _) = crate::domains::units::parse_quantity(&format!("1 {u}"))?;
+    if unit.dim != [3, 0, 0, 0, 0, 0, 0, 0] {
+        return None;
+    }
+    let ml = crate::domains::units::to_si(n, &unit) * 1e6;
+    (ml > 0.0 && ml.is_finite()).then(|| ml * per_ml)
 }
 
 fn plural_unit(u: &str, amt: f64) -> String {
@@ -383,7 +400,7 @@ fn note() -> Pod {
 }
 
 fn summary(t: &[f64; N]) -> String {
-    format!("{} kcal, {} g protein, {} g carbohydrate, {} g fat", t[0].round(), sig(t[1]), sig(t[6]), sig(t[2]))
+    format!("{} kcal, {} g protein, {} g carbohydrate, {} g fat", whole(t[0]), sig(t[1]), sig(t[6]), sig(t[2]))
 }
 
 fn label_table(t: &[f64; N]) -> Content {
@@ -391,7 +408,7 @@ fn label_table(t: &[f64; N]) -> Content {
         .filter(|&k| k != 14 || t[14] > 0.0)
         .map(|k| {
             let (_, lab, _, dv) = NUTRIENTS[k];
-            let pct = if dv > 0.0 { format!("{}%", (t[k] / dv * 100.0).round()) } else { String::new() };
+            let pct = if dv > 0.0 { format!("{}%", whole(t[k] / dv * 100.0)) } else { String::new() };
             let lab = if k == 3 || k == 7 || k == 8 { format!("  {lab}") } else { lab.to_string() };
             vec![text(lab), text(amount_text(k, t[k])), text(pct)]
         })
@@ -583,7 +600,7 @@ fn meal_answer(nut: Option<usize>, g: Vec<Item>) -> Answer {
         Some(i) => {
             pods.push(primary(pod("Result", &format!("Amount of {}", NUTRIENTS[i].1), text(amount_text(i, t[i])))));
             if NUTRIENTS[i].3 > 0.0 {
-                pods.push(pod("DV", "Percent daily value", text(format!("{}%", (t[i] / NUTRIENTS[i].3 * 100.0).round()))));
+                pods.push(pod("DV", "Percent daily value", text(format!("{}%", whole(t[i] / NUTRIENTS[i].3 * 100.0)))));
             }
         }
         None => pods.push(primary(pod("Result", "Nutrition facts", text(summary(&t))))),

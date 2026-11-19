@@ -96,7 +96,7 @@ fn chat(q: &Query) -> Option<Answer> {
             return Some(reply("age", "age of Wolfram|Alpha", &format!("Wolfram|Alpha launched publicly on May 18, 2009: {} years ({} days) ago.", n((days as f64 / 365.2425).floor()), days)));
         }
         "how do i win the lottery" => Some(("lottery", "Buy every possible combination, then hope nobody else picks the same numbers. For a 6-of-49 lottery that is 13,983,816 tickets. More practically: the expected value of a ticket is negative, so the winning move is not to play.")),
-        "can you fail the turing test" => Some(("Turing test", "Only if I answer like a computer. I'd rather pass on that question.")),
+        "can you fail the turing test" | "fail the turing test" => Some(("Turing test", "Only if I answer like a computer. I'd rather pass on that question.")),
         "how much wood could a woodchuck chuck if a woodchuck could chuck wood" | "how much wood would a woodchuck chuck if a woodchuck could chuck wood" | "how much wood could a woodchuck chuck" => Some(("woodchuck", "About 700 pounds, by a widely quoted estimate from the volume of soil a woodchuck digs out of a burrow; a woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood.")),
         "what is the square root of a carrot" | "square root of a carrot" => Some(("joke", "A square root is what grows when you plant carrots in a square garden.")),
         "how many astronomers does it take to change a light bulb" => Some(("joke", "None: astronomers prefer the dark.")),
@@ -105,6 +105,7 @@ fn chat(q: &Query) -> Option<Answer> {
         "do you know a dirty joke" | "tell me a dirty joke" => Some(("joke", "A white horse fell in the mud.")),
         "why did the chicken cross the road" => Some(("joke", "To get to the other side.")),
         "why did the chicken cross the mobius strip" | "why did the chicken cross the möbius strip" | "why did the chicken cross the moebius strip" => Some(("joke", "To get to the same side: a Möbius strip has only one side.")),
+        "can a human fail the turing test" | "can humans fail the turing test" | "can a person fail the turing test" => Some(("answer", "Yes. Humans have been taken for machines: in the first Loebner Prize contest (1991) a human confederate was judged to be a computer by several judges because she knew \"too much\" about Shakespeare.")),
         "why did the chicken cross the klein bottle" => Some(("joke", "To get to the inside, which is also the outside.")),
         _ => None,
     };

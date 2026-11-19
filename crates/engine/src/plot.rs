@@ -821,3 +821,21 @@ pub fn to_svg(plot: &Plot, dark: bool, width: f64, height: f64) -> String {
 fn xml_escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
+
+/// Line segments in space (polylines) drawn as a space-curve plot.
+pub fn segments3d(segs: Vec<Vec<[f64; 3]>>) -> Option<Plot> {
+    let segs: Vec<Vec<[f64; 3]>> = segs.into_iter().filter(|s| s.len() > 1 && s.iter().flatten().all(|v| v.is_finite())).collect();
+    if segs.is_empty() {
+        return None;
+    }
+    let mut plot = Plot::new(PlotKind::Curve3d);
+    let all: Vec<&[f64; 3]> = segs.iter().flatten().collect();
+    let range_of = |k: usize| all.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| (lo.min(p[k]), hi.max(p[k])));
+    plot.x_range = range_of(0);
+    plot.y_range = range_of(1);
+    plot.curve3d = segs;
+    plot.x_label = "x".into();
+    plot.y_label = "y".into();
+    plot.equal_aspect = true;
+    Some(plot)
+}

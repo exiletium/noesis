@@ -1717,3 +1717,20 @@ fn hearing_distance_riemann_surfaces_and_jokes() {
     assert!(!short("why did the chicken cross the Möbius strip").is_empty());
     assert!(!q("graph sin t + cos (sqrt(3)t) handwritten style").pods.is_empty());
 }
+
+#[test]
+fn finite_field_factoring_quaternion_rotations_and_packing() {
+    assert_eq!(short("factor x^36-1 mod 2"), "(x + 1)^4 (x^2 + x + 1)^4 (x^6 + x^3 + 1)^4");
+    assert_eq!(short("factor x^4+1 over GF(3)"), "(x^2 + x + 2) (x^2 + 2 x + 2)");
+    assert_eq!(short("is x^4+x+1 irreducible over GF(2)"), "yes, irreducible");
+    assert_eq!(short("cyclic code 36, 2"), "125");
+    assert_eq!(short("binary cyclic codes of length 7"), "8");
+    assert!(short("draw 1+0i+5j+2k as a rotation operator").contains("158.961°"));
+    assert!(short("rotation matrix of quaternion 1+i+j+k").starts_with("rotation by 120°"));
+    assert!(short("number of starburst candy to fill a christmas stocking").starts_with("about"));
+    assert!(short("how many jelly beans fit in a 1 gallon jar").starts_with("about"));
+    assert!(short("calories in a cubic light year of ice cream").contains("×10^53 kcal"));
+    assert_eq!(short("calories in 1 liter of ice cream"), "1155 kcal");
+    assert!(short("how wet would you get jogging in the rain").ends_with("mL"));
+    assert!(short("Can you fail the Turing test?").contains("pass"));
+}

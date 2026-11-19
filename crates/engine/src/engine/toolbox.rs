@@ -218,6 +218,80 @@ fn quat_props(a: &Quat) -> Vec<(&'static str, String)> {
     v
 }
 
+/// "draw 1+0i+5j+2k as a rotation operator", "rotation matrix of quaternion 1+i+j+k":
+/// the rotation v ↦ q v q⁻¹ as a matrix, an axis and an angle, with a picture.
+fn quat_rotation(q: &Query) -> Option<Answer> {
+    let (c, _) = clean(q);
+    let body = if let Some(m) = re!(r"(?i)^(?:(?:draw|show|plot|visuali[sz]e|display|interpret)\s+)?(?:the\s+)?(?:quaternion\s+)?(.+?)\s+as\s+(?:an?\s+)?(?:3-?d\s+)?rotation(?:\s+(?:operator|matrix))?$").captures(&c) {
+        m[1].to_string()
+    } else if let Some(m) = re!(r"(?i)^(?:the\s+)?(?:3-?d\s+)?rotation\s+(?:matrix|operator|axis and angle)\s+(?:of|for|from)\s+(?:the\s+)?(?:quaternion\s+)?(.+)$").captures(&c) {
+        m[1].to_string()
+    } else {
+        return None;
+    };
+    let a = parse_quat(body.trim())?;
+    let n2 = s::simplify(&qnorm2(&a));
+    let n2f = n2.to_f64_const()?;
+    if !(n2f > 0.0) {
+        return None;
+    }
+    let [w, x, y, z] = a.clone();
+    let sq = |e: &Expr| pow(e.clone(), int(2));
+    let neg = |e: Expr| mul(vec![int(-1), e]);
+    let two = |p: &Expr, r: &Expr| mul(vec![int(2), p.clone(), r.clone()]);
+    let e = |v: Expr| s::simplify(&div(v, n2.clone()));
+    let m: [[Expr; 3]; 3] = [
+        [e(add(vec![sq(&w), sq(&x), neg(sq(&y)), neg(sq(&z))])), e(sub(two(&x, &y), two(&w, &z))), e(add(vec![two(&x, &z), two(&w, &y)]))],
+        [e(add(vec![two(&x, &y), two(&w, &z)])), e(add(vec![sq(&w), neg(sq(&x)), sq(&y), neg(sq(&z))])), e(sub(two(&y, &z), two(&w, &x)))],
+        [e(sub(two(&x, &z), two(&w, &y))), e(add(vec![two(&y, &z), two(&w, &x)])), e(add(vec![sq(&w), neg(sq(&x)), neg(sq(&y)), sq(&z)]))],
+    ];
+    let mf: Vec<Vec<f64>> = m.iter().map(|r| r.iter().map(|v| v.to_f64_const()).collect::<Option<Vec<f64>>>()).collect::<Option<_>>()?;
+    let (wf, n) = (w.to_f64_const()?, n2f.sqrt());
+    let v: Vec<f64> = [&x, &y, &z].iter().map(|c| c.to_f64_const()).collect::<Option<_>>()?;
+    let vn = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+    let ang = 2.0 * (wf / n).clamp(-1.0, 1.0).acos();
+    let fmt = |t: f64| crate::stats::fmt(if t.abs() < 1e-12 { 0.0 } else { t });
+    let mut props = vec![("quaternion", qshow(&a)), ("norm", show(&s::simplify(&func("sqrt", vec![n2.clone()]))))];
+    let axis: [f64; 3] = if vn > 1e-12 { [v[0] / vn, v[1] / vn, v[2] / vn] } else { [0.0, 0.0, 1.0] };
+    if vn > 1e-12 {
+        props.push(("rotation angle", format!("{}° = {} rad", fmt(ang.to_degrees()), fmt(ang))));
+        props.push(("rotation axis (unit vector)", format!("({})", axis.iter().map(|t| fmt(*t)).collect::<Vec<_>>().join(", "))));
+    } else {
+        props.push(("rotation", "the identity (no vector part)".into()));
+    }
+    // ZYX (yaw, pitch, roll) angles of the matrix
+    let pitch = (-mf[2][0]).clamp(-1.0, 1.0).asin();
+    let (yaw, roll) = (mf[1][0].atan2(mf[0][0]), mf[2][1].atan2(mf[2][2]));
+    props.push(("Euler angles (z-y-x: yaw, pitch, roll)", format!("{}°, {}°, {}°", fmt(yaw.to_degrees()), fmt(pitch.to_degrees()), fmt(roll.to_degrees()))));
+    let rot = |p: [f64; 3], t: f64| -> [f64; 3] {
+        // Rodrigues: p cos t + (k × p) sin t + k (k·p)(1 − cos t)
+        let k = axis;
+        let cr = [k[1] * p[2] - k[2] * p[1], k[2] * p[0] - k[0] * p[2], k[0] * p[1] - k[1] * p[0]];
+        let d = k[0] * p[0] + k[1] * p[1] + k[2] * p[2];
+        [0, 1, 2].map(|i| p[i] * t.cos() + cr[i] * t.sin() + k[i] * d * (1.0 - t.cos()))
+    };
+    let mut segs: Vec<Vec<[f64; 3]>> = Vec::new();
+    segs.push(vec![axis.map(|t| -1.4 * t), axis.map(|t| 1.4 * t)]);
+    let basis = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+    for b in basis {
+        segs.push(vec![[0.0; 3], b]);
+        let img = [mf[0][0] * b[0] + mf[0][1] * b[1] + mf[0][2] * b[2], mf[1][0] * b[0] + mf[1][1] * b[1] + mf[1][2] * b[2], mf[2][0] * b[0] + mf[2][1] * b[1] + mf[2][2] * b[2]];
+        segs.push(vec![[0.0; 3], img]);
+        if vn > 1e-12 {
+            segs.push((0..=48).map(|k| rot(b, ang * k as f64 / 48.0)).collect());
+        }
+    }
+    let mut extra = vec![
+        pod("Matrix", "Rotation matrix (v ↦ q v q⁻¹)", table(None, m.iter().map(|r| r.iter().map(|v| text(show(v))).collect()).collect())),
+        pod("Properties", "Rotation", rows(props)),
+    ];
+    if let Some(pl) = crate::plot::segments3d(segs) {
+        extra.push(pod("Plot", "Rotation of the coordinate axes (axis, original and rotated unit vectors, and their paths)", Content::Plot { plot: Box::new(pl) }));
+    }
+    let res = text(if vn > 1e-12 { format!("rotation by {}° about ({})", fmt(ang.to_degrees()), axis.iter().map(|t| fmt(*t)).collect::<Vec<_>>().join(", ")) } else { "identity rotation".into() });
+    Some(ans("quaternion rotation", format!("{} as a rotation operator", qshow(&a)), "Rotation", res, extra))
+}
+
 fn quaternions(q: &Query) -> Option<Answer> {
     let (c, l) = clean(q);
     let body = re!(r"(?i)^(?:the\s+)?(?:(norm|conjugate|inverse|magnitude|modulus)\s*(?:of)?\s*:?\s*)?").replace(&c, "").to_string();
@@ -1295,7 +1369,8 @@ fn everyday(q: &Query) -> Option<Answer> {
 }
 
 pub fn handle(q: &Query) -> Option<Answer> {
-    quaternions(q)
+    quat_rotation(q)
+        .or_else(|| quaternions(q))
         .or_else(|| permutations(q))
         .or_else(|| groups(q))
         .or_else(|| matrices(q))
