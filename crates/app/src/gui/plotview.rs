@@ -70,6 +70,7 @@ pub fn show(ui: &mut Ui, id: egui::Id, plot: &Plot, pal: &Palette, states: &mut 
         }
         PlotKind::NumberLine => number_line(ui, rect, plot, pal),
         PlotKind::Bars => bars(ui, rect, &resp, plot, pal),
+        PlotKind::Bitmap => bitmap(ui, rect, plot),
         _ => cartesian(ui, rect, &resp, plot, pal, st, false),
     }
     if plot.device == noesis::compute::Device::Gpu {
@@ -302,6 +303,26 @@ fn bars(ui: &mut Ui, rect: Rect, resp: &egui::Response, plot: &Plot, pal: &Palet
         }
         if hot {
             painter.text(pos2(cx, r.top() - 4.0), egui::Align2::CENTER_BOTTOM, format!("{} : {}", labels.get(k).unwrap_or(&""), fmt_tick(p[1])), FontId::proportional(11.5), pal.text);
+        }
+    }
+}
+
+/// Black-and-white module image (QR codes, barcodes): sharp squares on white
+/// in both themes, so it stays scannable. Row 0 of the grid is the top row.
+fn bitmap(ui: &mut Ui, rect: Rect, plot: &Plot) {
+    let Some(g) = &plot.grid else { return };
+    let area = rect.shrink(12.0);
+    let cell = (area.width() / g.nx as f32).min(area.height() / g.ny as f32).floor().max(1.0);
+    let (w, h) = (cell * g.nx as f32, cell * g.ny as f32);
+    let origin = pos2((area.center().x - w / 2.0).round(), (area.center().y - h / 2.0).round());
+    let painter = ui.painter_at(rect);
+    painter.rect_filled(Rect::from_min_size(origin, vec2(w, h)), 0.0, Color32::WHITE);
+    for j in 0..g.ny {
+        for i in 0..g.nx {
+            if g.z[j * g.nx + i] > 0.5 {
+                let p = origin + vec2(i as f32 * cell, j as f32 * cell);
+                painter.rect_filled(Rect::from_min_size(p, vec2(cell, cell)), 0.0, Color32::BLACK);
+            }
         }
     }
 }

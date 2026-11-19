@@ -174,6 +174,9 @@ fn transforms(l: &str, raw: &str) -> Option<Answer> {
 // ---------------------------------------------------------------------------
 
 fn passwords(l: &str, raw: &str) -> Option<Answer> {
+    // "generate a 12 character password" → "generate 1 password of length 12"
+    let rewritten = re!(r"^(?:generate|make|create|give me)?\s*(?:an?\s+|(\d+)\s+)?(\d+)[\s-]+(?:characters?|chars?|letters?)(?:\s+long)?\s+(?:random\s+)?((?:alphanumeric|numeric|alphabetic|lowercase|uppercase|strong|secure)\s+)?passwords?$").captures(l).map(|m| format!("generate {} {}password of length {}", m.get(1).map_or("1", |x| x.as_str()), m.get(3).map_or("", |x| x.as_str()), &m[2]));
+    let l = rewritten.as_deref().unwrap_or(l);
     if let Some(m) = re!(r"^(?:generate\s+)?(?:(\d+)\s+)?(?:random\s+)?(alphanumeric|numeric|alphabetic|lowercase|uppercase|strong|secure|pronounceable)?\s*passwords?\s+(?:of\s+)?(?:length\s+|with\s+)?(\d+)(?:\s+characters?)?$|^(?:generate\s+)?(?:(\d+)\s+)?(?:random\s+)?(alphanumeric|numeric|strong|secure)?\s*passwords?$").captures(l) {
         let count: usize = m.get(1).or(m.get(4)).and_then(|x| x.as_str().parse().ok()).unwrap_or(5).clamp(1, 50);
         let len: usize = m.get(3).and_then(|x| x.as_str().parse().ok()).unwrap_or(12).clamp(4, 128);

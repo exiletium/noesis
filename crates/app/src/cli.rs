@@ -177,7 +177,8 @@ fn write_svgs(r: &QueryResult, dir: &str) {
     for p in &r.pods {
         for sp in &p.subpods {
             if let Content::Plot { plot } = &sp.content {
-                if plot.grid.is_some() {
+                // gridded images have no SVG form, except black-and-white bitmaps
+                if plot.grid.is_some() && plot.kind != noesis::plot::PlotKind::Bitmap {
                     continue;
                 }
                 k += 1;

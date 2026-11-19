@@ -26,6 +26,8 @@ pub mod daily;
 pub mod school2;
 pub mod trigineq;
 pub mod gfpoly;
+pub mod qr;
+pub mod barcodes;
 pub mod ccss;
 pub mod chance;
 pub mod intseq;
@@ -239,6 +241,7 @@ fn handlers() -> Vec<(&'static str, Handler)> {
     v.push(("systems", systems::handle));
     v.push(("graphs", graphs::handle));
     v.push(("ccss", ccss::handle));
+    v.push(("barcodes", barcodes::handle));
     v.push(("computing", computing::handle));
     v.push(("gfpoly", gfpoly::handle));
     v.push(("numbers", numbers::handle));

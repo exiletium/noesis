@@ -22,6 +22,8 @@ pub enum PlotKind {
     Bars,
     Fractal,
     Curve3d,
+    /// Black-and-white module image (QR codes, barcodes); grid row 0 is the top.
+    Bitmap,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -607,6 +609,36 @@ pub fn fractal(julia: Option<(f64, f64)>, w: usize, h: usize) -> Plot {
     plot
 }
 
+/// Black-and-white module image (row 0 at the top), e.g. a QR code.
+pub fn bitmap(rows: &[Vec<bool>]) -> Plot {
+    let ny = rows.len();
+    let nx = rows.first().map_or(0, |r| r.len());
+    let mut plot = Plot::new(PlotKind::Bitmap);
+    plot.x_range = (0.0, nx as f64);
+    plot.y_range = (0.0, ny as f64);
+    let z = rows.iter().flat_map(|r| r.iter().map(|d| if *d { 1.0f32 } else { 0.0 })).collect();
+    plot.grid = Some(Grid { nx, ny, x: plot.x_range, y: plot.y_range, z, z_range: (0.0, 1.0) });
+    plot.equal_aspect = true;
+    plot
+}
+
+fn bitmap_svg(plot: &Plot, width: f64, height: f64) -> String {
+    let mut s = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\" shape-rendering=\"crispEdges\">");
+    if let Some(g) = &plot.grid {
+        let cell = ((width - 24.0) / g.nx as f64).min((height - 24.0) / g.ny as f64).floor().max(1.0);
+        let (ox, oy) = (((width - cell * g.nx as f64) / 2.0).round(), ((height - cell * g.ny as f64) / 2.0).round());
+        s += &format!("<rect x=\"{ox}\" y=\"{oy}\" width=\"{}\" height=\"{}\" fill=\"#ffffff\"/>", cell * g.nx as f64, cell * g.ny as f64);
+        for j in 0..g.ny {
+            for i in 0..g.nx {
+                if g.z[j * g.nx + i] > 0.5 {
+                    s += &format!("<rect x=\"{}\" y=\"{}\" width=\"{cell}\" height=\"{cell}\" fill=\"#000000\"/>", ox + i as f64 * cell, oy + j as f64 * cell);
+                }
+            }
+        }
+    }
+    s + "</svg>"
+}
+
 /// Number line with highlighted intervals (inequality solutions).
 pub fn number_line(spans: Vec<Span>) -> Plot {
     let mut plot = Plot::new(PlotKind::NumberLine);
@@ -741,6 +773,9 @@ fn curve3d_svg(plot: &Plot, dark: bool, width: f64, height: f64) -> String {
 pub fn to_svg(plot: &Plot, dark: bool, width: f64, height: f64) -> String {
     if plot.kind == PlotKind::Curve3d {
         return curve3d_svg(plot, dark, width, height);
+    }
+    if plot.kind == PlotKind::Bitmap {
+        return bitmap_svg(plot, width, height);
     }
     let (bg, fg, muted, grid) = if dark { ("#1a1a19", "#f0efec", "#c3c2b7", "#2e2e2c") } else { ("#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df") };
     let colors = if dark { SERIES_DARK } else { SERIES_LIGHT };

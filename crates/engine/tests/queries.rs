@@ -1801,3 +1801,13 @@ fn physical_systems_and_cognitive_tasks() {
     assert!(short("what does Iowa gambling task measure").starts_with("decision making"));
     assert!(short("what instruments measure current?").contains("ammeter"));
 }
+
+#[test]
+fn qr_codes_upc_barcodes_passwords_and_conics() {
+    assert!(pod_text(&q("QR code for hello"), "Properties").contains("version | 1 (21 × 21 modules)") || pod_text(&q("QR code for hello"), "Properties").contains("21 × 21"));
+    assert!(pod_text(&q("QR code for www.wolframalpha.com"), "Properties").contains("25 × 25"));
+    assert!(pod_text(&q("barcode 12345678910"), "Properties").contains("123456789104"));
+    assert!(pod_text(&q("EAN-13 4006381333931"), "Properties").contains("1 (valid)"));
+    assert_eq!(short("generate a 12 character password").chars().count(), 12);
+    assert!(short("cross sections of a cone's surface").contains("parabola"));
+}
