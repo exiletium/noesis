@@ -455,7 +455,18 @@ fn percentages(l: &str) -> Option<Answer> {
 // ---------------------------------------------------------------------------
 
 fn bmi(l: &str) -> Option<Answer> {
-    let rest = re!(r"^(?:my\s+)?(?:bmi|body mass index)\b(.*)$").captures(l)?.get(1)?.as_str().to_string();
+    let head = re!(r"^(?:my\s+)?(?:(?:bmi|body mass index)\b|(human|person|man|woman|male|female|adult|boy|girl)\b\s*,?)(.*)$").captures(l)?;
+    let person = head.get(1).map(|x| x.as_str().to_string());
+    let rest = head.get(2)?.as_str().to_string();
+    // "male, 30 years, 6 ft, 180 lb": the age for the metabolic rate
+    let age: Option<f64> = re!(r"(\d+(?:\.\d+)?)\s*(?:-\s*)?(?:years?(?:\s*old)?|yrs?|yo|y/o|year-old)\b").captures(&rest).and_then(|m| m[1].parse().ok());
+    let rest = re!(r"(\d+(?:\.\d+)?)\s*(?:-\s*)?(?:years?(?:\s*old)?|yrs?|yo|y/o|year-old)\b").replace(&rest, " ").to_string();
+    let rest = re!(r"\b(?:male|female|man|woman)\b").replace_all(&rest, " ").to_string();
+    let sex = person.as_deref().and_then(|p| match p {
+        "man" | "male" | "boy" => Some(true),
+        "woman" | "female" | "girl" => Some(false),
+        _ => None,
+    }).or_else(|| if re!(r"\b(?:female|woman)\b").is_match(l) { Some(false) } else if re!(r"\b(?:male|man)\b").is_match(l) { Some(true) } else { None });
     let w = re!(r"(\d+(?:\.\d+)?)\s*(kg|kilograms?|kilos?|lbs?|pounds?|stone|st)\b").captures(&rest)?;
     let kg = {
         let v: f64 = w[1].parse().ok()?;
@@ -482,7 +493,9 @@ fn bmi(l: &str) -> Option<Answer> {
         return None;
     }
     let b = kg / (metres * metres);
-    let class = match b {
+    // adult cut-offs do not apply to children, whose BMI is read against age- and sex-specific percentiles
+    let child = re!(r"\b(?:child|kid|boy|girl|toddler|baby|infant|son|daughter)\b").is_match(l) || age.is_some_and(|a| a < 20.0);
+    let class = if child { "children are classified by BMI-for-age percentile, not adult categories" } else { match b {
         x if x < 16.0 => "severely underweight",
         x if x < 18.5 => "underweight",
         x if x < 25.0 => "normal weight",
@@ -490,9 +503,9 @@ fn bmi(l: &str) -> Option<Answer> {
         x if x < 35.0 => "obese (class I)",
         x if x < 40.0 => "obese (class II)",
         _ => "obese (class III)",
-    };
+    } };
     let (lo, hi) = (18.5 * metres * metres, 25.0 * metres * metres);
-    let pods = vec![
+    let mut pods = vec![
         pod("Input", "Input interpretation", text(format!("body mass index | mass {} kg | height {} m", fmt_float(kg, 4), fmt_float(metres, 4)))),
         primary(pod("Result", "Body mass index", text(format!("{} kg/m²  ({class})", fmt_float((b * 100.0).round() / 100.0, 6))))),
         pod("Formula", "Formula", text(format!("BMI = mass ÷ height² = {} ÷ {}²", fmt_float(kg, 4), fmt_float(metres, 4)))),
@@ -503,7 +516,39 @@ fn bmi(l: &str) -> Option<Answer> {
             table(Some(vec!["BMI", "category"]), vec![vec![text("below 18.5"), text("underweight")], vec![text("18.5 – 24.9"), text("normal weight")], vec![text("25 – 29.9"), text("overweight")], vec![text("30 and above"), text("obese")]]),
         ),
     ];
-    Some(Answer::new("body mass index", pods))
+    if child {
+        pods.retain(|p| p.id != "Range" && p.id != "Classes");
+        pods.push(pod("Note", "Children", text("For children and teenagers BMI is compared with growth-chart percentiles for the same age and sex (CDC/WHO): below the 5th percentile is underweight, the 85th–95th overweight, above the 95th obese. Adult formulas for ideal weight and metabolic rate are not shown.")));
+    }
+    if person.is_none() && age.is_none() {
+        return Some(Answer::new("body mass index", pods));
+    }
+    // a person: body surface area, ideal weight and resting metabolic rate
+    let cm = metres * 100.0;
+    let inches_over_5ft = (metres / 0.0254 - 60.0).max(0.0);
+    let mut r = vec![
+        vec![text("height"), text(format!("{} cm  ({}′ {}″)", fmt_float(cm.round(), 4), (metres / 0.3048).floor(), fmt_float((metres / 0.0254 - (metres / 0.3048).floor() * 12.0).round(), 3)))],
+        vec![text("weight"), text(format!("{} kg  ({} lb)", fmt_float((kg * 10.0).round() / 10.0, 5), fmt_float((kg / 0.453_592_37).round(), 5)))],
+        vec![text("body surface area (Mosteller)"), text(format!("{} m²", fmt_float(((cm * kg / 3600.0).sqrt() * 100.0).round() / 100.0, 4)))],
+    ];
+    let devine = |male: bool| if male { 50.0 } else { 45.5 } + 2.3 * inches_over_5ft;
+    if !child { match sex {
+        Some(m) => r.push(vec![text("ideal body weight (Devine)"), text(format!("{} kg", fmt_float((devine(m) * 10.0).round() / 10.0, 4)))]),
+        None => r.push(vec![text("ideal body weight (Devine)"), text(format!("{} kg (male), {} kg (female)", fmt_float((devine(true) * 10.0).round() / 10.0, 4), fmt_float((devine(false) * 10.0).round() / 10.0, 4)))]),
+    } }
+    if let Some(a) = age.filter(|_| !child) {
+        let base = 10.0 * kg + 6.25 * cm - 5.0 * a;
+        let bmr = match sex {
+            Some(true) => format!("{} kcal/day", (base + 5.0).round()),
+            Some(false) => format!("{} kcal/day", (base - 161.0).round()),
+            None => format!("{} kcal/day (male), {} kcal/day (female)", (base + 5.0).round(), (base - 161.0).round()),
+        };
+        r.push(vec![text("age"), text(format!("{} years", fmt_float(a, 3)))]);
+        r.push(vec![text("resting metabolic rate (Mifflin–St Jeor)"), text(bmr)]);
+    }
+    pods[0] = pod("Input", "Input interpretation", text(format!("{} | height {} m | weight {} kg{}", match sex { Some(true) => "male", Some(false) => "female", None => "human" }, fmt_float(metres, 4), fmt_float(kg, 4), age.map_or(String::new(), |a| format!(" | age {} years", fmt_float(a, 3))))));
+    pods.insert(2, pod("Body", "Body measurements", table(None, r)));
+    Some(Answer::new("body measurements", pods))
 }
 
 // ---------------------------------------------------------------------------

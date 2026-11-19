@@ -1129,3 +1129,14 @@ var hs; altitude of the Sun; deg; sun altitude, solar altitude, sun elevation, s
 var R; angular radius of the primary bow (red edge); deg; primary radius; 42
 var R2; angular radius of the secondary bow (red edge); deg; secondary radius; 51
 note A rainbow is a circle centred on the antisolar point, which lies as far below the horizon as the Sun is above it; a primary bow is visible from the ground only while the Sun is lower than about 42°.
+
+== blood alcohol content | blood alcohol concentration | bac | am i too drunk to drive | how drunk am i | widmark formula | blood alcohol level
+eq B = n*A/(r*W) - beta*t
+var B; estimated blood alcohol content; %; blood alcohol, bac, blood alcohol content
+var n; number of standard drinks; ; drinks, standard drinks, beers, glasses of wine, shots; 4
+var A; alcohol in one standard drink (US: 14 g); g; alcohol per drink; 14
+var W; body weight; kg; weight, body weight, mass; 80
+var r; Widmark body-water factor (about 0.68 for men, 0.55 for women); ; widmark factor; 0.68
+var beta; elimination rate; %/h; elimination rate, burn-off rate; 0.015
+var t; time since the first drink; h; time, hours, duration; 2
+note Widmark's formula gives only a rough estimate: food, drinking speed, medication and individual metabolism change the real value. The legal driving limit is 0.08% in the US and 0.05% in most of Europe, and impairment starts well below either; the only safe level for driving is zero.

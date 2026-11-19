@@ -1757,3 +1757,15 @@ fn normal_gravity_routes_via_countries_and_lumber() {
     assert_eq!(short("board feet 2 in by 6 in by 10 ft"), "10 board feet");
     assert_eq!(short("altitude of a rainbow"), "22°");
 }
+
+#[test]
+fn body_profiles_tones_and_blood_alcohol() {
+    assert!(short("human, 6ft 2in, 250lb").starts_with("32.1 kg/m²"));
+    let r = q("male, 30 years, 6 ft, 180 lb");
+    assert!(pod_text(&r, "Body").contains("1814 kcal/day"));
+    assert!(short("play 440Hz sine wave").contains("period 2.2727 ms"));
+    assert!(short("play 440Hz tone + 444Hz tone").starts_with("4 Hz"));
+    assert!(short("Am I too drunk to drive?").starts_with("0.07"));
+    // adult categories never label a child
+    assert!(!short("male child 40\", 40 lbs").contains("underweight"));
+}

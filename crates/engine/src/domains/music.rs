@@ -148,7 +148,76 @@ fn spell(root: i32, flats: bool, steps: &[i32]) -> Vec<String> {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim();
-    key_signature(l).or_else(|| scale(l)).or_else(|| chord(q)).or_else(|| interval(l)).or_else(|| note(q))
+    key_signature(l).or_else(|| scale(l)).or_else(|| chord(q)).or_else(|| interval(l)).or_else(|| note(q)).or_else(|| tones(l))
+}
+
+/// "play 440Hz sine wave", "play 440Hz tone + 444Hz tone": the waveform, the
+/// nearest note, the wavelength in air and, for two tones, the beat frequency.
+fn tones(l: &str) -> Option<Answer> {
+    let l = l.trim_end_matches(['.', '!']);
+    let play = re!(r"^(?:play|sound|generate|synthesi[sz]e|listen to|hear|make)\s+(?:an?\s+|the\s+)?").find(l).map(|m| m.end());
+    let body = &l[play.unwrap_or(0)..];
+    let tone = r"(\d+(?:\.\d+)?)\s*(k?hz)(?:\s+(sine|sinusoidal|square|sawtooth|triangle))?(?:\s+(?:wave|tone|signal|note|sound|waveform))?";
+    let parts: Vec<&str> = re!(r"\s*(?:\+|\band\b|\bplus\b|,)\s*(?:an?\s+)?").split(body).collect();
+    let rx = Regex::new(&format!("^{tone}$")).ok()?;
+    let mut comps: Vec<(f64, String)> = Vec::new();
+    for p in &parts {
+        let m = rx.captures(p.trim())?;
+        let f: f64 = m[1].parse::<f64>().ok()? * if &m[2] == "khz" { 1000.0 } else { 1.0 };
+        if !(f > 0.0 && f <= 1e6) {
+            return None;
+        }
+        comps.push((f, m.get(3).map_or("sine", |x| x.as_str()).replace("sinusoidal", "sine")));
+    }
+    // a bare "440 Hz" is a unit; insist on "play" or a word like tone or wave
+    if play.is_none() && !re!(r"\b(?:wave|tone|signal|waveform)\b").is_match(body) {
+        return None;
+    }
+    if comps.is_empty() || comps.len() > 6 {
+        return None;
+    }
+    let wave = |f: f64, kind: &str| -> String {
+        // t in milliseconds
+        let k = f / 1000.0;
+        match kind {
+            "square" => format!("sign(sin(2*pi*{k}*t))"),
+            "sawtooth" => format!("2*({k}*t - floor({k}*t + 1/2))"),
+            "triangle" => format!("(2/pi)*asin(sin(2*pi*{k}*t))"),
+            _ => format!("sin(2*pi*{k}*t)"),
+        }
+    };
+    let sum = comps.iter().map(|(f, k)| wave(*f, k)).collect::<Vec<_>>().join(" + ");
+    let fmin = comps.iter().map(|c| c.0).fold(f64::INFINITY, f64::min);
+    let mut rows = Vec::new();
+    for (f, kind) in &comps {
+        let n = 12.0 * (f / 440.0).log2() + 69.0;
+        let midi = n.round() as i32;
+        let cents = ((n - midi as f64) * 100.0).round();
+        let note = format!("{}{}{}", name(midi.rem_euclid(12), false), midi.div_euclid(12) - 1, if cents == 0.0 { String::new() } else { format!(" {}{} cents", if cents > 0.0 { "+" } else { "−" }, cents.abs()) });
+        rows.push(vec![text(format!("{} Hz {kind}", fmt_float(*f, 6))), text(format!("{} ms", fmt_float(1000.0 / f, 5))), text(format!("{} m", fmt_float(343.0 / f, 4))), text(note)]);
+    }
+    let mut pods = vec![
+        pod("Input", "Input interpretation", text(format!("{} | sound", comps.iter().map(|(f, k)| format!("{} Hz {k} wave", fmt_float(*f, 6))).collect::<Vec<_>>().join(" + ")))),
+    ];
+    let span_ms = if comps.len() == 2 && (comps[0].0 - comps[1].0).abs() > 0.0 && (comps[0].0 - comps[1].0).abs() < fmin / 4.0 {
+        // two close tones: show a whole beat
+        let beat = (comps[0].0 - comps[1].0).abs();
+        pods.push(primary(pod("Result", "Beat frequency", text(format!("{} Hz (one beat every {} s)", fmt_float(beat, 6), fmt_float(1.0 / beat, 4))))));
+        1000.0 / beat
+    } else {
+        pods.push(primary(pod("Result", "Sound", text(if comps.len() == 1 { format!("{} Hz {} wave, period {} ms", fmt_float(comps[0].0, 6), comps[0].1, fmt_float(1000.0 / comps[0].0, 5)) } else { format!("{} tones", comps.len()) }))));
+        3000.0 / fmin
+    };
+    if let Ok(e) = crate::parse::parse(&sum) {
+        let t = crate::expr::Expr::Sym("t".into());
+        if let Some(mut pl) = crate::plot::cartesian(&[e.expr], &t, Some((0.0, span_ms))) {
+            pl.x_label = "t (ms)".into();
+            pods.push(pod("Plot", "Waveform", plot(pl)));
+        }
+    }
+    pods.push(pod("Table", "Components", table(Some(vec!["tone", "period", "wavelength in air (20 °C)", "nearest note (A4 = 440 Hz)"]), rows)));
+    pods.push(pod("Note", "Note", text("Noesis does not play audio; the waveform is drawn instead. Human hearing spans roughly 20 Hz to 20 kHz.")));
+    Some(Answer::new("tone", pods))
 }
 
 fn note(q: &Query) -> Option<Answer> {
