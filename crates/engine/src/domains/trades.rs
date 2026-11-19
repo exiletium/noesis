@@ -50,11 +50,11 @@ const CPI: [f64; 112] = [
     304.702, 313.689, // 2023–2024
 ];
 
-fn cpi(y: i32) -> Option<f64> {
+pub(crate) fn cpi(y: i32) -> Option<f64> {
     CPI.get(usize::try_from(y - CPI_FIRST).ok()?).copied()
 }
 
-fn last_cpi_year() -> i32 {
+pub(crate) fn last_cpi_year() -> i32 {
     CPI_FIRST + CPI.len() as i32 - 1
 }
 

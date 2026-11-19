@@ -1898,3 +1898,17 @@ fn storms_reactors_pathways_and_roads() {
     assert!(short("length of US1").starts_with("3813 km"));
     assert!(short("cone").contains("volume"));
 }
+
+#[test]
+fn films_tv_games_and_bands() {
+    assert!(short("director, writer of Schindler's List").contains("Steven Zaillian"));
+    assert_eq!(short("2001: A Space Odyssey runtime"), "142 minutes (2 h 22 min)");
+    assert_eq!(short("movies starring Kevin Bacon and Tom Cruise"), "A Few Good Men (1992)");
+    assert!(short("what is the 4th highest grossing movie of 2019?").starts_with("Spider-Man: Far From Home"));
+    assert!(short("Oscar for best actress 1958").starts_with("Joanne Woodward"));
+    assert_eq!(short("bands with Eric Clapton and Jimmy Page"), "The Yardbirds");
+    assert!(short("how many The Twilight Zone episodes are there?").starts_with("156 episodes"));
+    assert!(short("PS3 video games by Naughty Dog").contains("The Last of Us (2013)"));
+    assert_eq!(short("Who published Zelda 2?"), "Nintendo");
+    assert!(short("James Bond movies").starts_with("Dr. No"));
+}
