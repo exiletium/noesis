@@ -71,9 +71,20 @@ fn place(s: &str) -> Option<(String, String)> {
     if let Some(c) = find_city(&s2) {
         return Some((c.name.clone(), c.timezone.clone()));
     }
-    let c = find_country(&s2)?;
-    let big = cities().iter().filter(|x| x.country == c.iso2).max_by_key(|x| x.population)?;
-    Some((c.name.clone(), big.timezone.clone()))
+    if let Some(c) = find_country(&s2) {
+        let big = cities().iter().filter(|x| x.country == c.iso2).max_by_key(|x| x.population)?;
+        return Some((c.name.clone(), big.timezone.clone()));
+    }
+    // "Coedpoeth, Wales": a place we don't list, in a region or country we do
+    let (town, region) = s.rsplit_once(',')?;
+    let region = region.trim();
+    let region = match region {
+        "wales" | "scotland" | "england" | "northern ireland" => "united kingdom",
+        r => r,
+    };
+    let (_, tz) = place(region)?;
+    let name = town.trim().split(' ').map(|w| { let mut c = w.chars(); c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str()) }).collect::<Vec<_>>().join(" ");
+    Some((format!("{name}, {}", place(region)?.0), tz))
 }
 
 /// "noon", "7pm", "12:35pm", "3 pm", "15:00", "2:34:06pm"

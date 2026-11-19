@@ -351,8 +351,10 @@ fn calendar(l: &str) -> Option<Answer> {
         }
         return Some(ans("zodiac", format!("zodiac sign for {}", d.format("%B %-d")), "Western zodiac sign", text(sign), extra));
     }
-    if let Some(m) = re!(r"^(?:what is the |what's the )?birth ?stones? (?:for |of )?([a-z]+)$|^([a-z]+) birth ?stones?$").captures(l) {
-        let i = month_index(m.get(1).or(m.get(2))?.as_str())?;
+    if let Some(m) = re!(r"^(?:what is the |what's the )?birth ?stones? (?:for |of )?(?:someone born (?:on |in )?)?(.+)$|^(.+?) birth ?stones?$").captures(l) {
+        let w = m.get(1).or(m.get(2))?.as_str().trim();
+        // a month name, or any date ("birthstones 2004/5/6")
+        let i = month_index(w).or_else(|| crate::domains::misc::parse_date(w).map(|d| d.month0() as usize))?;
         return Some(ans("birthstone", format!("birthstone for {}", capital(MONTHS[i])), "Birthstone", text(BIRTHSTONES[i]), vec![pod("All", "All months", table(None, (0..12).map(|k| vec![text(capital(MONTHS[k])), text(BIRTHSTONES[k])]).collect()))]));
     }
     if let Some(m) = re!(r"^(?:what is the )?(?:birth )?flowers? (?:for |of )?(?:people born in )?([a-z]+)$|^([a-z]+) (?:birth )?flowers?$").captures(l) {

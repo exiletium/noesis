@@ -497,6 +497,8 @@ pub(crate) static STARS: &[Star] = &[
     st(&["omega centauri", "ngc 5139"], (13.0, 26.0, 47.28), (-1.0, 47.0, 28.0, 46.1), 3.9, 17090.0, "globular cluster", "Centaurus", "the largest globular cluster of the Milky Way, about 10 million stars"),
     st(&["m37", "messier 37", "ngc 2099"], (5.0, 52.0, 18.0), (1.0, 32.0, 33.0, 2.0), 6.2, 4500.0, "open cluster", "Auriga", ""),
     st(&["m80", "messier 80", "ngc 6093"], (16.0, 17.0, 2.41), (-1.0, 22.0, 58.0, 33.9), 7.87, 32600.0, "globular cluster", "Scorpius", ""),
+    st(&["ngc 5907", "ngc 5906", "splinter galaxy", "knife edge galaxy"], (15.0, 15.0, 53.8), (1.0, 56.0, 19.0, 44.0), 10.3, 5.0e7, "edge-on spiral galaxy", "Draco", "seen exactly edge-on; NGC 5906 is a duplicate catalogue entry for it"),
+    st(&["ic 5070", "pelican nebula", "the pelican nebula"], (20.0, 50.0, 48.0), (1.0, 44.0, 21.0, 0.0), 8.0, 1800.0, "emission nebula", "Cygnus", "part of the same cloud as the North America Nebula"),
     st(&["ngc 2808"], (9.0, 12.0, 3.1), (-1.0, 64.0, 51.0, 48.6), 6.2, 31300.0, "globular cluster", "Carina", "hosts several generations of stars"),
     st(&["m53", "messier 53", "ngc 5024"], (13.0, 12.0, 55.25), (1.0, 18.0, 10.0, 5.4), 7.6, 58000.0, "globular cluster", "Coma Berenices", ""),
     st(&["ngc 288"], (0.0, 52.0, 45.24), (-1.0, 26.0, 34.0, 57.4), 8.1, 28700.0, "globular cluster", "Sculptor", ""),
@@ -1120,6 +1122,9 @@ fn history(l: &str) -> Option<Answer> {
 /// local time: "Double Cluster 11:30 tonight", "M80 on May 16, 2020 at 9:45pm".
 fn position_at(l: &str) -> Option<Answer> {
     use chrono::{NaiveTime, TimeZone};
+    // "NGC 5906 at 7:00pm on Jan 12, 1988": move the date in front of the time
+    let swapped = re!(r"^(.+?) (at \d{1,2}(?::\d{2})? ?(?:am|pm)?) on (.+?)((?: (?:from|in|over) .+)?)$").replace(l, "$1 on $3 $2$4").to_string();
+    let l = swapped.as_str();
     let m = re!(r"^(?:where (?:is|will) |position of |altitude of |where's )?(?:the )?(.+?)(?: (?:on|for) (.+?))?(?: (?:at )?(\d{1,2}(?::\d{2})? ?(?:am|pm|a\.m\.|p\.m\.)?|midnight|noon))?( tonight| today| this evening)?(?: be)?(?: (?:from|in|over|as seen from) (.+))?$").captures(l)?;
     let time_s = m.get(3).map(|x| x.as_str().trim());
     let tonight = m.get(4).is_some();

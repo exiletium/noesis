@@ -455,7 +455,7 @@ fn percentages(l: &str) -> Option<Answer> {
 // ---------------------------------------------------------------------------
 
 fn bmi(l: &str) -> Option<Answer> {
-    let head = re!(r"^(?:my\s+)?(?:(?:bmi|body mass index)\b|(human|person|man|woman|male|female|adult|boy|girl)\b\s*,?)(.*)$").captures(l)?;
+    let head = re!(r"^(?:my\s+|an?\s+)?(?:(?:bmi|body mass index)\b|(human|person|man|woman|male|female|adult|boy|girl)\b\s*,?)(.*)$").captures(l)?;
     let person = head.get(1).map(|x| x.as_str().to_string());
     let rest = head.get(2)?.as_str().to_string();
     // "male, 30 years, 6 ft, 180 lb": the age for the metabolic rate

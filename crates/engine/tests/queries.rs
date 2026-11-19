@@ -1820,3 +1820,12 @@ fn deep_sky_positions_and_messier_names() {
     assert!(pod_text(&q("M80"), "Properties").contains("globular cluster"));
     assert!(!short("G2V").is_empty());
 }
+
+#[test]
+fn sky_time_order_small_places_birthstone_dates_and_child_bmi() {
+    std::env::remove_var("NOESIS_LOCATION");
+    assert!(short("IC 5070 at 3am on 18 May 2012").starts_with("altitude"));
+    assert!(pod_text(&q("1:23 am in Coedpoeth, Wales"), "Input").contains("Coedpoeth, United Kingdom"));
+    assert_eq!(short("birthstones 2004/5/6"), "emerald");
+    assert!(short("a boy 10 years old, 132 centimeters and 28 kilograms").starts_with("16.07"));
+}
