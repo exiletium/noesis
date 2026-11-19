@@ -48,6 +48,9 @@ pub fn parse_date(s: &str) -> Option<NaiveDate> {
         "yesterday" => return Some(today() - Duration::days(1)),
         _ => {}
     }
+    if let Some(d) = super::seasons::event_date(&l) {
+        return Some(d);
+    }
     if let Some(h) = holiday(&l, today().year()) {
         return Some(if h < today() { holiday(&l, today().year() + 1)? } else { h });
     }

@@ -1769,3 +1769,12 @@ fn body_profiles_tones_and_blood_alcohol() {
     // adult categories never label a child
     assert!(!short("male child 40\", 40 lbs").contains("underweight"));
 }
+
+#[test]
+fn solstice_dates_and_letter_searches() {
+    std::env::remove_var("NOESIS_LOCATION");
+    assert!(short("What time will the sun set on the next solstice?").ends_with("GMT"));
+    assert!(pod_text(&q("sunrise on the summer solstice 2027"), "Input").contains("June 21, 2027"));
+    assert!(short("words with qsp").starts_with("qophs"));
+    assert!(short("words containing the letters q, s and p").starts_with("qophs"));
+}

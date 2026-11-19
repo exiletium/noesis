@@ -388,6 +388,8 @@ fn prayer_times(l: &str) -> Option<Answer> {
 }
 
 fn sun(l: &str) -> Option<Answer> {
+    // "what time will the sun set on …" → "sunset on …"
+    let l = &re!(r"^(?:what time|when)\s+(?:will|does|did)\s+the\s+sun\s+(rise|set)\b").replace(l, "sun$1").to_string();
     let m = re!(r"^(?:(?:what time is|when is)\s+)?(?:the\s+)?(sunrise|sunset|sun ?rise|sun ?set|daylight hours|day length|length of (?:the )?day|hours of daylight)(?:\s+time)?(?:\s+(?:in|at|for)\s+(.+?))?(?:\s+(today|tomorrow|on .+|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d.*|\d.*))?$").captures(l)?;
     let assumed = m.get(2).is_none();
     let place = m.get(2).map_or("", |x| x.as_str().trim());

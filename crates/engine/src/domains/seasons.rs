@@ -69,6 +69,33 @@ fn event_utc(year: i32, k: usize) -> NaiveDateTime {
     chrono::DateTime::from_timestamp(secs, 0).map(|d| d.naive_utc()).unwrap_or_default()
 }
 
+/// "the next solstice", "summer solstice 2027", "march equinox": the UTC date of the event.
+pub fn event_date(s: &str) -> Option<chrono::NaiveDate> {
+    let m = re!(r"^(?:the\s+)?(next\s+|last\s+|previous\s+)?(?:(summer|winter|june|december|spring|vernal|march|autumn|autumnal|fall|september)\s+)?(solstice|equinox)(?:\s+(?:of\s+)?(\d{4}))?$").captures(s.trim())?;
+    let ks: Vec<usize> = match (m.get(2).map(|x| x.as_str()), &m[3]) {
+        (Some("summer" | "june"), "solstice") => vec![1],
+        (Some("winter" | "december"), "solstice") => vec![3],
+        (Some("spring" | "vernal" | "march"), "equinox") => vec![0],
+        (Some("autumn" | "autumnal" | "fall" | "september"), "equinox") => vec![2],
+        (None, "solstice") => vec![1, 3],
+        (None, _) => vec![0, 2],
+        _ => return None,
+    };
+    if let Some(y) = m.get(4) {
+        let y: i32 = y.as_str().parse().ok()?;
+        return ks.iter().map(|k| event_utc(y, *k).date()).min();
+    }
+    let now = chrono::Utc::now().naive_utc();
+    let y = now.date().year();
+    let mut all: Vec<NaiveDateTime> = (y - 1..=y + 1).flat_map(|yy| ks.iter().map(move |k| event_utc(yy, *k))).collect();
+    all.sort();
+    if m.get(1).is_some_and(|x| !x.as_str().starts_with("next")) {
+        all.into_iter().filter(|t| *t <= now).last().map(|t| t.date())
+    } else {
+        all.into_iter().find(|t| *t > now).map(|t| t.date())
+    }
+}
+
 const NAMES: [&str; 4] = ["March equinox", "June solstice", "September equinox", "December solstice"];
 const NORTH: [&str; 4] = ["spring (vernal) equinox", "summer solstice", "autumnal equinox", "winter solstice"];
 

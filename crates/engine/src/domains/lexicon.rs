@@ -491,6 +491,29 @@ fn patterns(l: &str) -> Option<Answer> {
         pods.push(pod("Count", "Number of words", text(found.len().to_string())));
         return Some(Answer::new(format!("words matching {shown}"), pods));
     }
+    // "words with qsp", "words containing the letters q, s and p": a run of
+    // letters, or failing that every letter in any order
+    if let Some(m) = re!(r"^words?\s+(?:with|containing|that contain|which contain|having)\s+(?:the\s+)?(?:letters?\s+)?([a-z](?:(?:\s*,\s*|\s+)(?:and\s+)?[a-z])+|[a-z]{2,12})$").captures(l) {
+        let raw = m[1].to_string();
+        let separate = raw.contains([' ', ',']);
+        if !separate && !l.contains(" with ") && !l.contains(" having ") {
+            // "words containing qu" is handled below
+        } else {
+            let letters: String = re!(r"\band\b").replace_all(&raw, " ").chars().filter(|c| c.is_ascii_lowercase()).collect();
+            let mut found: Vec<&str> = if separate { vec![] } else { words().iter().copied().filter(|w| w.contains(letters.as_str())).collect() };
+            let mut how = format!("words containing \"{letters}\"");
+            if found.is_empty() {
+                let need = |w: &str| letters.chars().all(|c| w.matches(c).count() >= letters.matches(c).count());
+                found = words().iter().copied().filter(|w| need(w)).collect();
+                how = format!("words containing the letters {}", letters.chars().map(|c| c.to_string()).collect::<Vec<_>>().join(", "));
+            }
+            found.sort_by_key(|w| (w.len(), *w));
+            let mut pods = vec![pod("Input", "Input interpretation", text(how.clone()))];
+            pods.push(primary(pod("Result", "Result", text(if found.is_empty() { "no words found".to_string() } else { word_list(&found) }))));
+            pods.push(pod("Count", "Number of words", text(found.len().to_string())));
+            return Some(Answer::new(how, pods));
+        }
+    }
     let m = re!(r"^(?:(\d+)[- ]letter\s+)?words?\s+(?:that\s+|which\s+)?(start(?:s|ing)?|begin(?:s|ning)?|end(?:s|ing)?|contain(?:s|ing)?)\s+(?:with|in)?\s*(?:the letters?\s+)?([a-z]+)(?:\s+(?:and|that)\s+(end(?:s|ing)?|start(?:s|ing)?|begin(?:s|ning)?|contain(?:s|ing)?)\s+(?:with|in)?\s*([a-z]+))?(?:\s+with\s+(\d+)\s+letters)?$").captures(l)?;
     let len: Option<usize> = m.get(1).or(m.get(6)).and_then(|x| x.as_str().parse().ok());
     let test = |kind: &str, part: &str, w: &str| {
