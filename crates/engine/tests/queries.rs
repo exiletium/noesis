@@ -1811,3 +1811,12 @@ fn qr_codes_upc_barcodes_passwords_and_conics() {
     assert_eq!(short("generate a 12 character password").chars().count(), 12);
     assert!(short("cross sections of a cone's surface").contains("parabola"));
 }
+
+#[test]
+fn deep_sky_positions_and_messier_names() {
+    std::env::remove_var("NOESIS_LOCATION");
+    assert!(short("M80 on May 16, 2020 at 9:45pm").starts_with("altitude -0.2°, azimuth 129°"));
+    assert!(pod_text(&q("Double Cluster 11:30 tonight"), "Input").contains("11:30 PM"));
+    assert!(pod_text(&q("M80"), "Properties").contains("globular cluster"));
+    assert!(!short("G2V").is_empty());
+}

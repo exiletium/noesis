@@ -627,7 +627,7 @@ fn stars(l: &str) -> Option<Answer> {
     }
     // a bare name
     let s = find_star(l)?;
-    if matches!(l, "andromeda" | "proxima" | "m3" | "m4" | "m8" | "m13" | "m15" | "m37" | "m44" | "m53" | "m76" | "m80") {
+    if matches!(l, "andromeda" | "proxima" | "m3" | "m4" | "m8") {
         return None;
     }
     Some(Answer::new(s.names[0], vec![input(capitalize(s.names[0])), primary(pod("Properties", "Properties", rows(star_rows(s))))]))
@@ -1116,11 +1116,100 @@ fn history(l: &str) -> Option<Answer> {
     Some(Answer::new(facts.0, vec![input(facts.0.to_string()), primary(pod("Result", "Result", text(facts.1))), pod("Details", "Details", table(None, facts.2))]))
 }
 
+/// Altitude and azimuth of a catalogued star or deep-sky object at a given
+/// local time: "Double Cluster 11:30 tonight", "M80 on May 16, 2020 at 9:45pm".
+fn position_at(l: &str) -> Option<Answer> {
+    use chrono::{NaiveTime, TimeZone};
+    let m = re!(r"^(?:where (?:is|will) |position of |altitude of |where's )?(?:the )?(.+?)(?: (?:on|for) (.+?))?(?: (?:at )?(\d{1,2}(?::\d{2})? ?(?:am|pm|a\.m\.|p\.m\.)?|midnight|noon))?( tonight| today| this evening)?(?: be)?(?: (?:from|in|over|as seen from) (.+))?$").captures(l)?;
+    let time_s = m.get(3).map(|x| x.as_str().trim());
+    let tonight = m.get(4).is_some();
+    // a clock time, or "tonight", must be given; a bare number alone is not a time
+    if time_s.is_none() && !tonight {
+        return None;
+    }
+    if let Some(t) = time_s {
+        if t.chars().all(|c| c.is_ascii_digit()) && !tonight && m.get(2).is_none() {
+            return None;
+        }
+    }
+    let s = find_star(m[1].trim())?;
+    let (place, lat, lon, tz, assumed) = match m.get(5) {
+        Some(p) => {
+            let c = super::geo::find_city(p.as_str().trim())?;
+            (c.name.clone(), c.lat, c.lon, c.timezone.clone(), false)
+        }
+        None => {
+            let (n, la, lo, tz) = super::geo::home();
+            (n, la, lo, tz, true)
+        }
+    };
+    let tz: chrono_tz::Tz = tz.parse().ok()?;
+    let today = Utc::now().with_timezone(&tz).date_naive();
+    let date = match m.get(2) {
+        Some(d) => super::misc::parse_date(d.as_str())?,
+        None => today,
+    };
+    let time = match time_s {
+        None => NaiveTime::from_hms_opt(21, 0, 0)?,
+        Some("midnight") => NaiveTime::from_hms_opt(0, 0, 0)?,
+        Some("noon") => NaiveTime::from_hms_opt(12, 0, 0)?,
+        Some(t) => {
+            let c = re!(r"^(\d{1,2})(?::(\d{2}))? ?(am|pm|a\.m\.|p\.m\.)?$").captures(t)?;
+            let mut h: u32 = c[1].parse().ok()?;
+            let mi: u32 = c.get(2).map_or(Some(0), |x| x.as_str().parse().ok())?;
+            match c.get(3).map(|x| x.as_str().starts_with('p')) {
+                Some(true) if h < 12 => h += 12,
+                Some(false) if h == 12 => h = 0,
+                None if tonight && h < 12 && h >= 6 => h += 12,
+                _ => {}
+            }
+            NaiveTime::from_hms_opt(h, mi, 0)?
+        }
+    };
+    // "midnight tonight" and "2 am tonight" fall on the next calendar day
+    let date = if tonight && time.format("%H").to_string().parse::<u32>().ok()? < 6 { date + Duration::days(1) } else { date };
+    let local = tz.from_local_datetime(&date.and_time(time)).earliest()?;
+    let utc = local.with_timezone(&Utc);
+    let jd = utc.timestamp() as f64 / 86400.0 + 2440587.5;
+    let lst = (280.46061837 + 360.98564736629 * (jd - 2451545.0) + lon).rem_euclid(360.0);
+    let (ra, dec) = (ra_deg(s), dec_deg(s));
+    let h = (lst - ra + 540.0).rem_euclid(360.0) - 180.0;
+    let alt = (sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(h)).asin().to_degrees();
+    let az = (sin(h).atan2(cos(h) * sin(lat) - dec.to_radians().tan() * cos(lat)).to_degrees() + 180.0).rem_euclid(360.0);
+    let compass = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"][((az + 11.25) / 22.5) as usize % 16];
+    // next transit: the hour angle grows 15.04° per hour
+    let to_transit = (-h).rem_euclid(360.0) / 15.041;
+    let transit = local + Duration::seconds((to_transit * 3600.0) as i64);
+    let max_alt = 90.0 - (lat - dec).abs();
+    let state = if alt > 0.0 { "above the horizon" } else { "below the horizon" };
+    let name = capitalize(s.names[0]);
+    let when = local.format("%A, %B %-d, %Y, %-I:%M %p %Z").to_string();
+    let mut r = vec![
+        ("altitude", format!("{}° ({state})", fmt_float((alt * 10.0).round() / 10.0, 4))),
+        ("azimuth", format!("{}° ({compass})", fmt_float((az * 10.0).round() / 10.0, 4))),
+        ("hour angle", format!("{}h ({})", fmt_float((h / 15.0 * 100.0).round() / 100.0, 4), if h < 0.0 { "east of the meridian, rising" } else { "west of the meridian, setting" })),
+        ("right ascension, declination", format!("{}h {}m {}s, {}°", s.ra.0, s.ra.1, s.ra.2, fmt_float((dec * 100.0).round() / 100.0, 5))),
+        ("next transit", format!("{} (altitude {}°)", transit.format("%-I:%M %p"), fmt_float((max_alt * 10.0).round() / 10.0, 4))),
+    ];
+    r.push(("visibility", if max_alt <= 0.0 { "never rises at this latitude".into() } else if lat.abs() + dec.abs() >= 90.0 && lat * dec > 0.0 { "circumpolar (never sets) at this latitude".into() } else { "rises and sets daily".into() }));
+    let mut pods = vec![
+        input(format!("{name} | {place} | {when}")),
+        primary(pod("Result", "Position in the sky", text(format!("altitude {}°, azimuth {}° ({compass}), {state}", fmt_float((alt * 10.0).round() / 10.0, 4), fmt_float(az.round(), 3))))),
+        pod("Details", "Details", rows(r)),
+    ];
+    if assumed {
+        pods.push(pod("Assumption", "Assumption", text(format!("location: {place} (no place given; set NOESIS_LOCATION to a city name to change)"))));
+    }
+    pods.push(pod("Note", "Note", text("J2000 catalogue position without precession or refraction; good to about half a degree.")));
+    Some(Answer::new(format!("{name} position"), pods))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
     eclipses(l)
+        .or_else(|| position_at(l))
         .or_else(|| minor_bodies(l))
         .or_else(|| next_moon(l))
         .or_else(|| intermediate_phase(l))

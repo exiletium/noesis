@@ -339,7 +339,8 @@ fn spectral_class(l: &str) -> Option<Answer> {
     let sp = spec_exact(&m[1])?;
     // the bare form must be a full type such as "G2V"
     let prefixed = m.get(1).map_or(0, |x| x.start()) > 0;
-    if !prefixed && (sp.sub.is_none() || sp.lum.is_none()) {
+    // ("M80" is Messier 80, not an M8 hypergiant)
+    if !prefixed && (sp.sub.is_none() || sp.lum.is_none() || sp.lum.as_deref() == Some("0")) {
         return None;
     }
     let (colour, range) = letter_info(sp.letter);
