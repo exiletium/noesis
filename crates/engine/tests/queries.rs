@@ -1912,3 +1912,13 @@ fn films_tv_games_and_bands() {
     assert_eq!(short("Who published Zelda 2?"), "Nintendo");
     assert!(short("James Bond movies").starts_with("Dr. No"));
 }
+
+#[test]
+fn comics_periodicals_and_networks() {
+    assert_eq!(short("who publishes the 30 Days of Night comic"), "IDW Publishing");
+    assert_eq!(short("creator of Absolute Boyfriend"), "Yuu Watase");
+    assert!(short("Akira comic vs. Cable and Deadpool comic").contains("Cable & Deadpool"));
+    assert_eq!(short("what is the website for the guardian periodical"), "theguardian.com");
+    assert!(short("ABC, NBC, CBS, FOX").starts_with("ABC"));
+    assert!(short("image 52 comic").contains("DC Comics"));
+}
