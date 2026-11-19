@@ -303,6 +303,16 @@ fn find(name: &str) -> Option<&'static Feature> {
     alts.iter().find_map(|a| data().iter().find(|f| f.names.iter().any(|x| x == a)))
 }
 
+/// Coordinates of a named feature for other modules: (name, lat, lon).
+pub(crate) fn locate(name: &str) -> Option<(String, f64, f64)> {
+    let f = find(name)?;
+    let title = f.names[0].split(' ').map(|w| {
+        let mut c = w.chars();
+        c.next().map_or(String::new(), |x| x.to_uppercase().collect::<String>() + c.as_str())
+    }).collect::<Vec<_>>().join(" ");
+    Some((title, f.lat, f.lon))
+}
+
 /// In a list or with a property, "Amazon" may mean the river and
 /// "Erie" the lake.
 fn find_loose(name: &str) -> Option<&'static Feature> {

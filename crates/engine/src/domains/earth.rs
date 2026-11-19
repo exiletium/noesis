@@ -89,7 +89,7 @@ fn pseudo_city(lat: f64, lon: f64) -> City {
     City { name: String::new(), country: String::new(), lat, lon, population: 0, timezone: String::new(), capital: false, population_year: String::new(), admin1: String::new() }
 }
 
-fn nearest_city(lat: f64, lon: f64) -> Option<(&'static City, f64)> {
+pub(crate) fn nearest_city(lat: f64, lon: f64) -> Option<(&'static City, f64)> {
     let p = pseudo_city(lat, lon);
     cities().iter().filter(|c| c.population >= 100_000).map(|c| (c, distance_km(&p, c))).min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
 }

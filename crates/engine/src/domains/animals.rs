@@ -203,7 +203,10 @@ ruby-throated hummingbird;hummingbird|Archilochus colubris|Aves|Apodiformes|Troc
 great horned owl|Bubo virginianus|Aves|Strigiformes|Strigidae|0.9-2.5|0.43-0.64|13|65|Least Concern|the Americas|wingspan=1.0–1.6 m;diet=carnivore
 snowy owl|Bubo scandiacus|Aves|Strigiformes|Strigidae|1.6-3|0.52-0.71|10|80|Vulnerable|Arctic|wingspan=1.25–1.5 m;diet=lemmings
 american crow;crow|Corvus brachyrhynchos|Aves|Passeriformes|Corvidae|0.32-0.6|0.4-0.53|7-8|50|Least Concern|North America|wingspan=0.85–1.0 m;diet=omnivore
-common ostrich;mute swan;swan|Cygnus olor|Aves|Anseriformes|Anatidae|9-14|1.25-1.7|20-30|88|Least Concern|Europe and Asia|wingspan=2.0–2.4 m;diet=aquatic plants
+mute swan;swan|Cygnus olor|Aves|Anseriformes|Anatidae|9-14|1.25-1.7|20-30|88|Least Concern|Europe and Asia|wingspan=2.0–2.4 m;diet=aquatic plants
+blue jay|Cyanocitta cristata|Aves|Passeriformes|Corvidae|0.07-0.1|0.22-0.3|7|40|Least Concern|eastern and central North America|wingspan=34–43 cm (13–17 in);note=can mimic the calls of hawks; the oldest known wild blue jay lived about 26 years;diet=omnivore (acorns, seeds, insects)
+northern cardinal|Cardinalis cardinalis|Aves|Passeriformes|Cardinalidae|0.042-0.048|0.21-0.235|3|-|Least Concern|eastern North America to Mexico and Belize|wingspan=25–31 cm (10–12 in);note=the male is bright red, the female buff brown;diet=seeds, fruit and insects
+american robin|Turdus migratorius|Aves|Passeriformes|Turdidae|0.072-0.094|0.23-0.28|2|-|Least Concern|North America|wingspan=31–41 cm (12–16 in);diet=earthworms, insects and fruit
 mallard|Anas platyrhynchos|Aves|Anseriformes|Anatidae|0.7-1.6|0.5-0.65|5-10|88|Least Concern|Northern Hemisphere|wingspan=0.81–0.98 m;diet=omnivore
 common swift;swift|Apus apus|Aves|Apodiformes|Apodidae|0.036-0.05|0.16-0.17|9|110|Least Concern|Europe, Asia, Africa|wingspan=38–40 cm;note=stays airborne for up to 10 months at a time;diet=flying insects
 saltwater crocodile;crocodile|Crocodylus porosus|Reptilia|Crocodilia|Crocodylidae|400-1000|4-6|70|29|Least Concern|South and Southeast Asia, northern Australia|swim=about 24–29 km/h in bursts;diet=carnivore

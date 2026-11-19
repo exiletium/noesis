@@ -36,6 +36,9 @@ const OBJECTS: &[(&[&str], &str, f64, f64, &str)] = &[
     (&["starburst", "starbursts", "starburst candy", "starburst candies", "starburst fruit chews", "starburst chews"], "Starburst candies", 3.8, 0.62, "wrapped fruit chew about 23 mm × 19 mm × 9 mm (5 g)"),
     (&["lego brick", "lego bricks", "legos", "lego"], "LEGO 2×4 bricks", 3.6, 0.45, "31.8 mm × 15.8 mm × 11.4 mm brick (hollow, random fill)"),
     (&["candy corn", "candy corns"], "candy corns", 1.6, 0.6, "about 20 mm × 15 mm × 8 mm wedge"),
+    (&["trade paperback", "trade paperbacks", "trade paperback book", "trade paperback books", "paperback", "paperbacks", "paperback book", "paperback books"], "trade paperback books", 766.0, 0.85, "about 5.5 in × 8.5 in × 1 in (14 cm × 21.6 cm × 2.5 cm), packed flat in stacks"),
+    (&["hardcover book", "hardcover books", "hardback", "hardbacks", "hardcover", "hardcovers"], "hardcover books", 1470.0, 0.85, "about 6.25 in × 9.5 in × 1.5 in, packed flat in stacks"),
+    (&["book", "books"], "books", 766.0, 0.85, "a trade paperback, about 5.5 in × 8.5 in × 1 in, packed flat in stacks"),
 ];
 
 /// names | display | volume cm³ | note
@@ -50,6 +53,9 @@ const CONTAINERS: &[(&[&str], &str, f64, &str)] = &[
     (&["car", "sedan"], "a car", 3.0e6, "about 3 m³ of passenger space"),
     (&["fishbowl", "fish bowl"], "a fishbowl", 3785.0, "about 1 US gallon"),
     (&["coffee mug", "mug"], "a coffee mug", 350.0, "about 12 fl oz"),
+    (&["suitcase", "checked suitcase", "medium suitcase", "luggage", "checked bag"], "a suitcase", 70000.0, "a medium checked suitcase, about 25 in × 18 in × 10 in inside (70 L)"),
+    (&["carry-on suitcase", "carry on suitcase", "carry-on", "carry on", "carry-on bag", "carry on bag"], "a carry-on suitcase", 40000.0, "about 22 in × 14 in × 9 in outside, 40 L inside"),
+    (&["backpack", "school backpack"], "a backpack", 25000.0, "a typical 25 L school backpack"),
 ];
 
 pub fn handle(q: &Query) -> Option<Answer> {
@@ -83,7 +89,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
             vec![text("container volume"), text(format!("{} cm³{}", fmt_float((cm3 * 10.0).round() / 10.0, 7), cont_note.map_or(String::new(), |n| format!(" ({n})"))))],
             vec![text("object"), text(obj.4)],
             vec![text("object volume"), text(format!("{} cm³", fmt_float(obj.2, 5)))],
-            vec![text("random packing fraction"), text(fmt_float(obj.3, 3))],
+            vec![text("packing fraction"), text(fmt_float(obj.3, 3))],
         ])),
         pod("Note", "Method", text("count ≈ container volume × packing fraction ÷ object volume; walls lower the count in small containers")),
     ]))

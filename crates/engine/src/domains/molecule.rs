@@ -594,11 +594,14 @@ fn resolve(t: &str) -> Option<Compound> {
     }
     let t = re!(r"(?i)^(?:the |a |an )?(?:molecule |compound |chemical )?").replace(t, "").to_string();
     let t = re!(r"(?i) (?:molecule|compound|chemical|gas)$").replace(&t, "").to_string();
-    let c = find_db_compound(&t).or_else(|| {
+    let Some(c) = find_db_compound(&t).or_else(|| {
         // stereo descriptors: "L-2-aminobutyric acid", "cis cyclononene", "(R)-…"
         let bare = re!(r"(?i)^(?:dl-|l-|d-|\([rs+\-±]+\)-|cis[- ]|trans[- ]|\(?[ez]\)?-|α-|β-)").replace(&t, "").to_string();
         (bare != t).then(|| find_db_compound(&bare)).flatten()
-    })?;
+    }) else {
+        let smi = benzene_smiles(&t)?;
+        return Some(Compound { name: t.to_lowercase(), mol: parse_smiles(&smi)?, smiles: smi });
+    };
     if c.smiles.is_empty() {
         return None;
     }
@@ -614,6 +617,118 @@ fn resolve_many(t: &str) -> Option<Vec<Compound>> {
         return None;
     }
     parts.into_iter().map(resolve).collect()
+}
+
+
+/// Substituent prefixes that can sit on a benzene ring, as SMILES branches
+/// written from the ring atom outwards.
+const SUBST: &[(&str, &str)] = &[
+    ("fluoro", "F"), ("chloro", "Cl"), ("bromo", "Br"), ("iodo", "I"),
+    ("nitro", "[N+](=O)[O-]"), ("amino", "N"), ("hydroxy", "O"), ("methoxy", "OC"), ("ethoxy", "OCC"),
+    ("methyl", "C"), ("ethyl", "CC"), ("propyl", "CCC"), ("isopropyl", "C(C)C"), ("tert-butyl", "C(C)(C)C"), ("butyl", "CCCC"),
+    ("cyanomethyl", "CC#N"), ("cyano", "C#N"), ("carboxy", "C(=O)O"), ("formyl", "C=O"), ("acetyl", "C(C)=O"),
+    ("trifluoromethyl", "C(F)(F)F"), ("mercapto", "S"), ("sulfanyl", "S"), ("methylthio", "SC"), ("methylsulfanyl", "SC"),
+    ("phenyl", "c2ccccc2"), ("benzyl", "Cc2ccccc2"), ("vinyl", "C=C"), ("ethenyl", "C=C"), ("sulfo", "S(=O)(=O)O"),
+    ("hydroxymethyl", "CO"), ("aminomethyl", "CN"), ("dimethylamino", "N(C)C"), ("acetamido", "NC(C)=O"), ("benzyloxy", "OCc2ccccc2"),
+];
+
+/// Parent names: the group on ring position 1 (empty for benzene itself).
+const PARENTS: &[(&str, &str)] = &[
+    ("benzene", ""), ("benzoic acid", "C(=O)O"), ("phenol", "O"), ("aniline", "N"), ("anisole", "OC"), ("toluene", "C"),
+    ("benzaldehyde", "C=O"), ("benzonitrile", "C#N"), ("acetophenone", "C(C)=O"), ("benzamide", "C(N)=O"),
+    ("benzenesulfonic acid", "S(=O)(=O)O"), ("benzyl alcohol", "CO"), ("styrene", "C=C"), ("phenetole", "OCC"),
+    ("phenylacetic acid", "CC(=O)O"), ("benzylamine", "CN"), ("thiophenol", "S"), ("benzenethiol", "S"),
+];
+
+/// Systematic names of substituted benzenes, to SMILES:
+/// "2,5-dimethoxy-3-nitrobenzoic acid", "3,4-dichloroaniline",
+/// "1,4-bis(cyanomethyl)benzene", "2-(3-bromophenyl)acetic acid".
+pub fn benzene_smiles(name: &str) -> Option<String> {
+    let n = name.trim().to_lowercase();
+    // "2-(3-bromophenyl)acetic acid" → substituents on a phenyl carrying the parent chain
+    let (body, head) = if let Some(m) = re!(r"^2-\((.*)phenyl\) ?(acetic acid|ethanol|ethanamine|acetonitrile)$").captures(&n) {
+        let tail = match &m[2] { "acetic acid" => "CC(=O)O", "ethanol" => "CCO", "ethanamine" => "CCN", _ => "CC#N" };
+        (m[1].trim_end_matches('-').to_string(), tail.to_string())
+    } else {
+        let (pname, g) = PARENTS.iter().filter(|(p, _)| n.ends_with(p)).max_by_key(|(p, _)| p.len())?;
+        (n[..n.len() - pname.len()].trim().trim_end_matches('-').to_string(), g.to_string())
+    };
+    let mut pos: [Option<String>; 6] = Default::default();
+    if !head.is_empty() {
+        pos[0] = Some(head);
+    }
+    let mut rest = body.as_str();
+    let mut any = false;
+    while !rest.is_empty() {
+        let m = re!(r"^(\d(?:,\d)*)-(di|tri|tetra|penta|bis|tris)?\(?").captures(rest)?;
+        let locs: Vec<usize> = m[1].split(',').map(|d| d.parse().unwrap()).collect();
+        let mult = match m.get(2).map(|x| x.as_str()) { None => 1, Some("di" | "bis") => 2, Some("tri" | "tris") => 3, Some("tetra") => 4, _ => 5 };
+        if locs.len() != mult {
+            return None;
+        }
+        rest = &rest[m[0].len()..];
+        let paren = m[0].ends_with('(');
+        let (sname, frag) = SUBST.iter().filter(|(s, _)| rest.starts_with(s)).max_by_key(|(s, _)| s.len())?;
+        rest = &rest[sname.len()..];
+        if paren {
+            rest = rest.strip_prefix(')')?;
+        }
+        rest = rest.trim_start_matches(['-', ' ']);
+        for l in locs {
+            if !(1..=6).contains(&l) || pos[l - 1].is_some() {
+                return None;
+            }
+            pos[l - 1] = Some(frag.to_string());
+        }
+        any = true;
+    }
+    if !any {
+        return None;
+    }
+    let mut s = String::new();
+    for (i, g) in pos.iter().enumerate() {
+        s.push('c');
+        if i == 0 || i == 5 {
+            s.push('1');
+        }
+        if let Some(g) = g {
+            s.push_str(&format!("({g})"));
+        }
+    }
+    Some(s)
+}
+
+fn empirical_text(counts: &BTreeMap<String, u32>) -> String {
+    fn gcd(a: u32, b: u32) -> u32 { if b == 0 { a } else { gcd(b, a % b) } }
+    let g = counts.values().fold(0, |a, &b| gcd(a, b)).max(1);
+    hill_formula(&counts.iter().map(|(k, v)| (k.clone(), v / g)).collect())
+}
+
+/// "formula of caffeine", "X molecular formula vs Hill formula", "SMILES for X".
+fn formulas(c: &str) -> Option<Answer> {
+    let m = re!(r"(?i)^(?:what is |what's )?(?:the )?(?:(molecular|chemical|hill|structural|condensed) )?(formula|smiles(?: string| code)?) (?:of|for) (.+)$").captures(c);
+    let (which, subject) = if let Some(m) = m {
+        (format!("{} {}", m.get(1).map_or("", |x| x.as_str()), &m[2]).trim().to_lowercase(), m[3].to_string())
+    } else {
+        let m = re!(r"(?i)^(.+?),? (?:(molecular|chemical|hill) formula|formula|smiles(?: string| code)?)(?: vs\.? (?:the )?(?:empirical|hill|molecular|chemical) formula)?$").captures(c)?;
+        let w = m.get(2).map_or_else(|| if m[0].to_lowercase().contains("smiles") && !m[0].to_lowercase().contains("formula") { "smiles".to_string() } else { "formula".to_string() }, |x| format!("{} formula", x.as_str()));
+        (w.to_lowercase(), m[1].to_string())
+    };
+    let cs = resolve_many(&subject)?;
+    let smiles = which.starts_with("smiles");
+    let title = if smiles { "SMILES" } else if which.starts_with("hill") { "Hill formula" } else { "Molecular formula" };
+    let rows = |c: &Compound| -> Vec<(&'static str, String)> {
+        let counts = c.mol.counts();
+        vec![
+            ("molecular formula", formula_text(&c.mol)),
+            ("Hill formula", hill_formula(&counts)),
+            ("empirical formula", empirical_text(&counts)),
+            ("molar mass", format!("{} g/mol", fmt_float(molar_mass(&counts), 6))),
+            ("SMILES", c.smiles.clone()),
+        ]
+    };
+    let main = if cs.len() == 1 { text(if smiles { cs[0].smiles.clone() } else { formula_text(&cs[0].mol) }) } else { multi_table(&cs, &|c| rows(c).into_iter().take(if smiles { 5 } else { 3 }).skip(if smiles { 4 } else { 0 }).collect()) };
+    Some(Answer::new(title, vec![header(&cs), primary(pod("Result", title, main)), pod("Forms", "Formulas", multi_table(&cs, &rows))]))
 }
 
 fn formula_text(m: &Mol) -> String {
@@ -716,6 +831,9 @@ fn bond_rows(c: &Compound, energies: bool) -> Vec<Vec<Content>> {
 pub fn handle(q: &Query) -> Option<Answer> {
     let c = q.clean.trim().trim_end_matches(['?', '.']).trim();
     let l = c.to_lowercase();
+    if let Some(a) = formulas(c) {
+        return Some(a);
+    }
     // hydrogen bond donors / acceptors
     if let Some(m) = re!(r"(?i)^(?:how many |number of )?(?:h-?bond|hydrogen[- ]bond) (donor|acceptor)s?(?: count)?(?: are)? (?:in|of|for) (.+)$").captures(c).or_else(|| re!(r"(?i)^(.+?),? (?:number of )?(?:h-?bond|hydrogen[- ]bond) (donor|acceptor)s?(?: count)?$").captures(c).map(|m| m)) {
         let (kind, subject) = if m[1].eq_ignore_ascii_case("donor") || m[1].eq_ignore_ascii_case("acceptor") { (m[1].to_lowercase(), m[2].to_string()) } else { (m[2].to_lowercase(), m[1].to_string()) };

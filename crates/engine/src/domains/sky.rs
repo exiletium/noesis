@@ -1118,6 +1118,124 @@ fn history(l: &str) -> Option<Answer> {
     Some(Answer::new(facts.0, vec![input(facts.0.to_string()), primary(pod("Result", "Result", text(facts.1))), pod("Details", "Details", table(None, facts.2))]))
 }
 
+/// A place for sky questions: a city, else a named landform (lake, mountain)
+/// with the time zone of the nearest large city.
+fn sky_place(p: &str) -> Option<(String, f64, f64, String)> {
+    if let Some(c) = super::geo::find_city(p) {
+        return Some((c.name.clone(), c.lat, c.lon, c.timezone.clone()));
+    }
+    let (name, lat, lon) = super::landforms::locate(p)?;
+    let (c, _) = super::earth::nearest_city(lat, lon)?;
+    Some((name, lat, lon, c.timezone.clone()))
+}
+
+/// Constellations or bright stars above the horizon at a time and place:
+/// "stars visible tonight", "constellations visible from Lake Tahoe at 2 am
+/// on Christmas".
+fn visible_list(l: &str) -> Option<Answer> {
+    use chrono::{NaiveTime, TimeZone};
+    let m = re!(r"^(?:what |which )?(?:are )?(?:the )?((?:bright |brightest |visible )?stars|constellations|stars and constellations)(?: are)? (?:visible|in the sky|overhead|up|can i see|will be visible)\b(.*)$").captures(l)?;
+    let what = m[1].to_string();
+    let rest = format!("{} ", m[2].replace(" in the night sky", "").replace(" in the sky", "").trim());
+    let place = re!(r"(?:^| )(?:from|in|over|at) ([a-z][a-z .,'-]*?)(?: (?:at|on|tonight|now|this) |\s*$)").captures(&rest).map(|c| c[1].trim().to_string());
+    let time_s = re!(r"(?:^| )(?:at )?(\d{1,2}(?::\d{2})? ?(?:am|pm|a\.m\.|p\.m\.)|midnight|noon)\b").captures(&rest).map(|c| c[1].to_string());
+    let date_s = re!(r"(?:^| )on ([a-z0-9 ,]+?)(?: (?:at|from|in) |\s*$)").captures(&rest).map(|c| c[1].trim().to_string());
+    let tonight = rest.contains("tonight") || rest.contains("this evening");
+    let now = rest.trim().is_empty() || rest.contains(" now") || rest.trim() == "now";
+    // the remaining words must all be accounted for
+    let mut left = rest.clone();
+    for s in [place.as_deref(), time_s.as_deref(), date_s.as_deref()].into_iter().flatten() {
+        left = left.replacen(s, "", 1);
+    }
+    if !re!(r"^(?:\s|\bfrom\b|\bin\b|\bover\b|\bat\b|\bon\b|\btonight\b|\bnow\b|\bthis evening\b|\bright\b)*$").is_match(&left) {
+        return None;
+    }
+    let (pname, lat, lon, tz, assumed) = match &place {
+        Some(p) => {
+            let (n, la, lo, tz) = sky_place(p)?;
+            (n, la, lo, tz, false)
+        }
+        None => {
+            let (n, la, lo, tz) = super::geo::home();
+            (n, la, lo, tz, true)
+        }
+    };
+    let tz: chrono_tz::Tz = tz.parse().ok()?;
+    let now_local = Utc::now().with_timezone(&tz);
+    let mut date = match &date_s {
+        Some(d) => super::misc::parse_date(d)?,
+        None => now_local.date_naive(),
+    };
+    let time = match time_s.as_deref() {
+        Some("midnight") => NaiveTime::from_hms_opt(0, 0, 0)?,
+        Some("noon") => NaiveTime::from_hms_opt(12, 0, 0)?,
+        Some(t) => {
+            let c = re!(r"^(\d{1,2})(?::(\d{2}))? ?(am|pm|a\.m\.|p\.m\.)$").captures(t)?;
+            let mut h: u32 = c[1].parse().ok()?;
+            let mi: u32 = c.get(2).map_or(Some(0), |x| x.as_str().parse().ok())?;
+            if c[3].starts_with('p') && h < 12 {
+                h += 12;
+            } else if c[3].starts_with('a') && h == 12 {
+                h = 0;
+            }
+            NaiveTime::from_hms_opt(h, mi, 0)?
+        }
+        None if tonight || (now && date_s.is_some()) => NaiveTime::from_hms_opt(21, 0, 0)?,
+        None => now_local.time(),
+    };
+    if tonight && time < NaiveTime::from_hms_opt(6, 0, 0)? {
+        date += Duration::days(1);
+    }
+    let local = tz.from_local_datetime(&date.and_time(time)).earliest()?;
+    let jd = local.with_timezone(&Utc).timestamp() as f64 / 86400.0 + 2440587.5;
+    let lst = (280.46061837 + 360.98564736629 * (jd - 2451545.0) + lon).rem_euclid(360.0);
+    let altaz = |ra: f64, dec: f64| {
+        let h = (lst - ra + 540.0).rem_euclid(360.0) - 180.0;
+        let alt = (sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(h)).asin().to_degrees();
+        let az = (sin(h).atan2(cos(h) * sin(lat) - dec.to_radians().tan() * cos(lat)).to_degrees() + 180.0).rem_euclid(360.0);
+        (alt, ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][((az + 22.5) / 45.0) as usize % 8])
+    };
+    // the Sun's altitude says whether it is dark
+    let d = jd - 2451545.0;
+    let g = (357.529 + 0.98560028 * d).rem_euclid(360.0);
+    let q = (280.459 + 0.98564736 * d).rem_euclid(360.0);
+    let lam = q + 1.915 * sin(g) + 0.020 * sin(2.0 * g);
+    let eps = 23.439 - 0.00000036 * d;
+    let sun_ra = (cos(eps) * sin(lam)).atan2(cos(lam)).to_degrees().rem_euclid(360.0);
+    let sun_dec = (sin(eps) * sin(lam)).asin().to_degrees();
+    let (sun_alt, _) = altaz(sun_ra, sun_dec);
+    let stars = what.contains("star");
+    let mut list: Vec<(String, f64, &str, String)> = if stars {
+        STARS.iter().filter(|s| s.mag <= 1.6 && !re!(r"cluster|galaxy|nebula").is_match(s.spectral)).map(|s| {
+            let (a, dir) = altaz(ra_deg(s), dec_deg(s));
+            (capitalize(s.names[0]), a, dir, format!("magnitude {}, in {}", fmt_float(s.mag, 3), s.constellation))
+        }).collect()
+    } else {
+        CONSTELLATIONS.iter().filter(|c| !matches!(c.0, "big dipper" | "southern cross" | "bootes")).map(|c| {
+            let (a, dir) = altaz(c.1 * 15.0, c.2);
+            (c.0.split(' ').map(capitalize).collect::<Vec<_>>().join(" "), a, dir, c.3.to_string())
+        }).collect()
+    };
+    list.retain(|x| x.1 > 10.0);
+    list.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    if list.is_empty() {
+        return None;
+    }
+    let when = local.format("%A, %B %-d, %Y, %-I:%M %p %Z").to_string();
+    let label = if stars { "Bright stars above the horizon" } else { "Constellations above the horizon" };
+    let mut pods = vec![
+        input(format!("{} visible | {pname} | {when}", if stars { "bright stars" } else { "constellations" })),
+        primary(pod("Result", label, text(list.iter().map(|x| x.0.clone()).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Positions", table(Some(vec!["object", "altitude", "direction", "notes"]), list.iter().map(|x| vec![text(x.0.clone()), text(format!("{}°", fmt_float(x.1.round(), 3))), text(x.2), text(x.3.clone())]).collect())),
+        pod("Sky", "Sky", text(if sun_alt > -0.8 { format!("the Sun is up (altitude {}°): only the brightest objects can be seen", fmt_float(sun_alt.round(), 3)) } else if sun_alt > -12.0 { "twilight: the brighter stars are out".to_string() } else { "dark: the Sun is more than 12° below the horizon".to_string() })),
+    ];
+    if assumed {
+        pods.push(pod("Assumption", "Assumption", text(format!("location: {pname} (no place given; set NOESIS_LOCATION to a city name to change)"))));
+    }
+    pods.push(pod("Note", "Note", text(if stars { "stars brighter than magnitude 1.6 more than 10° above the horizon; planets not included" } else { "a constellation is listed when its centre is more than 10° above the horizon; covers the best-known constellations" })));
+    Some(Answer::new(label, pods))
+}
+
 /// Altitude and azimuth of a catalogued star or deep-sky object at a given
 /// local time: "Double Cluster 11:30 tonight", "M80 on May 16, 2020 at 9:45pm".
 fn position_at(l: &str) -> Option<Answer> {
@@ -1140,8 +1258,8 @@ fn position_at(l: &str) -> Option<Answer> {
     let s = find_star(m[1].trim())?;
     let (place, lat, lon, tz, assumed) = match m.get(5) {
         Some(p) => {
-            let c = super::geo::find_city(p.as_str().trim())?;
-            (c.name.clone(), c.lat, c.lon, c.timezone.clone(), false)
+            let (n, la, lo, tz) = sky_place(p.as_str().trim())?;
+            (n, la, lo, tz, false)
         }
         None => {
             let (n, la, lo, tz) = super::geo::home();
@@ -1214,6 +1332,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
     eclipses(l)
+        .or_else(|| visible_list(l))
         .or_else(|| position_at(l))
         .or_else(|| minor_bodies(l))
         .or_else(|| next_moon(l))

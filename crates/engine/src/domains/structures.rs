@@ -148,6 +148,25 @@ Disneyland Paris;disneyland park paris|theme park|Marne-la-Vallée|France|1992|a
 Mponeng Gold Mine;mponeng|mine|Gauteng|South Africa|1986|depth=4000|the deepest mine in the world
 TauTona Mine;tautona|mine|Gauteng|South Africa|1962|depth=3900|
 Kidd Mine|mine|Timmins, Ontario|Canada|1966|depth=2900|the deepest base-metal mine in the world
+Mount Rushmore;mount rushmore national memorial|memorial|Keystone, South Dakota|United States|1941|height=18|the heads of Washington, Jefferson, Theodore Roosevelt and Lincoln, each about 18 m (60 ft) tall, carved 1927–1941 under Gutzon and Lincoln Borglum
+The Motherland Calls;motherland calls;rodina-mat zovyot|statue|Mamayev Kurgan, Volgograd|Russia|1967|height=85|commemorates the Battle of Stalingrad; 85 m to the tip of the sword
+Great Buddha of Thailand;the great buddha of thailand;big buddha of thailand|statue|Wat Muang, Ang Thong Province|Thailand|2008|height=92|a seated Buddha painted gold, the tallest statue in Thailand
+Big Lobster;the big lobster;larry the lobster|statue|Kingston SE, South Australia|Australia|1979|height=17|one of Australia's Big Things
+Craigievar Castle|castle|Aberdeenshire, Scotland|United Kingdom|1626|height=18|a pink-harled tower house of seven storeys, finished for William Forbes in 1626
+British Museum;the british museum|museum|Bloomsbury, London|United Kingdom|1759||founded 1753 and opened in 1759; a collection of about 8 million objects, among them the Rosetta Stone and the Parthenon sculptures
+Arlington National Cemetery|cemetery|Arlington, Virginia|United States|1864|area=259|about 400,000 graves; the Tomb of the Unknown Soldier
+Chalmette National Cemetery|cemetery|Chalmette, Louisiana|United States|1864|area=7|on the site of the 1815 Battle of New Orleans
+Gettysburg Battlefield;gettysburg national military park|battlefield|Gettysburg, Pennsylvania|United States|1863|area=2441|site of the Battle of Gettysburg (July 1–3, 1863); national military park since 1895
+Kennedy Compound|historic site|Hyannis Port, Massachusetts|United States|1926|area=2.4|three houses of the Kennedy family on Nantucket Sound; a National Historic Landmark since 1972
+Yellowstone National Park;yellowstone|national park|Wyoming, Montana and Idaho|United States|1872|area=898300|the first national park in the world, established March 1, 1872; Old Faithful and about half the world's geysers
+Yosemite National Park;yosemite|national park|Sierra Nevada, California|United States|1890|area=308300|established October 1, 1890; El Capitan, Half Dome and Yosemite Falls
+Grand Canyon National Park|national park|Arizona|United States|1919|area=493000|established February 26, 1919
+Zion National Park|national park|Utah|United States|1919|area=59900|established November 19, 1919
+Great Smoky Mountains National Park|national park|Tennessee and North Carolina|United States|1934|area=211400|the most visited US national park
+Rocky Mountain National Park|national park|Colorado|United States|1915|area=107600|established January 26, 1915
+Glacier National Park|national park|Montana|United States|1910|area=410000|established May 11, 1910
+Denali National Park;denali national park and preserve|national park|Alaska|United States|1917|area=2458500|surrounds Denali, the highest peak in North America
+Everglades National Park|national park|Florida|United States|1947|area=610700|the largest subtropical wilderness in the United States
 Moab Khotsong|mine|North West Province|South Africa|2003|depth=3054|
 ";
 
@@ -177,6 +196,7 @@ fn all() -> &'static Vec<Structure> {
 
 fn find(s: &str) -> Option<&'static Structure> {
     let s = s.trim().trim_start_matches("the ").trim().trim_end_matches("'s");
+    let s = s.trim_end_matches(" historical site").trim_end_matches(" historic site");
     all().iter().find(|x| x.names.iter().any(|n| n.to_lowercase() == s))
 }
 
@@ -357,6 +377,14 @@ pub fn handle(q: &Query) -> Option<Answer> {
     if let Some(a) = country_lists(l).or_else(|| deep_mines(l)) {
         return Some(a);
     }
+    // "Great Buddha of Thailand / Big Lobster height": the property may come last
+    let moved;
+    let l = if let Some(m) = re!(r"^(.+(?:/|,| vs\.? ).+?) (height|length|area|depth|top speed|seating capacity)$").captures(l) {
+        moved = format!("{} {}", &m[2], &m[1]);
+        moved.as_str()
+    } else {
+        l
+    };
     // "length Three Gorges Dam / Hoover Dam", "seating capacity Muny Theater vs Broadway Theater",
     // "area of Tokyo Disneyland, Disneyland", "physical properties of Kingda Ka, Goliath, Furius Baco"
     if let Some(m) = re!(r"^(?:the )?(height|length|main span|span|area|size|seating capacity|capacity|number of seats|seats|top speed|speed|power capacity|installed capacity|generating capacity|power|depth|number of floors|floors|opening date|year opened|physical properties|properties|dimensions)(?: of)? (.+)$").captures(l) {

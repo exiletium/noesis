@@ -1838,3 +1838,19 @@ fn animal_organ_systems_and_drug_classes() {
     assert!(short("drug categories for caffeine").contains("stimulant"));
     assert!(short("drugs prescribed for type 2 diabetes").starts_with("metformin"));
 }
+
+#[test]
+fn colour_mixes_formulas_benzene_names_and_visible_sky() {
+    // (2·FF0000 + 0.5·FFE5CC + 0.3·A52A2A) / 2.8 = (245.4, 45.4, 40.9)
+    assert!(short("2 red + 0.5 light orange + 0.3 brown").starts_with("#F52D29"));
+    assert!(short("mix red and blue").starts_with("#800080"));
+    assert!(short("approximate number of trade paperback books that will fit inside a suitcase").contains("about"));
+    assert!(short("blue jay").contains("Cyanocitta") || pod_text(&q("blue jay"), "Input").contains("blue jay"));
+    assert_eq!(short("formula of caffeine"), "C₈H₁₀N₄O₂");
+    assert!(pod_text(&q("2,5-dimethoxy-3-nitrobenzoic acid molecular formula vs Hill formula"), "Forms").contains("C₉H₉NO₆"));
+    assert!(pod_text(&q("2-(3-bromophenyl) acetic acid molecular properties"), "Input").contains("C₈H₇BrO₂"));
+    assert!(pod_text(&q("1,4-bis(cyanomethyl) benzene smiles"), "Forms").contains("C₁₀H₈N₂"));
+    assert!(pod_text(&q("constellations visible from Lake Tahoe at 2 am on Christmas"), "Input").contains("Lake Tahoe"));
+    assert!(!short("stars visible tonight").is_empty());
+    assert!(short("Mount Rushmore").contains("1941") || pod_text(&q("Mount Rushmore"), "Input").contains("Rushmore"));
+}

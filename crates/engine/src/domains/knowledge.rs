@@ -915,8 +915,56 @@ fn color_compare(l: &str) -> Option<Answer> {
     Some(Answer::new("colour comparison", pods))
 }
 
+/// Mixtures written as weighted sums: "2 red + 0.5 light orange + 0.3 brown",
+/// "mix red and blue". Each colour is averaged in RGB with its weight.
+fn color_mix(l: &str) -> Option<Answer> {
+    let body = re!(r"^(?:mix(?:ing)?|blend(?:ing)?|combine)\s+").replace(l, "").to_string();
+    let words = body != l;
+    let parts: Vec<&str> = if l.contains('+') {
+        l.split('+').map(str::trim).collect()
+    } else if words {
+        re!(r"\s*(?:,|\band\b|\bwith\b)\s*").split(&body).map(str::trim).filter(|p| !p.is_empty()).collect()
+    } else {
+        return None;
+    };
+    if parts.len() < 2 || parts.len() > 8 {
+        return None;
+    }
+    let mut items: Vec<(f64, String, u32)> = vec![];
+    for p in parts {
+        let m = re!(r"^(?:(\d*\.?\d+)\s*(?:\*\s*|parts? (?:of )?)?)?(?:the )?([a-z][a-z -]*?)(?: colou?r)?$").captures(p)?;
+        let w: f64 = m.get(1).map_or(Some(1.0), |x| x.as_str().parse().ok())?;
+        let nm = m[2].trim();
+        let v = match nm.replace([' ', '-'], "").as_str() {
+            // not a CSS name; Mathematica's LightOrange
+            "lightorange" => 0xFFE5CC,
+            _ => color_named(nm)?.1,
+        };
+        items.push((w, nm.to_string(), v));
+    }
+    let total: f64 = items.iter().map(|i| i.0).sum();
+    if total <= 0.0 {
+        return None;
+    }
+    let ch = |k: u32| (items.iter().map(|i| i.0 * ((i.2 >> k) & 255) as f64).sum::<f64>() / total).round() as u32;
+    let rgb = (ch(16) << 16) | (ch(8) << 8) | ch(0);
+    let mut a = color(&format!("#{rgb:06x}"))?;
+    let label = items.iter().map(|i| if i.0 == 1.0 { i.1.clone() } else { format!("{} {}", fmt_float(i.0, 4), i.1) }).collect::<Vec<_>>().join(" + ");
+    a.interpretation = format!("colour mixture {label}");
+    a.pods[0] = pod("Input", "Input interpretation", text(format!("{label} (additive RGB mixture)")));
+    a.pods[1] = primary(pod("Result", "Mixed colour", text(format!("#{rgb:06X}  ·  rgb({}, {}, {})", ch(16), ch(8), ch(0)))));
+    a.pods.insert(2, pod("Mixture", "Components", table(Some(vec!["colour", "weight", "share", "hex"]), items.iter().map(|i| vec![
+        text(i.1.clone()), text(fmt_float(i.0, 4)), text(format!("{}%", fmt_float((i.0 / total * 1000.0).round() / 10.0, 4))), text(format!("#{:06X}", i.2)),
+    ]).collect())));
+    a.pods.push(pod("Note", "Method", text("Weighted average of the RGB components (light mixing); paints mix subtractively and come out darker.")));
+    Some(a)
+}
+
 fn color(l: &str) -> Option<Answer> {
     if let Some(a) = color_compare(l) {
+        return Some(a);
+    }
+    if let Some(a) = color_mix(l) {
         return Some(a);
     }
     let rgb: u32 = if let Some(m) = re!(r"^(?:colou?r\s+|hex\s+(?:colou?r\s+)?)?#([0-9a-f]{6}|[0-9a-f]{3})(?:\s+(?:to|in)\s+(?:rgb|hsl|cmyk))?$").captures(l) {
