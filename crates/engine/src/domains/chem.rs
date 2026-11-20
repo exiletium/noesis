@@ -208,6 +208,7 @@ benzyl glycidyl ether	C10H12O2				2-(phenylmethoxymethyl)oxirane|2-(phenylmethox
 1-boc-2-pyrrolidinone	C9H15NO3				1-(tert-butoxycarbonyl)-2-pyrrolidinone|tert-butyl 2-oxopyrrolidine-1-carboxylate	CC(C)(C)OC(=O)N1CCCC1=O
 2,3-diphenyl-1,4-diazaspiro[4.5]deca-1,3-diene	C20H20N2					c1ccc(cc1)C1=NC2(CCCCC2)N=C1c1ccccc1
 methyl (S)-4-(tert-butyldimethylsilyloxy)-2-hydroxybutanoate	C11H24O4Si				methyl(s)-4(tert-butyldimethylsilyloxy)-2-hydroxybutanoate|methyl (s)-4-(tert-butyldimethylsilyloxy)-2-hydroxybutanoate|methyl 4-(tert-butyldimethylsilyloxy)-2-hydroxybutanoate	COC(=O)[C@@H](O)CCO[Si](C)(C)C(C)(C)C
+chloroplatinic acid hexahydrate	Cl6H14O6Pt	333		2430	hydrogen hexachloroplatinate(iv) hydrate|hydrogen hexachloroplatinate(iv) hexahydrate|hexachloroplatinic acid hexahydrate|chloroplatinic acid hydrate|chloroplatinic acid|hexachloroplatinic acid hydrate
 3-decanone	C10H20O			825	decan-3-one|ethyl heptyl ketone	CCCCCCCC(=O)CC";
 
 pub fn compound_db() -> &'static (Vec<DbCompound>, std::collections::HashMap<String, usize>) {

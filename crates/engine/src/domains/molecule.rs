@@ -963,6 +963,37 @@ pub fn handle(q: &Query) -> Option<Answer> {
         };
         return structure_answer(&resolve(&subject)?, &kind);
     }
+    // 3-D, space-filling and ball-and-stick models: "space filling structure of adenine and guanine", "caffeine 3D structure"
+    const K: &str = r"(?:3-?d (?:structure|model|shape)|three[- ]dimensional (?:structure|model)|space[- ]filling (?:structure|model|diagram)|ball[- ]and[- ]stick (?:structure|model|diagram)|molecular (?:structure|model|geometry|shape)|chemical structure|structure|molecule model|stick model)s?";
+    let models = || -> Option<Answer> {
+        let m = Regex::new(&format!(r"(?i)^(?:(?:show |draw |what is |what's )?(?:me )?(?:the |a )?({K}) (?:for|of) (.+)|(.+?),? ({K}))$")).ok()?.captures(c)?;
+        let (kind, subject) = match m.get(1) {
+            Some(k) => (k.as_str().to_lowercase(), m[2].to_string()),
+            None => (m.get(4)?.as_str().to_lowercase(), m[3].to_string()),
+        };
+        let parts: Vec<String> = re!(r"(?i)\s*(?:,\s*and\s+|,\s*|\s+and\s+|\s+vs\.?\s+)").split(subject.trim()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        let mut out: Option<Answer> = None;
+        for p in &parts {
+            let comp = resolve(p)?;
+            let mut a = model_answer(&comp, &kind)?;
+            match out.as_mut() {
+                None => out = Some(a),
+                Some(o) => {
+                    for pd in a.pods.iter_mut() {
+                        pd.primary = false;
+                        pd.title = format!("{} — {}", comp.name, pd.title);
+                        pd.id = format!("{}{}", pd.id, comp.name.replace(' ', ""));
+                    }
+                    o.interpretation = format!("{} | {}", o.interpretation, comp.name);
+                    o.pods.extend(a.pods);
+                }
+            }
+        }
+        out
+    };
+    if let Some(a) = models() {
+        return Some(a);
+    }
     // resonance structures
     if let Some(m) = re!(r"(?i)^(?:what are )?(?:the )?(?:resonance (?:structures|diagrams|forms) (?:of|for) (.+)|(.+?),? resonance (?:structures|diagrams|forms))$").captures(c) {
         return resonance_answer(&resolve(m.get(1).or(m.get(2))?.as_str())?);
@@ -1247,6 +1278,41 @@ fn structure_answer(c: &Compound, kind: &str) -> Option<Answer> {
     }
     pods.push(pod("Connectivity", "Connection table", table(Some(vec!["atom", "bonded to", "H"]), conn)));
     Some(Answer::new(format!("{} {kind}", c.name), pods))
+}
+
+/// A structure answer for a 3-D, space-filling or ball-and-stick request: the
+/// connectivity plus the atom radii such a model is drawn with.
+fn model_answer(c: &Compound, kind: &str) -> Option<Answer> {
+    let mut a = structure_answer(c, kind)?;
+    let m = &c.mol;
+    let mut els: Vec<String> = m.atoms.iter().map(|x| x.el.to_string()).collect();
+    if m.atoms.iter().any(|x| x.h > 0) {
+        els.push("H".into());
+    }
+    els.sort();
+    els.dedup();
+    // Bondi van der Waals and typical covalent radii (pm)
+    let radii = |e: &str| -> Option<(u32, u32)> {
+        Some(match e {
+            "H" => (120, 31), "C" => (170, 76), "N" => (155, 71), "O" => (152, 66), "F" => (147, 57), "P" => (180, 107), "S" => (180, 105),
+            "Cl" => (175, 102), "Br" => (185, 120), "I" => (198, 139), "Si" => (210, 111), "B" => (192, 84), "Se" => (190, 120), "Na" => (227, 166), "K" => (275, 203),
+            _ => return None,
+        })
+    };
+    let rows: Vec<Vec<Content>> = els.iter().filter_map(|e| { let (v, cv) = radii(e)?; Some(vec![text(e.clone()), text(format!("{v} pm")), text(format!("{cv} pm"))]) }).collect();
+    let heavy = m.atoms.len();
+    let h: usize = m.atoms.iter().map(|x| x.h as usize).sum();
+    a.pods.push(pod("Model", "Model", text(format!("{} atoms ({heavy} heavy atoms and {h} hydrogens) and {} bonds; {}", heavy + h, m.bonds.len() + h, if kind.contains("space") {
+        "a space-filling (CPK) model draws each atom as a sphere of its van der Waals radius"
+    } else if kind.contains("ball") || kind.contains("stick") {
+        "a ball-and-stick model draws atoms as small spheres joined by bonds about the covalent radii apart"
+    } else {
+        "3-D atom coordinates are not generated offline; the connection table gives the full bonding"
+    }))));
+    if !rows.is_empty() {
+        a.pods.push(pod("Radii", "Atom radii", table(Some(vec!["element", "van der Waals radius", "covalent radius"]), rows)));
+    }
+    Some(a)
 }
 
 fn resonance_answer(c: &Compound) -> Option<Answer> {

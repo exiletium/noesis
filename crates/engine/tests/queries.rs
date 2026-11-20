@@ -2006,3 +2006,11 @@ fn notable_earthquakes_and_derived_country_counts() {
     assert!(short("Norway trade surplus").contains("surplus"));
     assert!(short("Japan female population / male population").starts_with("1.0"));
 }
+
+#[test]
+fn molecule_models_and_hydrates() {
+    assert!(short("space filling structure of adenine and guanine").contains("valence electrons"));
+    assert!(pod_text(&q("caffeine 3D structure"), "Radii").contains("van der Waals"));
+    assert!(short("hydrogen hexachloroplatinate(IV) hydrate").contains("g/mol"));
+    assert!(!short("world capital investment / world population").contains("e-"));
+}

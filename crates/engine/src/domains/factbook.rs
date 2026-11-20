@@ -465,11 +465,16 @@ fn derived(l: &str) -> Option<Answer> {
         Some((dflt?, s.to_string()))
     };
     if let Some((a, b)) = l.split_once(" / ") {
+        // only ratios involving a derived count; plain Factbook ratios are handled elsewhere
+        if !Regex::new(&format!(r"\b{D}\b")).ok()?.is_match(l) {
+            return None;
+        }
         let (ea, wa) = side(a, None)?;
         let (eb, wb) = side(b, Some(ea))?;
         let (la, va, ta) = quantity(&wa, ea)?;
         let (lb, vb, tb) = quantity(&wb, eb)?;
-        if vb == 0.0 {
+        // a percentage or share divided by a count (or the reverse) is meaningless
+        if vb == 0.0 || ta.contains('%') != tb.contains('%') {
             return None;
         }
         let r = va / vb;
