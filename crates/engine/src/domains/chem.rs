@@ -186,6 +186,30 @@ pub(crate) const SYNONYM_BLOCK: &[&str] = &[
     "was", "water", "wax", "whiz", "yay", "zol",
 ];
 
+/// Compounds missing from the Wikidata extract, in the same tab-separated
+/// layout: name, formula, melting point (K), boiling point (K), density
+/// (kg/m³), aliases, SMILES. A name already in the extract is replaced.
+const EXTRA_COMPOUNDS: &str = "1,2-diphenylcyclopropane	C15H14				diphenylcyclopropane	C1C(c2ccccc2)C1c1ccccc1
+truxenone	C27H12O3				diindeno[1,2-a:1',2'-c]fluorene-5,10,15-trione	O=C1c2ccccc2-c2c1c1C(=O)c3ccccc3-c1c1-c3ccccc3C(=O)c21
+dansyllysine	C18H25N3O4S				ε-dansyl-l-lysine|n6-dansyl-l-lysine|dansyl-l-lysine|dansyl lysine	CN(C)c1cccc2c1cccc2S(=O)(=O)NCCCC[C@H](N)C(=O)O
+decanoyl peroxide	C20H38O4				didecanoyl peroxide|bis(decanoyl) peroxide	CCCCCCCCCC(=O)OOC(=O)CCCCCCCCC
+2,5-difluoroanisole	C7H6F2O				1,4-difluoro-2-methoxybenzene	COc1cc(F)ccc1F
+6-amino-2-mercaptobenzothiazole	C7H6N2S2				6-aminobenzothiazole-2-thiol|6-amino-1,3-benzothiazole-2-thiol	Nc1ccc2nc(S)sc2c1
+3-ethoxy-1,2-propanediol	C5H12O3				3-ethoxypropane-1,2-diol|glycerol 1-ethyl ether	CCOCC(O)CO
+oxalyl dihydrazide	C2H6N4O2				oxalic dihydrazide|oxalyldihydrazide|oxalic acid dihydrazide	NNC(=O)C(=O)NN
+n,n-dibutylformamide	C9H19NO				n,n-di-n-butylformamide|dibutylformamide|n,n-di-butylformamide	CCCCN(CCCC)C=O
+4-cyanoindole	C9H6N2				indole-4-carbonitrile|1h-indole-4-carbonitrile	N#Cc1cccc2[nH]ccc12
+4-methoxytriphenylamine	C19H17NO				4-methoxy-n,n-diphenylaniline	COc1ccc(cc1)N(c1ccccc1)c1ccccc1
+niobium(III) chloride	Cl3Nb				trichloroniobium|niobium trichloride	Cl[Nb](Cl)Cl
+1,4-phenylenediacetonitrile	C10H8N2				1,4-bis(cyanomethyl)benzene|1,4-bis(cyanomethyl) benzene|p-xylylene dicyanide	N#CCc1ccc(CC#N)cc1
+tosylmethyl isocyanide	C9H9NO2S				tosmic|1-(isocyano-methyl-sulfonyl)-4-methylbenzene|1-(isocyanomethylsulfonyl)-4-methylbenzene|p-toluenesulfonylmethyl isocyanide	Cc1ccc(cc1)S(=O)(=O)C[N+]#[C-]
+3-bromophenylacetic acid	C8H7BrO2				2-(3-bromophenyl)acetic acid|2-(3-bromophenyl) acetic acid|(3-bromophenyl)acetic acid	OC(=O)Cc1cccc(Br)c1
+benzyl glycidyl ether	C10H12O2				2-(phenylmethoxymethyl)oxirane|2-(phenylmethoxymethyl) oxirane|2-[(benzyloxy)methyl]oxirane	C(OCc1ccccc1)C1CO1
+1-boc-2-pyrrolidinone	C9H15NO3				1-(tert-butoxycarbonyl)-2-pyrrolidinone|tert-butyl 2-oxopyrrolidine-1-carboxylate	CC(C)(C)OC(=O)N1CCCC1=O
+2,3-diphenyl-1,4-diazaspiro[4.5]deca-1,3-diene	C20H20N2					c1ccc(cc1)C1=NC2(CCCCC2)N=C1c1ccccc1
+methyl (S)-4-(tert-butyldimethylsilyloxy)-2-hydroxybutanoate	C11H24O4Si				methyl(s)-4(tert-butyldimethylsilyloxy)-2-hydroxybutanoate|methyl (s)-4-(tert-butyldimethylsilyloxy)-2-hydroxybutanoate|methyl 4-(tert-butyldimethylsilyloxy)-2-hydroxybutanoate	COC(=O)[C@@H](O)CCO[Si](C)(C)C(C)(C)C
+3-decanone	C10H20O			825	decan-3-one|ethyl heptyl ketone	CCCCCCCC(=O)CC";
+
 pub fn compound_db() -> &'static (Vec<DbCompound>, std::collections::HashMap<String, usize>) {
     static DB: OnceLock<(Vec<DbCompound>, std::collections::HashMap<String, usize>)> = OnceLock::new();
     DB.get_or_init(|| {
@@ -193,7 +217,7 @@ pub fn compound_db() -> &'static (Vec<DbCompound>, std::collections::HashMap<Str
         let text: &'static str = Box::leak(String::from_utf8(bytes).unwrap_or_default().into_boxed_str());
         let mut list = Vec::new();
         let mut index = std::collections::HashMap::new();
-        for line in text.lines() {
+        for (line, extra) in text.lines().map(|l| (l, false)).chain(EXTRA_COMPOUNDS.lines().map(|l| (l, true))) {
             let f: Vec<&'static str> = line.split('\t').collect();
             if f.len() < 5 || f[1].is_empty() {
                 continue;
@@ -207,7 +231,11 @@ pub fn compound_db() -> &'static (Vec<DbCompound>, std::collections::HashMap<Str
                 if SYNONYM_BLOCK.binary_search(&a.as_str()).is_ok() {
                     continue;
                 }
-                index.entry(a).or_insert(i);
+                if extra {
+                    index.insert(a, i);
+                } else {
+                    index.entry(a).or_insert(i);
+                }
             }
         }
         (list, index)
@@ -460,6 +488,8 @@ pub fn handle(q: &Query) -> Option<Answer> {
         return Some(a);
     }
     // a bare formula like "H2SO4" or a compound name like "caffeine"
+    let suffixless = re!(r" (?:chemical|compound|molecule|gas)$").replace(l, "").to_string();
+    let l = if compound_formula(l).is_none() && compound_formula(&suffixless).is_some() { suffixless.as_str() } else { l };
     if let Some(f) = compound_formula(l) {
         let counts = parse_formula(f)?;
         let label = format!("{l} ({f})");

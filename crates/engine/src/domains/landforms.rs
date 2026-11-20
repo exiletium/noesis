@@ -217,6 +217,14 @@ red sea|sea|between Africa and Arabia|20.0,38.0|area=438000;vol=233000;avgdepth=
 black sea|sea|between Europe and Asia|43.0,35.0|area=436400;vol=547000;avgdepth=1253;depth=2212|
 north sea|sea|between Great Britain and Scandinavia|56.0,3.0|area=570000;vol=54000;avgdepth=95;depth=700|
 baltic sea|sea|Northern Europe|58.0,20.0|area=377000;vol=21700;avgdepth=55;depth=459|
+trincomalee harbour,trincomalee harbor|harbor|Trincomalee, Eastern Province, Sri Lanka|8.55,81.22||one of the largest natural deep-water harbours in the world
+tralee bay|bay|County Kerry, Ireland|52.28,-9.87||an inlet of the Atlantic Ocean on the north side of the Dingle Peninsula
+bay of islands|bay|Northland, New Zealand|-35.22,174.17||a drowned river valley with about 144 islands; the Treaty of Waitangi was signed on its shore in 1840
+cockburn sound|sound|Western Australia|-32.2,115.72||a sheltered marine embayment south of Fremantle, between the mainland and Garden Island; home of the naval base HMAS Stirling
+kawhia harbour,kawhia harbor|harbor|Waikato, North Island, New Zealand|-38.07,174.82||a large natural harbour on the west coast; landing place of the Tainui canoe in Māori tradition
+kenepuru sound|sound|Marlborough Sounds, South Island, New Zealand|-41.18,174.03||a long arm of Pelorus Sound
+broad sound|sound|central Queensland, Australia|-22.3,149.75||a large tidal inlet with the greatest tidal range on Australia's east coast (up to about 10 m)
+izmir limani,port of izmir,izmir harbor,izmir harbour,izmir limani harbor|harbor|İzmir, Turkey|38.44,27.15||the port of İzmir at the head of the Gulf of İzmir on the Aegean Sea
 hudson bay|sea|Canada|60.0,-85.0|area=1230000;avgdepth=100;depth=270|
 bay of bengal|sea|India, Bangladesh, Myanmar, Sri Lanka|15.0,88.0|area=2172000;avgdepth=2600;depth=4694|
 arabian sea|sea|between India and Arabia|15.0,65.0|area=3862000;avgdepth=2734;depth=4652|
@@ -620,11 +628,34 @@ fn haversine(a: (f64, f64), b: (f64, f64)) -> f64 {
     2.0 * 6371.0088 * h.sqrt().asin()
 }
 
+/// Reference points of landmarks, for distances: (names, title, latitude, longitude).
+const LANDMARKS: &[(&[&str], &str, f64, f64)] = &[
+    (&["arlington national cemetery"], "Arlington National Cemetery", 38.8803, -77.0725),
+    (&["vietnam veterans memorial", "vietnam memorial", "vietnam war memorial"], "Vietnam Veterans Memorial", 38.8914, -77.0475),
+    (&["lincoln memorial"], "Lincoln Memorial", 38.8893, -77.0502),
+    (&["washington monument"], "Washington Monument", 38.8895, -77.0353),
+    (&["white house"], "White House", 38.8977, -77.0365),
+    (&["us capitol", "united states capitol", "capitol building", "u.s. capitol"], "United States Capitol", 38.8899, -77.0091),
+    (&["momath", "national museum of mathematics", "museum of mathematics"], "National Museum of Mathematics (MoMath)", 40.7437, -73.9871),
+    (&["central park"], "Central Park", 40.7826, -73.9656),
+    (&["empire state building"], "Empire State Building", 40.7484, -73.9857),
+    (&["times square"], "Times Square", 40.7580, -73.9855),
+    (&["statue of liberty"], "Statue of Liberty", 40.6892, -74.0445),
+    (&["eiffel tower"], "Eiffel Tower", 48.8584, 2.2945),
+    (&["big ben", "elizabeth tower"], "Big Ben (Elizabeth Tower)", 51.5007, -0.1246),
+    (&["colosseum", "the colosseum"], "Colosseum", 41.8902, 12.4922),
+    (&["golden gate bridge"], "Golden Gate Bridge", 37.8199, -122.4783),
+];
+
 /// "distance from Blue Grotto to Tunis", "how far is Mount Everest from Kathmandu"
 fn distance(l: &str) -> Option<Answer> {
     let m = re!(r"^(?:the\s+)?(?:distance|how far is it|how far)\s+(?:from|between)\s+(?:the\s+)?(.+?)\s+(?:to|and)\s+(?:the\s+)?(.+)$").captures(l)
         .or_else(|| re!(r"^how far is (?:the\s+)?(.+?) from (?:the\s+)?(.+)$").captures(l))?;
     let place = |s: &str| -> Option<(String, (f64, f64), bool)> {
+        let t = s.trim().trim_end_matches('?').trim();
+        if let Some(lm) = LANDMARKS.iter().find(|x| x.0.contains(&t)) {
+            return Some((lm.1.to_string(), (lm.2, lm.3), true));
+        }
         if let Some(f) = find(s) {
             return Some((f.title(), (f.lat, f.lon), true));
         }
@@ -640,7 +671,7 @@ fn distance(l: &str) -> Option<Answer> {
     Some(Answer::new("distance", vec![
         pod("Input", "Input interpretation", text(format!("distance from {} to {}", a.0, b.0))),
         primary(pod("Result", "Great-circle distance", text(format!("{} km ({} miles)", c(d), c(d * 0.621_371))))),
-        pod("Note", "Note", text("between the feature's reference point and the city centre")),
+        pod("Note", "Note", text("between reference points (feature or landmark centre, city centre)")),
     ]))
 }
 

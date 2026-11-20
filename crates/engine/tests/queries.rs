@@ -1942,3 +1942,16 @@ fn ships_plants_and_effect_lists() {
     assert!(short("is Cleome hassleriana a perennial").starts_with("no"));
     assert!(short("downward facing dog, upward facing dog pose").contains("Upward-Facing Dog"));
 }
+
+#[test]
+fn lewis_resonance_inchi_and_common_substructures() {
+    assert!(short("nitrate resonance diagrams").starts_with("3 structures"));
+    assert!(short("benzene resonance structures").starts_with("2 structures"));
+    assert!(short("fluoranthene resonance diagrams").starts_with("6 structures"));
+    assert!(short("carbonate lewis structure").starts_with("24 valence electrons"));
+    assert!(short("InChI=1/C8H8O3/c1-11-8-4-6(5-9)2-3-7(8)10/h2-5,10H,1H3").contains("vanillin"));
+    assert!(short("lewis structure for water").starts_with("8 valence electrons: 2 bonding pairs and 2 lone pairs"));
+    assert!(short("h-bond donors in dansyllysine").contains('3'));
+    assert!(short("trimethylamine gas").contains("g/mol"));
+    assert!(short("distance from MoMath to Central Park").contains("km"));
+}

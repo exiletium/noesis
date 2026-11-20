@@ -586,6 +586,27 @@ struct Compound {
     mol: Mol,
 }
 
+/// Common polyatomic ions, for structures and resonance.
+const ION_SMILES: &[(&str, &str)] = &[
+    ("nitrate", "[N+](=O)([O-])[O-]"),
+    ("nitrite", "N(=O)[O-]"),
+    ("ammonium", "[NH4+]"),
+    ("hydronium|oxonium", "[OH3+]"),
+    ("hydroxide", "[OH-]"),
+    ("cyanide", "[C-]#N"),
+    ("acetate|ethanoate", "CC(=O)[O-]"),
+    ("formate|methanoate", "C(=O)[O-]"),
+    ("carbonate", "C(=O)([O-])[O-]"),
+    ("bicarbonate|hydrogen carbonate|hydrogencarbonate", "OC(=O)[O-]"),
+    ("sulfate|sulphate", "S(=O)(=O)([O-])[O-]"),
+    ("sulfite|sulphite", "S(=O)([O-])[O-]"),
+    ("phosphate|orthophosphate", "P(=O)([O-])([O-])[O-]"),
+    ("perchlorate", "Cl(=O)(=O)(=O)[O-]"),
+    ("chlorate", "Cl(=O)(=O)[O-]"),
+    ("thiocyanate", "[S-]C#N"),
+    ("oxalate", "C(=O)([O-])C(=O)[O-]"),
+];
+
 fn resolve(t: &str) -> Option<Compound> {
     let t = t.trim().trim_matches(|c: char| c == '"' || c == '?' || c == '.').trim();
     if let Some(m) = re!(r"(?i)^smiles\s*:?\s*(\S+)$").captures(t) {
@@ -599,6 +620,9 @@ fn resolve(t: &str) -> Option<Compound> {
         let bare = re!(r"(?i)^(?:dl-|l-|d-|\([rs+\-±]+\)-|cis[- ]|trans[- ]|\(?[ez]\)?-|α-|β-)").replace(&t, "").to_string();
         (bare != t).then(|| find_db_compound(&bare)).flatten()
     }) else {
+        if let Some((_, smi)) = ION_SMILES.iter().find(|x| x.0.split('|').any(|n| n == t.to_lowercase().trim_end_matches(" ion"))) {
+            return Some(Compound { name: t.to_lowercase(), mol: parse_smiles(smi)?, smiles: smi.to_string() });
+        }
         let smi = benzene_smiles(&t)?;
         return Some(Compound { name: t.to_lowercase(), mol: parse_smiles(&smi)?, smiles: smi });
     };
@@ -918,6 +942,30 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
         return Some(Answer::new("bonds", pods));
     }
+    // InChI strings
+    if c.starts_with("InChI=") {
+        return inchi_answer(c);
+    }
+    // structure diagrams, Lewis and electron-dot structures
+    if let Some(m) = re!(r"(?i)^(?:(?:show |draw |what is |what's )?(?:the |a )?(lewis (?:dot )?structure|electron[- ]dot (?:structure|diagram)|structure diagram|2d structure|skeletal (?:structure|formula)|structural (?:diagram|formula))s? (?:for|of) (.+)|(.+?),? (lewis (?:dot )?structure|electron[- ]dot (?:structure|diagram)|structure diagram|2d structure|skeletal (?:structure|formula)|structural (?:diagram|formula))s?)$").captures(c) {
+        let (kind, subject) = match m.get(1) {
+            Some(k) => (k.as_str().to_lowercase(), m[2].to_string()),
+            None => (m.get(4)?.as_str().to_lowercase(), m[3].to_string()),
+        };
+        return structure_answer(&resolve(&subject)?, &kind);
+    }
+    // resonance structures
+    if let Some(m) = re!(r"(?i)^(?:what are )?(?:the )?(?:resonance (?:structures|diagrams|forms) (?:of|for) (.+)|(.+?),? resonance (?:structures|diagrams|forms))$").captures(c) {
+        return resonance_answer(&resolve(m.get(1).or(m.get(2))?.as_str())?);
+    }
+    // aromatic rings
+    if let Some(m) = re!(r"(?i)^(?:what is |what are )?(?:the )?(?:aromatic (?:structure|rings?|systems?) (?:of|in|for) (.+)|(.+?),? aromatic (?:structure|rings?|systems?))$").captures(c) {
+        return aromatic_answer(&resolve(m.get(1).or(m.get(2))?.as_str())?);
+    }
+    // maximum common substructure
+    if let Some(m) = re!(r"(?i)^(?:what is )?(?:the )?(?:(?:maximum |largest )?common substructure (?:of|for|between|in) (.+)|(.+?),? (?:mcs|(?:maximum |largest )?common substructure))$").captures(c) {
+        return mcs_answer(&resolve_many(m.get(1).or(m.get(2))?.as_str())?);
+    }
     // rotatable bonds, rings
     if let Some(m) = re!(r"(?i)^(?:how many |number of )?(rotatable bonds|rings)(?: are)? (?:in|of) (.+)$").captures(c) {
         let cs = resolve_many(&m[2])?;
@@ -929,6 +977,612 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let subject = m.get(1).or(m.get(2)).or(m.get(3))?.as_str();
     let cs = resolve_many(subject)?;
     Some(Answer::new("molecular properties", vec![header(&cs), primary(pod("Result", "Molecular properties", multi_table(&cs, &basic_rows))), pod("Hybridization", "Orbital hybridization", multi_table(&cs, &hybrid_rows))]))
+}
+
+
+/// Valence electrons of main-group elements.
+fn valence_electrons(el: &str) -> Option<i32> {
+    Some(match el {
+        "H" | "Li" | "Na" | "K" => 1,
+        "Be" | "Mg" | "Ca" => 2,
+        "B" | "Al" | "Ga" => 3,
+        "C" | "Si" | "Ge" | "Sn" => 4,
+        "N" | "P" | "As" | "Sb" => 5,
+        "O" | "S" | "Se" | "Te" => 6,
+        "F" | "Cl" | "Br" | "I" => 7,
+        _ => return None,
+    })
+}
+
+fn atom_label(m: &Mol, i: usize) -> String {
+    format!("{}{}", m.atoms[i].el, i + 1)
+}
+
+impl Mol {
+    /// The Kekulé forms: every way of resolving aromatic bonds into single and
+    /// double bonds (bond orders, in bond order), at most `cap` of them.
+    pub fn kekule_forms(&self, cap: usize) -> Vec<Vec<u8>> {
+        // rings drawn with explicit alternating bonds: ring bonds between atoms
+        // that carry a ring double bond become aromatic-like, so every
+        // placement of those double bonds is found
+        let ring = self.ring_bonds();
+        let mut pi = vec![false; self.atoms.len()];
+        for (k, &(a, b, o)) in self.bonds.iter().enumerate() {
+            if o == 2 && ring[k] {
+                pi[a] = true;
+                pi[b] = true;
+            }
+        }
+        if pi.iter().any(|&p| p) {
+            let mut m = self.clone();
+            for (k, b) in m.bonds.iter_mut().enumerate() {
+                if ring[k] && (b.2 == 1 || b.2 == 2) && pi[b.0] && pi[b.1] {
+                    b.2 = 4;
+                }
+            }
+            return m.kekule_forms_aromatic(cap);
+        }
+        self.kekule_forms_aromatic(cap)
+    }
+
+    fn kekule_forms_aromatic(&self, cap: usize) -> Vec<Vec<u8>> {
+        let n = self.atoms.len();
+        let mut arom_deg = vec![0u32; n];
+        let mut fixed = vec![0u32; n];
+        let mut inc: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for (k, &(a, b, o)) in self.bonds.iter().enumerate() {
+            for x in [a, b] {
+                if o == 4 {
+                    arom_deg[x] += 1;
+                    inc[x].push(k);
+                } else {
+                    fixed[x] += o as u32;
+                }
+            }
+        }
+        let need: Vec<bool> = (0..n)
+            .map(|i| {
+                let a = &self.atoms[i];
+                if arom_deg[i] == 0 {
+                    return false;
+                }
+                let val: i32 = match (a.el.as_str(), a.charge) {
+                    ("C", 0) => 4,
+                    ("C", _) => 3,
+                    ("N", 1) | ("P", 1) => 4,
+                    ("N", -1) => 2,
+                    ("N", _) | ("P", _) | ("B", _) => 3,
+                    ("O", 1) | ("S", 1) | ("Se", 1) => 3,
+                    ("O", _) | ("S", _) | ("Se", _) => 2,
+                    _ => 0,
+                };
+                val - (arom_deg[i] + fixed[i] + a.h) as i32 >= 1
+            })
+            .collect();
+        fn go(i0: usize, need: &[bool], matched: &mut [bool], inc: &[Vec<usize>], bonds: &[(usize, usize, u8)], cur: &mut Vec<u8>, out: &mut Vec<Vec<u8>>, cap: usize) {
+            if out.len() >= cap {
+                return;
+            }
+            let Some(i) = (i0..need.len()).find(|&i| need[i] && !matched[i]) else {
+                out.push(cur.iter().map(|&o| if o == 4 { 1 } else { o }).collect());
+                return;
+            };
+            matched[i] = true;
+            for &k in &inc[i] {
+                let (a, b, _) = bonds[k];
+                let j = if a == i { b } else { a };
+                if need[j] && !matched[j] {
+                    matched[j] = true;
+                    cur[k] = 2;
+                    go(i + 1, need, matched, inc, bonds, cur, out, cap);
+                    cur[k] = 4;
+                    matched[j] = false;
+                }
+            }
+            matched[i] = false;
+        }
+        let mut out = Vec::new();
+        let mut cur: Vec<u8> = self.bonds.iter().map(|b| b.2).collect();
+        let mut matched = vec![false; n];
+        go(0, &need, &mut matched, &inc, &self.bonds, &mut cur, &mut out, cap);
+        out
+    }
+
+    /// Resonance structures: the Kekulé forms combined with every placement of
+    /// double bonds among equivalent terminal atoms on one centre (the three
+    /// N–O bonds of nitrate, the two C–O bonds of a carboxylate). Each is
+    /// (bond orders, atom charges).
+    pub fn resonance_forms(&self, cap: usize) -> Vec<(Vec<u8>, Vec<i32>)> {
+        let g = self.adj();
+        let mut groups: Vec<(Vec<usize>, Vec<usize>, usize)> = Vec::new(); // (terminal atoms, their bonds, double bonds)
+        for (x, nb) in g.iter().enumerate() {
+            if nb.len() < 2 {
+                continue;
+            }
+            for el in ["O", "S", "N"] {
+                let mut ts = Vec::new();
+                let mut bs = Vec::new();
+                let mut doubles = 0;
+                for &(t, o) in nb {
+                    let a = &self.atoms[t];
+                    if a.el != el || g[t].len() != 1 || a.h != 0 {
+                        continue;
+                    }
+                    let k = self.bonds.iter().position(|&(p, q, _)| (p == x && q == t) || (p == t && q == x)).unwrap();
+                    match (o, a.charge) {
+                        (2, 0) => doubles += 1,
+                        (1, -1) => {}
+                        _ => continue,
+                    }
+                    ts.push(t);
+                    bs.push(k);
+                }
+                if doubles >= 1 && ts.len() > doubles {
+                    groups.push((ts, bs, doubles));
+                }
+            }
+        }
+        let mut out = Vec::new();
+        for form in self.kekule_forms(cap) {
+            let mut acc: Vec<(Vec<u8>, Vec<i32>)> = vec![(form.clone(), self.atoms.iter().map(|a| a.charge).collect())];
+            for (ts, bs, d) in &groups {
+                let mut next = Vec::new();
+                for (orders, charges) in &acc {
+                    // every subset of size d of the terminal atoms gets the double bonds
+                    let k = ts.len();
+                    for mask in 0u32..(1 << k) {
+                        if mask.count_ones() as usize != *d {
+                            continue;
+                        }
+                        let mut o = orders.clone();
+                        let mut c = charges.clone();
+                        for idx in 0..k {
+                            let dbl = mask & (1 << idx) != 0;
+                            o[bs[idx]] = if dbl { 2 } else { 1 };
+                            c[ts[idx]] = if dbl { 0 } else { -1 };
+                        }
+                        next.push((o, c));
+                        if next.len() >= cap {
+                            break;
+                        }
+                    }
+                }
+                acc = next;
+            }
+            out.extend(acc);
+            if out.len() >= cap {
+                out.truncate(cap);
+                break;
+            }
+        }
+        out
+    }
+}
+
+/// "C1=C2, C3=C4 | negative: O3"
+fn form_text(m: &Mol, orders: &[u8], charges: &[i32]) -> String {
+    let mut parts: Vec<String> = m
+        .bonds
+        .iter()
+        .zip(orders)
+        .filter(|(_, &o)| o >= 2)
+        .map(|(&(a, b, _), &o)| format!("{}{}{}", atom_label(m, a), if o == 3 { "≡" } else { "=" }, atom_label(m, b)))
+        .collect();
+    if parts.is_empty() {
+        parts.push("no double bonds".into());
+    }
+    let mut s = parts.join(", ");
+    let charged: Vec<String> = charges.iter().enumerate().filter(|(_, &c)| c != 0).map(|(i, &c)| format!("{}{}", atom_label(m, i), if c > 0 { "⁺".repeat(c as usize) } else { "⁻".repeat((-c) as usize) })).collect();
+    if !charged.is_empty() {
+        s.push_str(&format!("; charges {}", charged.join(" ")));
+    }
+    s
+}
+
+/// Lewis structure rows from one resonance form: (atom, bonded electrons pairs, lone pairs, formal charge).
+fn lewis_rows(m: &Mol, orders: &[u8], charges: &[i32]) -> Option<(Vec<Vec<Content>>, i32, i32, i32)> {
+    let n = m.atoms.len();
+    let mut bond_sum = vec![0i32; n];
+    for (&(a, b, _), &o) in m.bonds.iter().zip(orders) {
+        bond_sum[a] += o as i32;
+        bond_sum[b] += o as i32;
+    }
+    let mut rows = Vec::new();
+    let (mut valence, mut lone_total, mut bonding) = (0, 0, 0);
+    for i in 0..n {
+        let a = &m.atoms[i];
+        let v = valence_electrons(&a.el)?;
+        let bonds = bond_sum[i] + a.h as i32;
+        let nonbonding = v - charges[i] - bonds;
+        if nonbonding < 0 {
+            return None;
+        }
+        valence += v;
+        lone_total += nonbonding / 2;
+        rows.push(vec![text(atom_label(m, i)), text(bonds.to_string()), text(format!("{}{}", nonbonding / 2, if nonbonding % 2 == 1 { " + 1 unpaired" } else { "" })), text(format!("{:+}", charges[i]).replace("+0", "0"))]);
+    }
+    let h: i32 = m.atoms.iter().map(|a| a.h as i32).sum();
+    valence += h;
+    bonding += orders.iter().map(|&o| o as i32).sum::<i32>() + h;
+    valence -= charges.iter().sum::<i32>();
+    Some((rows, valence, bonding, lone_total))
+}
+
+fn structure_answer(c: &Compound, kind: &str) -> Option<Answer> {
+    let m = &c.mol;
+    let forms = m.resonance_forms(1);
+    let (orders, charges) = forms.first().cloned().unwrap_or_else(|| (m.bonds.iter().map(|b| b.2.min(3)).collect(), m.atoms.iter().map(|a| a.charge).collect()));
+    let g = m.adj();
+    let conn: Vec<Vec<Content>> = (0..m.atoms.len())
+        .map(|i| {
+            let nb: Vec<String> = g[i]
+                .iter()
+                .map(|&(j, _)| {
+                    let k = m.bonds.iter().position(|&(p, q, _)| (p == i && q == j) || (p == j && q == i)).unwrap();
+                    format!("{}{}", match orders[k] { 2 => "=", 3 => "≡", _ => "–" }, atom_label(m, j))
+                })
+                .collect();
+            vec![text(atom_label(m, i)), text(nb.join(" ")), text(m.atoms[i].h.to_string())]
+        })
+        .collect();
+    let mut pods = vec![
+        pod("Input", "Input interpretation", text(format!("{} | {kind}", c.name))),
+        pod("Formula", "Formula", text(formula_text(m))),
+        pod("SMILES", "SMILES", text(c.smiles.clone())),
+    ];
+    if let Some((rows, valence, bonding, lone)) = lewis_rows(m, &orders, &charges) {
+        pods.insert(1, primary(pod("Result", if kind.contains("lewis") || kind.contains("dot") { "Lewis structure" } else { "Structure" }, text(format!("{valence} valence electrons: {bonding} bonding pairs and {lone} lone pairs ({})", form_text(m, &orders, &charges))))));
+        pods.push(pod("Lewis", "Atoms (bonds count shared pairs including hydrogens)", table(Some(vec!["atom", "bonds", "lone pairs", "formal charge"]), rows)));
+    } else {
+        pods.insert(1, primary(pod("Result", "Structure", text(form_text(m, &orders, &charges)))));
+    }
+    pods.push(pod("Connectivity", "Connection table", table(Some(vec!["atom", "bonded to", "H"]), conn)));
+    Some(Answer::new(format!("{} {kind}", c.name), pods))
+}
+
+fn resonance_answer(c: &Compound) -> Option<Answer> {
+    let m = &c.mol;
+    let forms = m.resonance_forms(64);
+    if forms.is_empty() {
+        return None;
+    }
+    let rows: Vec<Vec<Content>> = forms.iter().enumerate().map(|(i, (o, ch))| vec![text((i + 1).to_string()), text(form_text(m, o, ch))]).collect();
+    Some(Answer::new(format!("{} resonance structures", c.name), vec![
+        pod("Input", "Input interpretation", text(format!("{} | resonance structures", c.name))),
+        primary(pod("Result", "Resonance structures", text(format!("{} structure{} (Kekulé forms and equivalent double-bond placements, without extra charge separation)", forms.len(), if forms.len() == 1 { "" } else { "s" })))),
+        pod("Forms", "Double bonds in each structure", table(Some(vec!["#", "double bonds"]), rows)),
+        pod("SMILES", "SMILES", text(c.smiles.clone())),
+    ]))
+}
+
+/// Largest common connected substructure (heavy atoms, same elements and
+/// bond orders, induced), by branch-and-bound search with a time limit.
+fn common_substructure(a: &Mol, b: &Mol) -> (Vec<(usize, usize)>, bool) {
+    struct S<'a> {
+        ga: Vec<Vec<(usize, u8)>>,
+        gb: Vec<Vec<(usize, u8)>>,
+        a: &'a Mol,
+        b: &'a Mol,
+        ma: Vec<Option<usize>>,
+        mb: Vec<Option<usize>>,
+        excl: Vec<bool>,
+        cur: Vec<(usize, usize)>,
+        best: Vec<(usize, usize)>,
+        deadline: std::time::Instant,
+        timed_out: bool,
+    }
+    fn order(g: &[Vec<(usize, u8)>], x: usize, y: usize) -> Option<u8> {
+        g[x].iter().find(|e| e.0 == y).map(|e| e.1)
+    }
+    fn ok(s: &S, x: usize, y: usize) -> bool {
+        if s.a.atoms[x].el != s.b.atoms[y].el {
+            return false;
+        }
+        let mut touches = false;
+        for &(x2, o) in &s.ga[x] {
+            if let Some(y2) = s.ma[x2] {
+                touches = true;
+                let _ = o;
+                if order(&s.gb, y, y2).is_none() {
+                    return false;
+                }
+            }
+        }
+        for &(y2, _) in &s.gb[y] {
+            if let Some(x2) = s.mb[y2] {
+                if order(&s.ga, x, x2).is_none() {
+                    return false;
+                }
+            }
+        }
+        touches || s.cur.is_empty()
+    }
+    fn go(s: &mut S) {
+        if std::time::Instant::now() > s.deadline {
+            s.timed_out = true;
+            return;
+        }
+        if s.cur.len() > s.best.len() {
+            s.best = s.cur.clone();
+        }
+        let free_a = (0..s.ga.len()).filter(|&x| s.ma[x].is_none() && !s.excl[x]).count();
+        let free_b = (0..s.gb.len()).filter(|&y| s.mb[y].is_none()).count();
+        if s.cur.len() + free_a.min(free_b) <= s.best.len() {
+            return;
+        }
+        let Some(x) = (0..s.ga.len()).find(|&x| s.ma[x].is_none() && !s.excl[x] && s.ga[x].iter().any(|&(x2, _)| s.ma[x2].is_some())) else {
+            return;
+        };
+        for y in 0..s.gb.len() {
+            if s.mb[y].is_none() && ok(s, x, y) {
+                s.ma[x] = Some(y);
+                s.mb[y] = Some(x);
+                s.cur.push((x, y));
+                go(s);
+                s.cur.pop();
+                s.ma[x] = None;
+                s.mb[y] = None;
+                if s.timed_out {
+                    return;
+                }
+            }
+        }
+        s.excl[x] = true;
+        go(s);
+        s.excl[x] = false;
+    }
+    let mut s = S {
+        ga: a.adj(),
+        gb: b.adj(),
+        a,
+        b,
+        ma: vec![None; a.atoms.len()],
+        mb: vec![None; b.atoms.len()],
+        excl: vec![false; a.atoms.len()],
+        cur: Vec::new(),
+        best: Vec::new(),
+        deadline: std::time::Instant::now() + std::time::Duration::from_millis(1500),
+        timed_out: false,
+    };
+    // seeds: every atom of a, rarest elements first
+    let mut seeds: Vec<usize> = (0..a.atoms.len()).collect();
+    seeds.sort_by_key(|&x| (a.atoms.iter().filter(|t| t.el == a.atoms[x].el).count(), std::cmp::Reverse(s.ga[x].len())));
+    for x in seeds {
+        for y in 0..b.atoms.len() {
+            if a.atoms[x].el != b.atoms[y].el {
+                continue;
+            }
+            s.ma[x] = Some(y);
+            s.mb[y] = Some(x);
+            s.cur.push((x, y));
+            go(&mut s);
+            s.cur.clear();
+            s.ma[x] = None;
+            s.mb[y] = None;
+            if s.timed_out {
+                break;
+            }
+        }
+        if s.timed_out {
+            break;
+        }
+        // any substructure containing x has been seen
+        s.excl[x] = true;
+    }
+    let timed_out = s.timed_out;
+    (s.best, timed_out)
+}
+
+fn mcs_answer(cs: &[Compound]) -> Option<Answer> {
+    if cs.len() != 2 {
+        return None;
+    }
+    let (a, b) = (&cs[0].mol, &cs[1].mol);
+    let (map, timed_out) = common_substructure(a, b);
+    if map.is_empty() {
+        return None;
+    }
+    let mut counts: BTreeMap<String, u32> = BTreeMap::new();
+    for &(x, _) in &map {
+        *counts.entry(a.atoms[x].el.clone()).or_insert(0) += 1;
+    }
+    let inside: std::collections::HashSet<usize> = map.iter().map(|p| p.0).collect();
+    let nbonds = a.bonds.iter().filter(|&&(p, q, _)| inside.contains(&p) && inside.contains(&q)).count();
+    let skeleton = hill_formula(&counts);
+    let atoms_a: Vec<String> = map.iter().map(|&(x, _)| atom_label(a, x)).collect();
+    let atoms_b: Vec<String> = map.iter().map(|&(_, y)| atom_label(b, y)).collect();
+    Some(Answer::new("maximum common substructure", vec![
+        pod("Input", "Input interpretation", text(format!("{} | {} | maximum common substructure", cs[0].name, cs[1].name))),
+        primary(pod("Result", "Maximum common substructure", text(format!("{} heavy atoms and {nbonds} bonds ({skeleton} skeleton; elements and connectivity matched, bond orders ignored){}", map.len(), if timed_out { "; largest found within the search time limit" } else { "" })))),
+        pod("Share", "Fraction of each molecule", text(format!("{}: {}/{} heavy atoms | {}: {}/{} heavy atoms", cs[0].name, map.len(), a.atoms.len(), cs[1].name, map.len(), b.atoms.len()))),
+        pod("Atoms", "Matched atoms", table(Some(vec![cs[0].name.as_str(), cs[1].name.as_str()]), atoms_a.into_iter().zip(atoms_b).map(|(x, y)| vec![text(x), text(y)]).collect())),
+    ]))
+}
+
+/// A molecule from a standard InChI string: the formula layer numbers the heavy
+/// atoms, the connection (/c) and hydrogen (/h) layers give the skeleton, and
+/// double and triple bonds are placed to satisfy the usual valences.
+pub fn from_inchi(s: &str) -> Option<Mol> {
+    let body = s.trim().strip_prefix("InChI=")?;
+    let mut layers = body.split('/');
+    let ver = layers.next()?;
+    if !ver.starts_with('1') {
+        return None;
+    }
+    let formula = layers.next()?;
+    if formula.contains('.') || formula.is_empty() {
+        return None;
+    }
+    let mut els: Vec<String> = Vec::new();
+    for m in re!(r"([A-Z][a-z]?)(\d*)").captures_iter(formula) {
+        if &m[1] == "H" {
+            continue;
+        }
+        let k: usize = if m[2].is_empty() { 1 } else { m[2].parse().ok()? };
+        for _ in 0..k {
+            els.push(m[1].to_string());
+        }
+    }
+    let n = els.len();
+    let mut bonds: Vec<(usize, usize, u8)> = Vec::new();
+    let mut hs = vec![0u32; n];
+    for layer in layers {
+        if let Some(c) = layer.strip_prefix('c') {
+            let mut stack: Vec<Option<usize>> = Vec::new();
+            let mut prev: Option<usize> = None;
+            let mut num = String::new();
+            let flush = |num: &mut String, prev: &mut Option<usize>, bonds: &mut Vec<(usize, usize, u8)>| -> Option<()> {
+                if num.is_empty() {
+                    return Some(());
+                }
+                let x: usize = num.parse::<usize>().ok()?.checked_sub(1)?;
+                if x >= n {
+                    return None;
+                }
+                if let Some(p) = *prev {
+                    if !bonds.iter().any(|&(a, b, _)| (a == p && b == x) || (a == x && b == p)) {
+                        bonds.push((p, x, 1));
+                    }
+                }
+                *prev = Some(x);
+                num.clear();
+                Some(())
+            };
+            for ch in c.chars() {
+                if ch.is_ascii_digit() {
+                    num.push(ch);
+                    continue;
+                }
+                flush(&mut num, &mut prev, &mut bonds)?;
+                match ch {
+                    '-' => {}
+                    '(' => stack.push(prev),
+                    ',' => prev = *stack.last()?,
+                    ')' => prev = stack.pop()?,
+                    _ => return None,
+                }
+            }
+            flush(&mut num, &mut prev, &mut bonds)?;
+        } else if let Some(h) = layer.strip_prefix('h') {
+            if h.contains('(') {
+                return None;
+            }
+            let mut pending: Vec<usize> = Vec::new();
+            let toks: Vec<String> = re!(r"\d+|[-,H]").find_iter(h).map(|m| m.as_str().to_string()).collect();
+            let mut i = 0;
+            while i < toks.len() {
+                match toks[i].as_str() {
+                    "," => {}
+                    "-" => {
+                        let lo = *pending.last()?;
+                        let hi: usize = toks.get(i + 1)?.parse().ok()?;
+                        for x in lo + 1..=hi {
+                            pending.push(x);
+                        }
+                        i += 1;
+                    }
+                    "H" => {
+                        let k: u32 = match toks.get(i + 1).and_then(|t| t.parse().ok()) {
+                            Some(k) => {
+                                i += 1;
+                                k
+                            }
+                            None => 1,
+                        };
+                        for &x in &pending {
+                            *hs.get_mut(x.checked_sub(1)?)? += k;
+                        }
+                        pending.clear();
+                    }
+                    t => pending.push(t.parse().ok()?),
+                }
+                i += 1;
+            }
+        } else if layer.starts_with('q') || layer.starts_with('p') {
+            return None;
+        }
+    }
+    // place multiple bonds where atoms fall short of their valence
+    let mut deficit: Vec<i32> = (0..n)
+        .map(|i| {
+            let used = bonds.iter().filter(|b| b.0 == i || b.1 == i).count() as i32 + hs[i] as i32;
+            let val = default_valences(&els[i]).iter().map(|&v| v as i32).find(|&v| v >= used).unwrap_or(used);
+            val - used
+        })
+        .collect();
+    fn solve(deficit: &mut [i32], bonds: &mut [(usize, usize, u8)]) -> bool {
+        let Some(i) = deficit.iter().position(|&d| d > 0) else {
+            return true;
+        };
+        for k in 0..bonds.len() {
+            let (a, b, o) = bonds[k];
+            if (a != i && b != i) || o >= 3 {
+                continue;
+            }
+            let j = if a == i { b } else { a };
+            if deficit[j] > 0 {
+                bonds[k].2 += 1;
+                deficit[i] -= 1;
+                deficit[j] -= 1;
+                if solve(deficit, bonds) {
+                    return true;
+                }
+                bonds[k].2 -= 1;
+                deficit[i] += 1;
+                deficit[j] += 1;
+            }
+        }
+        false
+    }
+    if !solve(&mut deficit, &mut bonds) {
+        return None;
+    }
+    Some(Mol { atoms: els.into_iter().zip(hs).map(|(el, h)| Atom { el, aromatic: false, charge: 0, h }).collect(), bonds })
+}
+
+/// Graph invariant that ignores bond orders: (element, hydrogens, degree, distance sum) per atom.
+fn skeleton_invariant(m: &Mol) -> Vec<(String, u32, usize, usize)> {
+    let g = m.adj();
+    let d = m.distances();
+    let mut v: Vec<_> = (0..m.atoms.len()).map(|i| (m.atoms[i].el.clone(), m.atoms[i].h, g[i].len(), d[i].iter().filter(|&&x| x != usize::MAX).sum())).collect();
+    v.sort();
+    v
+}
+
+fn inchi_answer(s: &str) -> Option<Answer> {
+    let m = from_inchi(s)?;
+    let counts = m.counts();
+    let inv = skeleton_invariant(&m);
+    let name = super::chem::compound_db().0.iter().find(|c| !c.smiles.is_empty() && super::chem::parse_formula(c.formula).as_ref() == Some(&counts) && parse_smiles(c.smiles).is_some_and(|x| skeleton_invariant(&x) == inv)).map(|c| (c.name.to_string(), c.smiles.to_string()));
+    let mut pods = vec![pod("Input", "Input interpretation", text(s.to_string()))];
+    match &name {
+        Some((nm, _)) => pods.push(primary(pod("Result", "Compound", text(nm.clone())))),
+        None => pods.push(primary(pod("Result", "Formula", text(formula_text(&m))))),
+    }
+    let c = Compound { name: name.as_ref().map_or_else(|| "InChI".to_string(), |x| x.0.clone()), smiles: name.as_ref().map_or_else(String::new, |x| x.1.clone()), mol: m };
+    let orders: Vec<u8> = c.mol.bonds.iter().map(|b| b.2).collect();
+    let charges: Vec<i32> = c.mol.atoms.iter().map(|a| a.charge).collect();
+    pods.push(pod("Structure", "Bonds from the InChI layers", text(form_text(&c.mol, &orders, &charges))));
+    pods.push(pod("Properties", "Properties", multi_table(std::slice::from_ref(&c), &basic_rows)));
+    Some(Answer::new("InChI", pods))
+}
+
+fn aromatic_answer(c: &Compound) -> Option<Answer> {
+    let m = &c.mol;
+    let ar: Vec<&(usize, usize, u8)> = m.bonds.iter().filter(|b| b.2 == 4).collect();
+    let atoms: std::collections::BTreeSet<usize> = ar.iter().flat_map(|b| [b.0, b.1]).collect();
+    // ring count of the aromatic subgraph: edges - vertices + components
+    let idx: Vec<usize> = atoms.iter().copied().collect();
+    let sub = Mol { atoms: idx.iter().map(|&i| m.atoms[i].clone()).collect(), bonds: ar.iter().map(|b| (idx.binary_search(&b.0).unwrap(), idx.binary_search(&b.1).unwrap(), 4)).collect() };
+    let rings = if idx.is_empty() { 0 } else { sub.rings() };
+    let systems = if idx.is_empty() { 0 } else { sub.components() };
+    let kek = m.kekule_forms(1000).len();
+    Some(Answer::new(format!("{} aromatic structure", c.name), vec![
+        pod("Input", "Input interpretation", text(format!("{} | aromatic structure", c.name))),
+        primary(pod("Result", "Aromatic structure", text(format!("{rings} aromatic ring{} in {systems} aromatic system{} ({} aromatic atoms)", if rings == 1 { "" } else { "s" }, if systems == 1 { "" } else { "s" }, atoms.len())))),
+        pod("Kekule", "Kekulé structures", text(kek.to_string())),
+        pod("SMILES", "SMILES", text(c.smiles.clone())),
+    ]))
 }
 
 #[cfg(test)]
