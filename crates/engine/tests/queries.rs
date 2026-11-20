@@ -2021,3 +2021,10 @@ fn roman_numeral_compound_names_and_islands() {
     assert!(short("density of copper ii oxide").contains("6.4"));
     assert!(short("major islands in the Indian ocean").contains("Madagascar"));
 }
+
+#[test]
+fn surnames_birthplaces_and_random_conflicts() {
+    assert!(short("notable people with surname Jones").contains("Quincy Jones"));
+    assert!(short("notable people born in Sydney").contains("Hugh Jackman"));
+    assert!(!short("random military conflict").is_empty());
+}

@@ -135,6 +135,16 @@ freddie mercury|1946-09-05|Stone Town, Zanzibar|1991-11-24|Kensington, London, E
 david bowie|1947-01-08|Brixton, London, England|2016-01-10|New York City, United States|English|singer and songwriter|Ziggy Stardust, Space Oddity, Heroes
 prince,prince rogers nelson|1958-06-07|Minneapolis, Minnesota, United States|2016-04-21|Chanhassen, Minnesota, United States|American|singer, songwriter and multi-instrumentalist|Purple Rain, When Doves Cry
 whitney houston|1963-08-09|Newark, New Jersey, United States|2012-02-11|Beverly Hills, California, United States|American|singer and actress|I Will Always Love You, The Bodyguard
+hugh jackman|1968-10-12|Sydney, New South Wales, Australia|||Australian|actor and singer|Wolverine in the X-Men films, Les Misérables, The Greatest Showman
+toni collette|1972-11-01|Sydney, New South Wales, Australia|||Australian|actress and singer|Muriel's Wedding, The Sixth Sense, Hereditary
+ian thorpe|1982-10-13|Sydney, New South Wales, Australia|||Australian|swimmer|five Olympic gold medals (2000 and 2004)
+rose byrne|1979-07-24|Sydney, New South Wales, Australia|||Australian|actress|Damages, Bridesmaids, Neighbors
+tom jones,sir tom jones|1940-06-07|Treforest, Wales, United Kingdom|||Welsh|singer|It's Not Unusual, Delilah, She's a Lady
+james earl jones|1931-01-17|Arkabutla, Mississippi, United States|2024-09-09|Pawling, New York, United States|American|actor|the voice of Darth Vader and Mufasa; Fences, Field of Dreams
+quincy jones|1933-03-14|Chicago, Illinois, United States|2024-11-03|Bel Air, Los Angeles, California, United States|American|record producer, composer and arranger|produced Michael Jackson's Off the Wall, Thriller and Bad, and We Are the World
+norah jones|1979-03-30|New York City, New York, United States|||American|singer-songwriter and pianist|Come Away with Me (2002); nine Grammy Awards
+tommy lee jones|1946-09-15|San Saba, Texas, United States|||American|actor|The Fugitive (Academy Award), Men in Black, No Country for Old Men
+grace jones|1948-05-19|Spanish Town, Jamaica|||Jamaican|singer, model and actress|Slave to the Rhythm, Pull Up to the Bumper; A View to a Kill
 taylor swift|1989-12-13|West Reading, Pennsylvania, United States|||American|singer-songwriter|Fearless, 1989, Folklore; the Eras Tour
 beyoncé,beyonce,beyoncé knowles|1981-09-04|Houston, Texas, United States|||American|singer|Crazy in Love, Lemonade; the most Grammy Awards of any artist
 john williams|1932-02-08|Floral Park, New York, United States|||American|composer and conductor|film scores for Star Wars, Jaws, E.T., Indiana Jones, Jurassic Park and Harry Potter
@@ -552,6 +562,14 @@ pub fn handle(q: &Query) -> Option<Answer> {
             ps.extend(people().iter().filter(|p| p.f[2].starts_with("Metairie") || p.f[2].starts_with("Kenner")));
         }
         return list_answer(&format!("famous people born in {}", place), ps);
+    }
+    // "notable people with surname Jones"
+    if let Some(m) = re!(r"^(?:famous |notable |well-known )?(?:people|persons) (?:with|having) (?:the )?(?:surname|last name|family name) ([a-z'-]+)$").captures(&l) {
+        let s = &m[1];
+        let ps: Vec<&Person> = people().iter().filter(|p| p.names[0].rsplit(' ').next() == Some(s)).collect();
+        if !ps.is_empty() {
+            return list_answer(&format!("famous people with the surname {}", display_word(s)), ps);
+        }
     }
     // "people born on Jan 17, 1922", "famous people born on December 18"
     if let Some(m) = re!(r"^(?:famous |notable |well-known )?(?:people|celebrities|persons) (?:born|whose birthday is) on (?:the )?([a-z]+)\.? (\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{3,4}))?$").captures(&l) {

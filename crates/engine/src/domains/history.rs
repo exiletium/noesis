@@ -529,6 +529,15 @@ fn between(l: &str) -> Option<Answer> {
 }
 
 fn lists(l: &str) -> Option<Answer> {
+    // "random military conflict": a battle or war picked from the table
+    if re!(r"^(?:a |show me a |give me a )?random (?:military conflict|battle|war|armed conflict|conflict)$").is_match(l) {
+        let n = battles().len();
+        let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos() as usize ^ d.as_secs() as usize).unwrap_or(0);
+        let name = battles()[seed % n][0].split(',').next()?;
+        let mut a = card(&find(name, false)?)?;
+        a.assumptions.push("a random military conflict from the built-in table".into());
+        return Some(a);
+    }
     if let Some(m) = re!(r"^(?:battles of (?:the )?(.+)|(.+?) battles)$").captures(l) {
         let war = m.get(1).or(m.get(2))?.as_str();
         let war = match war { "us civil war" | "american civil war" | "civil war" | "u.s. civil war" => "american civil war", w => w };
