@@ -1934,3 +1934,11 @@ fn institutions_elevations_characters_and_definitions() {
     assert!(short("MOM ether").contains("protecting group"));
     assert_eq!(short("soi"), "s = 0");
 }
+
+#[test]
+fn ships_plants_and_effect_lists() {
+    assert!(short("plasma physical effects").contains("Debye shielding"));
+    assert!(short("HMS Atheling, USS Edisto, USS Theodore Roosevelt").contains("Nimitz"));
+    assert!(short("is Cleome hassleriana a perennial").starts_with("no"));
+    assert!(short("downward facing dog, upward facing dog pose").contains("Upward-Facing Dog"));
+}

@@ -361,6 +361,18 @@ pub fn handle(q: &Query) -> Option<Answer> {
             .collect();
         return listing(l.to_string(), items);
     }
+    // "downward facing dog, upward facing dog pose"
+    let parts: Vec<&str> = re!(r"\s*(?:,|\band\b|\bvs\.?(?:\s|$)|\bversus\b)\s*").split(l).filter(|x| !x.trim().is_empty()).collect();
+    if parts.len() >= 2 {
+        if let Some(es) = parts.iter().map(|p| find(p)).collect::<Option<Vec<&Ex>>>() {
+            let rows = es.iter().map(|e| vec![text(e.names[0]), text(e.kind), text(e.category), text(e.level), text(e.muscles.join(", "))]).collect();
+            return Some(Answer::new("exercises", vec![
+                pod("Input", "Input interpretation", text(es.iter().map(|e| e.names[0]).collect::<Vec<_>>().join(" | "))),
+                primary(pod("Result", "Comparison", text(es.iter().map(|e| format!("{}: {} {}, works {}", e.names[0], e.kind, e.category, e.muscles.join(", "))).collect::<Vec<_>>().join(" | ")))),
+                pod("Table", "Details", table(Some(vec!["exercise", "discipline", "category", "level", "muscles"]), rows)),
+            ]));
+        }
+    }
     // a bare exercise name: "Pincha Mayurasana", "double leg stretch", "Sun Salutation A"
     let e = find(l)?;
     let generic = ["squat", "squats", "bench", "row", "dip", "dips", "swimming", "bicycle", "crab", "rocking", "seal", "saw", "the saw", "swan", "teaser", "corkscrew", "jackknife", "scissors", "mermaid", "shrug", "shrugs", "curls", "hundred", "hundreds", "bridge", "tree", "chair", "cobra", "camel", "bow", "boat", "crow", "lotus", "pigeon", "triangle", "mountain", "eagle", "dancer", "locust", "corpse", "plank", "lunge", "lunges", "burpee", "ashtanga", "wheel", "cat"];

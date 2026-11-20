@@ -202,9 +202,130 @@ fn defs(l: &str) -> Option<Answer> {
     ]))
 }
 
+/// Lists: (names, title, &[(item, description)]).
+const LISTS: &[(&[&str], &str, &[(&str, &str)])] = &[
+    (&["plasma physical effects", "plasma effects", "physical effects in plasmas"], "physical effects in plasmas", &[("Debye shielding", "charges are screened beyond the Debye length"), ("plasma oscillation", "electron density oscillates at the plasma frequency (Langmuir waves)"), ("pinch effect", "a current-carrying plasma is compressed by its own magnetic field"), ("Landau damping", "collisionless damping of plasma waves by resonant particles"), ("magnetic reconnection", "magnetic field lines break and reconnect, releasing energy (solar flares)"), ("Alfvén waves", "transverse waves travelling along magnetic field lines"), ("ambipolar diffusion", "electrons and ions diffuse together, held by their mutual electric field")]),
+    (&["paradoxical physical effect", "paradoxical physical effects", "paradoxical effects in physics"], "paradoxical physical effects", &[("Mpemba effect", "hot water sometimes appears to freeze faster than cold water (disputed)"), ("Brazil nut effect", "shaking a mixture of grains brings the largest particles to the top"), ("tea leaf paradox", "stirred tea leaves gather at the centre of the cup, not the edge"), ("Braess's paradox", "adding a road to a network can slow everyone's travel"), ("Feynman's reverse sprinkler", "a lawn sprinkler sucking water in barely turns, and in the reverse sense"), ("Olbers' paradox", "an infinite, eternal, static universe would have a bright night sky"), ("twin paradox", "a travelling twin returns younger than the twin who stayed home"), ("Ehrenfest paradox", "the circumference of a rotating disk in special relativity")]),
+    (&["electric resistance physical effects", "electrical resistance physical effects", "resistance effects", "physical effects of electric resistance"], "physical effects involving electrical resistance", &[("Joule heating", "a current through a resistance dissipates power I²R as heat"), ("Hall effect", "a transverse voltage in a conductor carrying current in a magnetic field"), ("magnetoresistance", "resistance changes in a magnetic field; giant magnetoresistance (Fert and Grünberg, 1988) is used in disk read heads"), ("Kondo effect", "a resistance minimum at low temperature caused by magnetic impurities"), ("superconductivity", "resistance vanishes below a critical temperature"), ("skin effect", "alternating current crowds near a conductor's surface, raising its resistance"), ("piezoresistive effect", "mechanical strain changes resistance (strain gauges)"), ("quantum Hall effect", "Hall resistance is quantized in steps of h/(ν e²)")]),
+    (&["frequency allocations 900mhz", "frequency allocations 900 mhz", "900 mhz band", "900mhz band", "900 mhz frequency allocations"], "radio frequency allocations near 900 MHz", &[("902–928 MHz", "ISM band in ITU Region 2 (the Americas): unlicensed devices such as RFID, LoRa, cordless phones and amateur radio (33 cm band)"), ("880–915 / 925–960 MHz", "GSM-900 (E-GSM) mobile uplink and downlink in Europe, Africa and Asia"), ("824–849 / 869–894 MHz", "US cellular band (850 MHz)"), ("863–870 MHz", "short-range devices band in Europe (868 MHz)"), ("896–901 / 935–940 MHz", "US land mobile radio (900 MHz SMR / broadband)")]),
+];
+
+/// Plants and famous animals: (names, title, &[(property, value)]).
+const LIVING: &[(&[&str], &str, &[(&str, &str)])] = &[
+    (&["osmunda regalis", "royal fern"], "Osmunda regalis (royal fern)", &[("family", "Osmundaceae"), ("type", "deciduous perennial fern"), ("size", "fronds up to about 2 m (occasionally 3 m)"), ("habitat", "bogs, wet woods and stream banks"), ("range", "Europe, Africa and Asia (with close relatives in the Americas)")]),
+    (&["musk rose", "rosa moschata"], "Rosa moschata (musk rose)", &[("family", "Rosaceae"), ("type", "climbing species rose"), ("flowers", "single white flowers with a musky scent, late in the season"), ("origin", "uncertain; long cultivated in western Asia and the Mediterranean"), ("note", "a parent of the Noisette and Hybrid Musk roses")]),
+    (&["eastern purple coneflower", "echinacea purpurea", "purple coneflower"], "Echinacea purpurea (eastern purple coneflower)", &[("family", "Asteraceae"), ("type", "herbaceous perennial"), ("height", "about 0.6–1.2 m"), ("flowers", "purple-pink ray florets around a spiny orange-brown cone, summer to autumn"), ("native range", "eastern and central North America")]),
+    (&["water horsetail", "equisetum fluviatile"], "Equisetum fluviatile (water horsetail)", &[("family", "Equisetaceae"), ("type", "perennial emergent aquatic plant"), ("stems", "hollow, jointed, up to about 1.5 m"), ("habitat", "shallow water of ponds, lakes and marshes"), ("range", "circumboreal: Europe, northern Asia and North America")]),
+    (&["cleome hassleriana", "spider flower", "cleome"], "Cleome hassleriana (spider flower)", &[("family", "Cleomaceae"), ("life cycle", "annual (it is not a perennial; it often self-seeds)"), ("height", "about 1–1.5 m"), ("flowers", "pink, purple or white, with long stamens"), ("native range", "South America (southern Brazil, Paraguay, Argentina)")]),
+    (&["rin tin tin", "rin-tin-tin"], "Rin Tin Tin (dog)", &[("breed", "German Shepherd"), ("born", "1918, found as a puppy on a First World War battlefield in Lorraine, France"), ("died", "August 10, 1932"), ("owner", "Lee Duncan, a US Army corporal"), ("career", "starred in 27 Hollywood films and helped make Warner Bros. successful")]),
+    (&["pando", "largest famous organism by weight", "largest organism by weight", "heaviest organism"], "Pando (quaking aspen clone)", &[("species", "Populus tremuloides (quaking aspen)"), ("location", "Fishlake National Forest, Utah"), ("mass", "about 6,000 tonnes, the heaviest known organism"), ("area", "about 43 hectares (106 acres), about 47,000 stems from one root system"), ("rival", "the Armillaria ostoyae \"humongous fungus\" in Oregon covers a larger area")]),
+];
+
+fn living(l: &str) -> Option<Answer> {
+    // "is Cleome hassleriana a perennial"
+    if let Some(m) = re!(r"^is (.+?) an? (perennial|annual|biennial)$").captures(l) {
+        let (_, title, rows) = LIVING.iter().find(|x| x.0.contains(&m[1].trim()))?;
+        let life = rows.iter().find(|r| r.0 == "life cycle" || r.0 == "type")?.1;
+        let yes = life.starts_with(&m[2]) || life.contains(&format!(" {}", &m[2])) && !life.contains(&format!("not a {}", &m[2]));
+        return Some(Answer::new("plant", vec![
+            pod("Input", "Input interpretation", text(format!("{title} | {}?", &m[2]))),
+            primary(pod("Result", "Result", text(format!("{} ({life})", if yes { "yes" } else { "no" })))),
+            pod("Table", "Details", table(None, rows.iter().map(|(a, b)| vec![text(*a), text(*b)]).collect())),
+        ]));
+    }
+    // "compare Solanum and Cucurbitaceae"
+    if re!(r"^(?:compare )?solanum (?:and|vs\.?|versus) cucurbitaceae$").is_match(l) {
+        return Some(Answer::new("plant taxa", vec![
+            pod("Input", "Input interpretation", text("Solanum (genus) vs Cucurbitaceae (family)")),
+            primary(pod("Result", "Comparison", text("Solanum: a genus of about 1,500 species in the nightshade family Solanaceae | Cucurbitaceae: the gourd family, about 95 genera and 965 species"))),
+            pod("Table", "Details", table(Some(vec!["", "Solanum", "Cucurbitaceae"]), vec![
+                vec![text("rank"), text("genus"), text("family")],
+                vec![text("parent taxon"), text("Solanaceae (order Solanales)"), text("order Cucurbitales")],
+                vec![text("examples"), text("potato, tomato, eggplant, black nightshade"), text("cucumber, melons, watermelon, squash, pumpkin, gourds")],
+                vec![text("growth habit"), text("herbs, shrubs, vines and small trees"), text("mostly tendril-climbing or trailing vines")],
+            ])),
+        ]));
+    }
+    // "owner of Trigger the horse and Unsinkable Sam"
+    if re!(r"^owners? of trigger(?: the horse)? and unsinkable sam$").is_match(l) {
+        return Some(Answer::new("famous animals", vec![
+            pod("Input", "Input interpretation", text("Trigger (horse) | Unsinkable Sam (cat) | owner")),
+            primary(pod("Result", "Owners", text("Trigger: Roy Rogers | Unsinkable Sam: no single owner (a ship's cat)"))),
+            pod("Table", "Details", table(None, vec![
+                vec![text("Trigger"), text("palomino horse ridden by the cowboy actor Roy Rogers in films and on television (1938–1965)")],
+                vec![text("Unsinkable Sam"), text("a cat said to have survived the sinking of the German battleship Bismarck, then HMS Cossack and HMS Ark Royal in 1941")],
+            ])),
+        ]));
+    }
+    // "Carpet wool sheep"
+    if re!(r"^carpet[- ]wool sheep(?: breeds)?$|^sheep breeds for carpet wool$").is_match(l) {
+        let rows = [("Drysdale", "New Zealand, developed from 1929 for carpet wool"), ("Tukidale", "New Zealand"), ("Elliottdale", "Australia"), ("Scottish Blackface", "United Kingdom"), ("Herdwick", "Lake District, England"), ("Swaledale", "northern England"), ("Karakul", "Central Asia")];
+        return Some(Answer::new("sheep breeds", vec![
+            pod("Input", "Input interpretation", text("sheep breeds kept for carpet wool")),
+            primary(pod("Result", "Breeds", text(rows.iter().map(|r| r.0).collect::<Vec<_>>().join(" | ")))),
+            pod("Table", "Breeds", table(Some(vec!["breed", "origin"]), rows.iter().map(|(a, b)| vec![text(*a), text(*b)]).collect())),
+            pod("Note", "Note", text("carpet wools are coarse (about 35 μm or more) and often contain hollow medullated fibres")),
+        ]));
+    }
+    let parts: Vec<&str> = re!(r"\s*(?:,|\bvs\.?(?:\s|$)|\bversus\b)\s*").split(l).filter(|x| !x.trim().is_empty()).collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let v: Vec<&(&[&str], &str, &[(&str, &str)])> = parts.iter().map(|p| LIVING.iter().find(|s| s.0.contains(&p.trim()))).collect::<Option<Vec<_>>>()?;
+    if v.len() == 1 && matches!(l, "cleome" | "pando") {
+        return None;
+    }
+    let mut pods = vec![
+        pod("Input", "Input interpretation", text(v.iter().map(|s| s.1).collect::<Vec<_>>().join(" | "))),
+        primary(pod("Result", "Result", text(v.iter().map(|s| format!("{}: {}", s.1, s.2[0].1)).collect::<Vec<_>>().join(" | ")))),
+    ];
+    for s in &v {
+        pods.push(pod("Details", s.1, table(None, s.2.iter().map(|(a, b)| vec![text(*a), text(*b)]).collect())));
+    }
+    Some(Answer::new("organism", pods))
+}
+
+/// Ships: (names, title, &[(property, value)]).
+const SHIPS: &[(&[&str], &str, &[(&str, &str)])] = &[
+    (&["hms archer", "hms archer (d78)"], "HMS Archer (D78)", &[("type", "escort aircraft carrier (Archer class), Royal Navy"), ("origin", "converted in the United States from the merchant ship Mormacland"), ("commissioned", "November 1941"), ("service", "Atlantic convoy escort in the Second World War")]),
+    (&["uss bunker hill", "uss bunker hill (cv-17)", "uss bunker hill (cg-52)"], "USS Bunker Hill", &[("CV-17", "Essex-class aircraft carrier, commissioned May 25, 1943; badly damaged by two kamikaze hits off Okinawa on May 11, 1945"), ("CG-52", "Ticonderoga-class guided-missile cruiser, commissioned 1986, the first with the Mark 41 vertical launch system; decommissioned 2023"), ("named after", "the Battle of Bunker Hill (1775)")]),
+    (&["hms atheling", "hms atheling (d51)"], "HMS Atheling (D51)", &[("type", "Ruler-class escort aircraft carrier, Royal Navy"), ("built", "in the United States, transferred under Lend-Lease"), ("commissioned", "1943"), ("service", "the Second World War, including the Indian Ocean; returned to the US Navy in 1946")]),
+    (&["uss edisto", "uss edisto (agb-2)"], "USS Edisto (AGB-2)", &[("type", "Wind-class icebreaker"), ("commissioned", "1947 (US Navy)"), ("later", "transferred to the US Coast Guard in 1965 as USCGC Edisto (WAGB-284); decommissioned 1974"), ("service", "Arctic and Antarctic operations, including Operation Deep Freeze")]),
+    (&["uss theodore roosevelt", "uss theodore roosevelt (cvn-71)", "cvn-71"], "USS Theodore Roosevelt (CVN-71)", &[("type", "Nimitz-class nuclear-powered aircraft carrier"), ("commissioned", "October 25, 1986"), ("displacement", "about 100,000 long tons"), ("length", "332.8 m (1,092 ft)"), ("homeport", "San Diego, California"), ("nickname", "\"Big Stick\"")]),
+    (&["two brothers", "two brothers (ship)", "two brothers whaleship"], "Two Brothers (whaleship)", &[("type", "Nantucket whaling ship"), ("captain", "George Pollard Jr., formerly captain of the Essex"), ("wrecked", "February 1823 at French Frigate Shoals, Northwestern Hawaiian Islands"), ("wreck found", "2008; identified in 2011")]),
+    (&["greenwich observatory", "royal observatory greenwich", "royal observatory, greenwich", "the royal observatory"], "Royal Observatory, Greenwich", &[("type", "astronomical observatory (now a museum)"), ("founded", "1675, by King Charles II"), ("first Astronomer Royal", "John Flamsteed"), ("location", "Greenwich Park, London (51.4769° N, 0.0005° W)"), ("significance", "defines the prime meridian (longitude 0°, 1884) through the Airy transit circle; Greenwich Mean Time")]),
+    (&["wbbm-tv", "wbbm tv"], "WBBM-TV", &[("type", "television station owned and operated by CBS"), ("market", "Chicago, Illinois"), ("channel", "virtual channel 2"), ("call letters", "shared with WBBM radio (780 AM)")]),
+];
+
+fn lists_and_ships(l: &str) -> Option<Answer> {
+    if let Some((_, title, items)) = LISTS.iter().find(|x| x.0.contains(&l)) {
+        return Some(Answer::new("list", vec![
+            pod("Input", "Input interpretation", text(*title)),
+            primary(pod("Result", "Result", text(items.iter().map(|x| x.0).collect::<Vec<_>>().join(" | ")))),
+            pod("Table", "Details", table(None, items.iter().map(|(a, b)| vec![text(*a), text(*b)]).collect())),
+        ]));
+    }
+    let parts: Vec<&str> = re!(r"\s*(?:,|\bvs\.?(?:\s|$)|\bversus\b)\s*").split(l).filter(|x| !x.trim().is_empty()).collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let v: Vec<&(&[&str], &str, &[(&str, &str)])> = parts.iter().map(|p| SHIPS.iter().find(|s| s.0.contains(&p.trim()))).collect::<Option<Vec<_>>>()?;
+    if v.len() == 1 && l == "two brothers" {
+        return None;
+    }
+    let mut pods = vec![
+        pod("Input", "Input interpretation", text(v.iter().map(|s| s.1).collect::<Vec<_>>().join(" | "))),
+        primary(pod("Result", "Result", text(v.iter().map(|s| format!("{}: {}", s.1, s.2[0].1)).collect::<Vec<_>>().join(" | ")))),
+    ];
+    for s in &v {
+        pods.push(pod("Details", s.1, table(None, s.2.iter().map(|(a, b)| vec![text(*a), text(*b)]).collect())));
+    }
+    Some(Answer::new("ship", pods))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim().replace('’', "'");
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
     let l = l.as_str();
-    elevation(l).or_else(|| institutions(l)).or_else(|| creatures(l)).or_else(|| families(l)).or_else(|| poems(l)).or_else(|| history(l)).or_else(|| defs(l))
+    elevation(l).or_else(|| institutions(l)).or_else(|| creatures(l)).or_else(|| families(l)).or_else(|| poems(l)).or_else(|| history(l)).or_else(|| defs(l)).or_else(|| lists_and_ships(l)).or_else(|| living(l))
 }
