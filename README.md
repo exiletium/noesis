@@ -147,6 +147,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Country groups | "Europe vs OPEC", "Oceania, South America GDP", "Asian GINI index", "Africa underweight children" |
 | Earthquakes and molecule models | "earthquakes in Italy", "earthquakes Mexico 1985", "deaths Japan", "Norway trade surplus", "space filling structure of adenine and guanine", "density of silver I selenide" |
 | People lists | "notable people with surname Jones", "notable people born in Sydney", "random military conflict" |
+| Country tables and nicknames | "Gini index of African countries", "OPEC countries oil production", "the windy city" |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |

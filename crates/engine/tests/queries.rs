@@ -2028,3 +2028,10 @@ fn surnames_birthplaces_and_random_conflicts() {
     assert!(short("notable people born in Sydney").contains("Hugh Jackman"));
     assert!(!short("random military conflict").is_empty());
 }
+
+#[test]
+fn continent_country_tables_and_city_nicknames() {
+    assert!(short("Gini index of African countries").starts_with("Namibia"));
+    assert!(short("OPEC countries oil production").starts_with("Saudi Arabia"));
+    assert!(short("the windy city").contains("2,731,585"));
+}

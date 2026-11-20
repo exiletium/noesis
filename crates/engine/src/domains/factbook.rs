@@ -504,6 +504,31 @@ fn fmt_ratio(r: f64) -> String {
     if r.abs() >= 100.0 { format!("{:.0}", r) } else if r.abs() >= 0.01 { format!("{:.4}", r).trim_end_matches('0').trim_end_matches('.').to_string() } else { format!("{:.3e}", r) }
 }
 
+/// "Gini index of African countries", "European countries life expectancy": every country's value.
+fn continent_table(l: &str) -> Option<Answer> {
+    const A: &str = r"(african|european|asian|south american|north american|oceanian|opec|g7)";
+    let (adj, what) = Regex::new(&format!(r"^(.+?) (?:of|in|for|by) (?:the )?{A} (?:countries|nations|states|member states|members)$")).ok()?.captures(l).map(|m| (m[2].to_string(), m[1].to_string()))
+        .or_else(|| Regex::new(&format!(r"^(?:the )?{A} (?:countries|nations)(?:'s?)? (?:by )?(.+)$")).ok()?.captures(l).map(|m| (m[1].to_string(), m[2].to_string())))
+        .or_else(|| Regex::new(r"^(.+?) (?:of|in|for|by) (?:the )?countries (?:in|of) (africa|europe|asia|south america|north america|oceania)$").ok()?.captures(l).map(|m| (m[2].to_string(), m[1].to_string())))?;
+    let group = match adj.as_str() { "opec" => "OPEC", "g7" => "G7", a => continent_name(a)? };
+    let p = prop(&what)?;
+    let mut v: Vec<(&str, f64, &str)> = members(group).iter().filter_map(|(e, _)| {
+        let t = values(&e.1, p.1, p.2).first()?.1;
+        Some((e.0, number(t)?, t))
+    }).collect();
+    if v.len() < 3 {
+        return None;
+    }
+    v.sort_by(|a, b| b.1.total_cmp(&a.1));
+    Some(Answer::new("country list data", vec![
+        input(format!("{group} countries | {}", p.3)),
+        primary(pod("Result", "Highest values", text(v.iter().take(5).map(|x| format!("{}: {}", x.0, x.2)).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "All countries", table(Some(vec!["country", p.3]), v.iter().map(|x| vec![text(x.0), text(x.2)]).collect())),
+        pod("Note", "Note", text(format!("{} of the countries with Factbook data; sorted from highest to lowest", v.len()))),
+        source(),
+    ]))
+}
+
 /// "European countries with unemployment < Denmark"
 fn threshold(l: &str) -> Option<Answer> {
     let m = re!(r"^(african|european|asian|south american|north american|oceanian)? ?countries with (?:an? |the )?(.+?) (<|>|less than|lower than|below|under|greater than|higher than|above|more than|over) (.+)$").captures(l)?;
@@ -719,7 +744,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         rewritten = format!("{what} of {}", &m[1]);
         l = rewritten.as_str();
     }
-    if let Some(a) = ranking(l).or_else(|| threshold(l)).or_else(|| continent(l)).or_else(|| derived(l)) {
+    if let Some(a) = ranking(l).or_else(|| threshold(l)).or_else(|| continent_table(l)).or_else(|| continent(l)).or_else(|| derived(l)) {
         return Some(a);
     }
     if let Some(a) = aggregate_gdp(l) {
