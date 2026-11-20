@@ -145,6 +145,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Venues and broadcasting | festivals, stations, airlines and counties; AM and FM frequencies; wood load capacity; series running times |
 | Continents and groups | continent totals and population-weighted averages, continent rankings and threshold filters from Factbook values |
 | Country groups | "Europe vs OPEC", "Oceania, South America GDP", "Asian GINI index", "Africa underweight children" |
+| Earthquakes and molecule models | "earthquakes in Italy", "earthquakes Mexico 1985", "deaths Japan", "Norway trade surplus", "space filling structure of adenine and guanine", "density of silver I selenide" |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
@@ -341,7 +342,7 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 
 Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
 
-**Understood:** Noesis gives an answer to **80.9%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+**Understood:** Noesis gives an answer to **81.3%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
 **Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 189 that could be checked (WolframAlpha answered and the run finished), the answers agree on **53%** (100). On the rest, Noesis gives a different answer on 14% (27) and does not understand 33% (62). The automatic checker alone reports 35% agreement (66); the difference is 34 answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. Most of the questions Noesis does not understand need live or very large datasets: current economic indicators, US state, county and school-district statistics, elected officials, recent earthquakes, fuel prices.
 

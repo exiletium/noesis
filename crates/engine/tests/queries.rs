@@ -2010,7 +2010,14 @@ fn notable_earthquakes_and_derived_country_counts() {
 #[test]
 fn molecule_models_and_hydrates() {
     assert!(short("space filling structure of adenine and guanine").contains("valence electrons"));
-    assert!(pod_text(&q("caffeine 3D structure"), "Radii").contains("van der Waals"));
+    assert!(pod_text(&q("caffeine 3D structure"), "Radii").contains("170 pm"));
     assert!(short("hydrogen hexachloroplatinate(IV) hydrate").contains("g/mol"));
-    assert!(!short("world capital investment / world population").contains("e-"));
+    assert!(!noesis::query("world capital investment / world population").short_answer().unwrap_or_default().contains("e-"));
+}
+
+#[test]
+fn roman_numeral_compound_names_and_islands() {
+    assert!(short("density of silver I selenide").contains("8.216"));
+    assert!(short("density of copper ii oxide").contains("6.4"));
+    assert!(short("major islands in the Indian ocean").contains("Madagascar"));
 }

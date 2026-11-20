@@ -209,6 +209,7 @@ benzyl glycidyl ether	C10H12O2				2-(phenylmethoxymethyl)oxirane|2-(phenylmethox
 2,3-diphenyl-1,4-diazaspiro[4.5]deca-1,3-diene	C20H20N2					c1ccc(cc1)C1=NC2(CCCCC2)N=C1c1ccccc1
 methyl (S)-4-(tert-butyldimethylsilyloxy)-2-hydroxybutanoate	C11H24O4Si				methyl(s)-4(tert-butyldimethylsilyloxy)-2-hydroxybutanoate|methyl (s)-4-(tert-butyldimethylsilyloxy)-2-hydroxybutanoate|methyl 4-(tert-butyldimethylsilyloxy)-2-hydroxybutanoate	COC(=O)[C@@H](O)CCO[Si](C)(C)C(C)(C)C
 chloroplatinic acid hexahydrate	Cl6H14O6Pt	333		2430	hydrogen hexachloroplatinate(iv) hydrate|hydrogen hexachloroplatinate(iv) hexahydrate|hexachloroplatinic acid hexahydrate|chloroplatinic acid hydrate|chloroplatinic acid|hexachloroplatinic acid hydrate
+silver(i) selenide	Ag2Se	1153		8216	silver selenide|disilver selenide|naumannite
 3-decanone	C10H20O			825	decan-3-one|ethyl heptyl ketone	CCCCCCCC(=O)CC";
 
 pub fn compound_db() -> &'static (Vec<DbCompound>, std::collections::HashMap<String, usize>) {
@@ -247,7 +248,15 @@ pub fn find_db_compound(name: &str) -> Option<&'static DbCompound> {
     let (list, index) = compound_db();
     let l = name.trim().to_lowercase();
     let l = l.trim_start_matches("the ").trim();
-    index.get(l).map(|&i| &list[i])
+    if let Some(&i) = index.get(l) {
+        return Some(&list[i]);
+    }
+    // "copper ii oxide", "silver I selenide", "iron (III) chloride" → "copper(ii) oxide"
+    static ROMAN: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let r = ROMAN.get_or_init(|| regex::Regex::new(r"^([a-z]+) ?\(?(i|ii|iii|iv|v|vi|vii|viii)\)? ([a-z].*)$").unwrap());
+    let c = r.captures(l)?;
+    let with = format!("{}({}) {}", &c[1], &c[2], &c[3]);
+    index.get(&with).or_else(|| if &c[2] == "i" || &c[2] == "ii" { index.get(&format!("{} {}", &c[1], &c[3])) } else { None }).map(|&i| &list[i])
 }
 
 /// Parse a chemical formula into element counts.  Supports parentheses,
