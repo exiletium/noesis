@@ -1968,3 +1968,12 @@ fn interactions_isomers_craters_periods_and_timelines() {
     assert!(short("Sudbury Crater diameter / Denali height").starts_with("21.0"));
     assert!(short("diet of worms").contains("1521"));
 }
+
+#[test]
+fn wood_loads_show_hours_radio_and_festivals() {
+    assert!(short("tensile strength of fir * 1.5 in * 3.5 in").contains("kN"));
+    assert!(short("total hours of programming for the Simpsons").contains("hours"));
+    assert_eq!(short("AM 580"), "580 kHz");
+    assert!(short("ComicCon International vs Burning Man").contains("Burning Man"));
+    assert!(short("Orange County California, Orange County Florida").contains("2020 census"));
+}

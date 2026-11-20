@@ -337,7 +337,44 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
-    mohs(l).or_else(|| alloy_class(l)).or_else(|| materials(l))
+    mohs(l).or_else(|| alloy_class(l)).or_else(|| strength_load(l)).or_else(|| materials(l))
+}
+
+/// "tensile strength of fir * 1.5 in * 3.5 in": strength times cross-section.
+fn strength_load(l: &str) -> Option<Answer> {
+    let m = re!(r"^(tensile|compressive|shear) strength of (.+?) \* ([\d.]+) ?(in|inch|inches|cm|mm|m)\b\.? \* ([\d.]+) ?(in|inch|inches|cm|mm|m)\b\.?$").captures(l)?;
+    let (name, mat) = material(&m[2])?;
+    let Mat::W(x) = mat else {
+        return None;
+    };
+    let mpa = match &m[1] {
+        "tensile" => x.tension,
+        "compressive" => x.compression,
+        _ => x.shear,
+    };
+    if mpa.is_nan() {
+        return None;
+    }
+    let to_m = |v: &str, u: &str| -> Option<f64> {
+        let v: f64 = v.parse().ok()?;
+        Some(v * match u {
+            "in" | "inch" | "inches" => 0.0254,
+            "cm" => 0.01,
+            "mm" => 0.001,
+            _ => 1.0,
+        })
+    };
+    let area = to_m(&m[3], &m[4])? * to_m(&m[5], &m[6])?;
+    let newtons = mpa * 1e6 * area;
+    Some(Answer::new("load", vec![
+        input(format!("{} strength of {} × {} {} × {} {}", &m[1], name, &m[3], &m[4], &m[5], &m[6])),
+        primary(pod("Result", "Force", text(format!("about {} kN ({} lbf)", n(newtons / 1000.0), n(newtons / 4.448_221_615))))),
+        pod("Inputs", "Values used", table(None, vec![
+            vec![text(format!("{} strength (parallel to grain)", &m[1])), text(format!("about {} MPa", n(mpa)))],
+            vec![text("cross-section area"), text(format!("{} cm² ({} in²)", n(area * 1e4), n(area / 0.000_645_16)))],
+        ])),
+        pod("Note", "Note", text("typical clear-wood value; real lumber with knots and defects is much weaker, and design values include safety factors")),
+    ]))
 }
 
 /// Overview of a family of alloys: "copper alloy".

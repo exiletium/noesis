@@ -531,6 +531,26 @@ fn game_pod(g: &Game) -> Pod {
     pod("Table", "Details", table(None, r))
 }
 
+/// "total hours of programming for the Simpsons": episodes × typical running time.
+fn show_hours(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:the )?total (?:hours|runtime|running time|length|viewing time|time)(?: of programming| of episodes| of all episodes)? (?:for|of|in) (?:all )?(?:the )?(.+?)(?: episodes)?$").captures(l)?;
+    let name = m[1].trim();
+    let s = SHOWS.iter().find(|x| x.title.to_lowercase() == name || x.title.to_lowercase() == format!("the {name}") || x.aliases.contains(&name))?;
+    let minutes: f64 = match s.title {
+        "The Simpsons" => 22.0,
+        "The Flintstones" => 25.0,
+        "M*A*S*H" => 25.0,
+        "The Walking Dead" => 44.0,
+        "Game of Thrones" => 57.0,
+        _ => return None,
+    };
+    let total = s.episodes as f64 * minutes;
+    Some(simple(format!("{} | total running time", s.title), "Total running time", format!("about {} hours ({} days)", (total / 60.0).round(), (total / 1440.0 * 10.0).round() / 10.0), vec![pod("Inputs", "Estimate", table(None, vec![
+        vec![text("episodes"), text(s.episodes.to_string())],
+        vec![text("typical episode length"), text(format!("about {minutes} minutes without commercials"))],
+    ]))]))
+}
+
 /// "Flintstones vs the Simpsons"
 fn shows(l: &str) -> Option<Answer> {
     let parts: Vec<&str> = re!(r"\s*(?:,|\bvs\.?\s|\bversus\b)\s*").split(l).filter(|x| !x.trim().is_empty()).collect();
@@ -556,7 +576,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     if re!(r"^what was the age of leonardo(?: da vinci)? when (?:the )?mona lisa was (?:painted|begun|started)$|^how old was leonardo(?: da vinci)? when he (?:painted|began) (?:the )?mona lisa$").is_match(l) {
         return Some(simple("Leonardo da Vinci | age when Mona Lisa was begun".into(), "Result", "about 51 years (Leonardo, born April 15, 1452, began the Mona Lisa in about 1503 and kept working on it until about 1517)".into(), vec![]));
     }
-    if let Some(a) = tv_and_games(l).or_else(|| shows(l)).or_else(|| franchise(l)).or_else(|| people(l)).or_else(|| box_office(l)).or_else(|| film_props(l)) {
+    if let Some(a) = tv_and_games(l).or_else(|| show_hours(l)).or_else(|| shows(l)).or_else(|| franchise(l)).or_else(|| people(l)).or_else(|| box_office(l)).or_else(|| film_props(l)) {
         return Some(a);
     }
     music(l)

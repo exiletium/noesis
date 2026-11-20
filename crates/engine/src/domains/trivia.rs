@@ -301,6 +301,13 @@ const SHIPS: &[(&[&str], &str, &[(&str, &str)])] = &[
     (&["uss theodore roosevelt", "uss theodore roosevelt (cvn-71)", "cvn-71"], "USS Theodore Roosevelt (CVN-71)", &[("type", "Nimitz-class nuclear-powered aircraft carrier"), ("commissioned", "October 25, 1986"), ("displacement", "about 100,000 long tons"), ("length", "332.8 m (1,092 ft)"), ("homeport", "San Diego, California"), ("nickname", "\"Big Stick\"")]),
     (&["two brothers", "two brothers (ship)", "two brothers whaleship"], "Two Brothers (whaleship)", &[("type", "Nantucket whaling ship"), ("captain", "George Pollard Jr., formerly captain of the Essex"), ("wrecked", "February 1823 at French Frigate Shoals, Northwestern Hawaiian Islands"), ("wreck found", "2008; identified in 2011")]),
     (&["greenwich observatory", "royal observatory greenwich", "royal observatory, greenwich", "the royal observatory"], "Royal Observatory, Greenwich", &[("type", "astronomical observatory (now a museum)"), ("founded", "1675, by King Charles II"), ("first Astronomer Royal", "John Flamsteed"), ("location", "Greenwich Park, London (51.4769° N, 0.0005° W)"), ("significance", "defines the prime meridian (longitude 0°, 1884) through the Airy transit circle; Greenwich Mean Time")]),
+    (&["comic-con international", "comiccon international", "comic con international", "san diego comic-con", "san diego comic con", "comic-con", "comiccon"], "Comic-Con International (San Diego Comic-Con)", &[("type", "comic book and popular-arts convention"), ("location", "San Diego Convention Center, San Diego, California"), ("first held", "1970"), ("held", "every July (four days plus a preview night)"), ("attendance", "about 135,000")]),
+    (&["burning man", "burning man festival"], "Burning Man", &[("type", "annual gathering and arts event built around a temporary city"), ("location", "Black Rock City, Black Rock Desert, Nevada"), ("first held", "1986, on Baker Beach, San Francisco; in the Black Rock Desert since 1990"), ("held", "late August to Labor Day (nine days), ending with the burning of a large wooden effigy"), ("attendance", "about 70,000–80,000")]),
+    (&["taste of chicago"], "Taste of Chicago", &[("type", "food festival"), ("location", "Grant Park, Chicago, Illinois"), ("first held", "July 4, 1980"), ("held", "every summer (now September); free admission, food and drink tickets sold"), ("note", "once billed as the world's largest food festival")]),
+    (&["berlin hauptbahnhof", "berlin central station", "berlin hbf", "berlin main station"], "Berlin Hauptbahnhof", &[("type", "main railway station of Berlin, Germany"), ("opened", "May 26, 2006, on the site of the Lehrter Bahnhof"), ("layout", "a crossing station on two levels: east–west lines above (Stadtbahn) and north–south lines in a tunnel below"), ("note", "the largest crossing station in Europe")]),
+    (&["us airways", "usairways", "u.s. airways"], "US Airways", &[("type", "major American airline (defunct)"), ("history", "founded in 1937 as All American Aviation; renamed Allegheny Airlines (1953), USAir (1979) and US Airways (1997); merged with America West in 2005"), ("end", "merged with American Airlines (2013); the last US Airways flight flew on October 17, 2015"), ("hubs", "Charlotte, Philadelphia, Phoenix and Washington National"), ("known for", "US Airways Flight 1549, landed on the Hudson River on January 15, 2009")]),
+    (&["orange county california", "orange county, california", "orange county ca", "orange county, ca"], "Orange County, California", &[("population", "3,186,989 (2020 census)"), ("county seat", "Santa Ana"), ("largest city", "Anaheim"), ("area", "about 2,455 km² (948 sq mi) total"), ("formed", "1889, from part of Los Angeles County")]),
+    (&["orange county florida", "orange county, florida", "orange county fl", "orange county, fl"], "Orange County, Florida", &[("population", "1,429,908 (2020 census)"), ("county seat", "Orlando"), ("largest city", "Orlando"), ("area", "about 2,600 km² (1,003 sq mi) total"), ("formed", "1824 as Mosquito County; renamed Orange County in 1845")]),
     (&["wbbm-tv", "wbbm tv"], "WBBM-TV", &[("type", "television station owned and operated by CBS"), ("market", "Chicago, Illinois"), ("channel", "virtual channel 2"), ("call letters", "shared with WBBM radio (780 AM)")]),
 ];
 
@@ -330,9 +337,34 @@ fn lists_and_ships(l: &str) -> Option<Answer> {
     Some(Answer::new("ship", pods))
 }
 
+/// "AM 580", "FM 101.1": a broadcast frequency and its wavelength.
+fn radio(l: &str) -> Option<Answer> {
+    let m = re!(r"^(am|fm) (\d{2,4}(?:\.\d)?)(?: (?:radio|station|frequency))?$").captures(l)?;
+    let v: f64 = m[2].parse().ok()?;
+    let (hz, band, shown) = if &m[1] == "am" {
+        if !(530.0..=1710.0).contains(&v) {
+            return None;
+        }
+        (v * 1e3, "AM (medium wave) broadcast band, 530–1710 kHz in the Americas", format!("{v} kHz"))
+    } else {
+        if !(87.5..=108.0).contains(&v) {
+            return None;
+        }
+        (v * 1e6, "FM (VHF) broadcast band, 87.5–108 MHz", format!("{v} MHz"))
+    };
+    let lambda = 299_792_458.0 / hz;
+    Some(Answer::new("radio frequency", vec![
+        pod("Input", "Input interpretation", text(format!("{} radio | {shown}", m[1].to_uppercase()))),
+        primary(pod("Result", "Frequency", text(shown.clone()))),
+        pod("Wavelength", "Wavelength", text(format!("{:.2} m", lambda))),
+        pod("Band", "Band", text(band)),
+        pod("Antenna", "Quarter-wave antenna length", text(format!("{:.2} m", lambda / 4.0))),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim().replace('’', "'");
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
     let l = l.as_str();
-    elevation(l).or_else(|| institutions(l)).or_else(|| creatures(l)).or_else(|| families(l)).or_else(|| poems(l)).or_else(|| history(l)).or_else(|| defs(l)).or_else(|| lists_and_ships(l)).or_else(|| living(l))
+    elevation(l).or_else(|| institutions(l)).or_else(|| creatures(l)).or_else(|| families(l)).or_else(|| poems(l)).or_else(|| history(l)).or_else(|| defs(l)).or_else(|| lists_and_ships(l)).or_else(|| radio(l)).or_else(|| living(l))
 }
