@@ -259,6 +259,119 @@ fn quakes(l: &str) -> Option<Answer> {
     ]))
 }
 
+static QUAKES_Z: &[u8] = include_bytes!("../../data/quakes.z");
+
+struct Event {
+    time: &'static str,
+    lat: f64,
+    lon: f64,
+    depth: f64,
+    mag: f64,
+    place: &'static str,
+}
+
+/// USGS ComCat earthquakes of magnitude 5.5 or more since 1900.
+fn catalog() -> &'static Vec<Event> {
+    static C: std::sync::OnceLock<Vec<Event>> = std::sync::OnceLock::new();
+    C.get_or_init(|| {
+        let bytes = miniz_oxide::inflate::decompress_to_vec(QUAKES_Z).unwrap_or_default();
+        let text: &'static str = Box::leak(String::from_utf8(bytes).unwrap_or_default().into_boxed_str());
+        text.lines()
+            .filter_map(|l| {
+                let c: Vec<&'static str> = l.split('\t').collect();
+                (c.len() >= 6).then(|| Event { time: c[0], lat: c[1].parse().unwrap_or(0.0), lon: c[2].parse().unwrap_or(0.0), depth: c[3].parse().unwrap_or(0.0), mag: c[4].parse().unwrap_or(0.0), place: c[5] })
+            })
+            .collect()
+    })
+}
+
+/// The catalog when the notable-earthquake list has nothing: "earthquakes
+/// June 2006", "earthquakes near Krakatau", "earthquakes in Peru 1970".
+fn catalog_quakes(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:(?:notable|historical|major|largest|biggest|significant|strong|strongest) )?earthquakes?(?: (?:in|near|around|of|from|for|at|during|close to))? ?(.*)$").captures(l)?;
+    let mut rest = m[1].trim().to_string();
+    let mut year: Option<i32> = None;
+    let mut month: Option<usize> = None;
+    if let Some(d) = re!(r"(?:^|\s)(?:in |during )?(?:(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? )?(\d{4})$").captures(&rest.clone()) {
+        year = d[2].parse().ok();
+        if let Some(mo) = d.get(1) {
+            month = Some(MONTHS.iter().position(|x| *x == mo.as_str())? + 1);
+        }
+        rest = rest[..d.get(0)?.start()].trim().to_string();
+    }
+    let rest = rest.trim_start_matches("in ").trim_start_matches("near ").trim_start_matches("the ").trim().to_string();
+    if re!(r"\b(?:last|this|past|today|week|month|now|map|focal|mechanism|slip|travel|ground|prediction|scale|magnitude|richter)\b").is_match(&rest) {
+        return None;
+    }
+    let mut near: Option<(String, f64, f64)> = None;
+    let mut suffixes: Vec<String> = Vec::new();
+    let mut scope = "worldwide".to_string();
+    if !rest.is_empty() {
+        if let Some(st) = super::geo::us_state(&rest).filter(|_| rest.len() > 2) {
+            let name = super::geo::US_STATES.iter().find(|x| x.0 == st)?.1;
+            suffixes = vec![format!(", {st}"), format!(", {}", name.to_lowercase()), name.to_lowercase()];
+            scope = format!("in {name}");
+        } else if let Some(c) = super::geo::find_country(&rest).filter(|_| super::geo::find_city(&rest).is_none_or(|x| !x.capital)) {
+            suffixes = vec![c.name.to_lowercase()];
+            if c.iso2 == "US" {
+                suffixes.extend(super::geo::US_STATES.iter().flat_map(|(a, n)| [format!(", {a}"), n.to_lowercase()]));
+            }
+            scope = format!("in {}", c.name);
+        } else if let Some((n, lat, lon)) = super::geo::find_city(&rest).map(|c| (c.name.clone(), c.lat, c.lon)).or_else(|| super::landforms::locate(&rest)) {
+            scope = format!("within 300 km of {n}");
+            near = Some((n, lat, lon));
+        } else {
+            return None;
+        }
+    } else if year.is_none() {
+        return None;
+    }
+    let mut list: Vec<(&Event, Option<f64>)> = catalog()
+        .iter()
+        .filter(|e| year.is_none_or(|y| e.time[..4].parse::<i32>().ok() == Some(y)) && month.is_none_or(|k| e.time[5..7].parse::<usize>().ok() == Some(k)))
+        .filter_map(|e| {
+            if let Some((_, lat, lon)) = &near {
+                let d = dist(*lat, *lon, e.lat, e.lon);
+                return (d <= 300.0).then_some((e, Some(d)));
+            }
+            let p = e.place.to_lowercase();
+            (suffixes.is_empty() || suffixes.iter().any(|s| p.ends_with(s.as_str()))).then_some((e, None))
+        })
+        .collect();
+    if list.is_empty() {
+        return None;
+    }
+    let n = list.len();
+    list.sort_by(|a, b| b.0.mag.total_cmp(&a.0.mag).then(a.0.time.cmp(b.0.time)));
+    let when = match (year, month) {
+        (Some(y), Some(mo)) => format!(" | {} {y}", cap(["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"][mo - 1])),
+        (Some(y), None) => format!(" | {y}"),
+        _ => " | 1900–2026".to_string(),
+    };
+    let big = list[0].0;
+    let rows: Vec<Vec<Content>> = list
+        .iter()
+        .take(15)
+        .map(|(e, d)| {
+            let mut r = vec![text(e.time.to_string() + " UTC"), text(format!("M{}", e.mag)), text(format!("{} km", super::geo::fmt_int(e.depth.round().max(0.0) as u64))), text(e.place)];
+            if let Some(d) = d {
+                r.push(text(format!("{} km", super::geo::fmt_int(d.round() as u64))));
+            }
+            r
+        })
+        .collect();
+    let mut head = vec!["time", "magnitude", "depth", "location"];
+    if near.is_some() {
+        head.push("distance");
+    }
+    Some(Answer::new("earthquakes", vec![
+        pod("Input", "Input interpretation", text(format!("earthquakes of magnitude 5.5 or more | {scope}{when}"))),
+        primary(pod("Result", "Result", text(format!("{n} earthquakes; the largest was M{} on {} ({})", big.mag, &big.time[..10], big.place)))),
+        pod("Events", if n > 15 { "Largest earthquakes" } else { "Earthquakes" }, table(Some(head), rows)),
+        pod("Source", "Source", text("USGS ComCat earthquake catalog, magnitude 5.5 and above since 1900.")),
+    ]))
+}
+
 fn dist(a: f64, b: f64, c: f64, d: f64) -> f64 {
     let (p1, p2) = (a.to_radians(), c.to_radians());
     let h = ((p2 - p1) / 2.0).sin().powi(2) + p1.cos() * p2.cos() * ((d - b).to_radians() / 2.0).sin().powi(2);
@@ -316,6 +429,9 @@ pub fn handle(q: &Query) -> Option<Answer> {
         return Some(a);
     }
     if let Some(a) = quakes(q.lower.trim().trim_end_matches(['?', '.']).trim()) {
+        return Some(a);
+    }
+    if let Some(a) = catalog_quakes(q.lower.trim().trim_end_matches(['?', '.']).trim()) {
         return Some(a);
     }
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();

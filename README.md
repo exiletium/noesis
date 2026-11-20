@@ -162,6 +162,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Ionic radii | "acetate ionic radius", "ionic radius of Fe3+", "crystal radius of sodium" |
 | Tornadoes | "tornadoes in 2010", "F5 tornadoes after 1950 in Alabama", "tornadoes within 40 miles of St. Louis since 2010" |
 | Climate normals | "climate Hannover", "heating degree days in Buffalo", "average july temperature in Tokyo" |
+| Earthquake catalog | "earthquakes June 2006", "earthquakes near Krakatau" |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
@@ -389,6 +390,7 @@ The script needs a WolframAlpha AppID, either in `WOLFRAM_APPID` or supplied by 
 * Tropical cyclones (6,694 storms of tropical-storm strength): [IBTrACS](https://www.ncei.noaa.gov/products/international-best-track-archive) v04r01 (NOAA NCEI, public domain), extracted by `tools/datagen/cyclones.py`.
 * US tornadoes (71,813, 1950–2024): the NOAA Storm Prediction Center tornado database (public domain), extracted by `tools/datagen/tornadoes.py`.
 * Climate normals (1991–2020 monthly mean temperatures at 10,044 stations): GHCN-Monthly v4 (NOAA NCEI, public domain), computed by `tools/datagen/climate.py`.
+* Earthquakes (39,660 of magnitude 5.5 or more since 1900): the USGS ComCat catalog (public domain), extracted by `tools/datagen/quakes.py`.
 * Geomagnetic field: the International Geomagnetic Reference Field, 14th generation (IGRF-14, IAGA Working Group V-MOD), coefficients in `crates/engine/data/igrf14.txt`.
 * Chemical elements: the [`mendeleev`](https://github.com/lmmentel/mendeleev) package, MIT licensed; Shannon's effective ionic radii come from the same package, extracted by `tools/datagen/ionic_radii.py`.
 * Physical constants: CODATA 2018 recommended values.

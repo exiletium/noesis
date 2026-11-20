@@ -2139,3 +2139,9 @@ fn climate_normals_from_ghcn() {
     assert!(short("average july temperature in Tokyo").starts_with("July average temperature: 26"));
     assert!(short("heating degree days in Buffalo").contains("heating degree days"));
 }
+
+#[test]
+fn earthquake_catalog_search() {
+    assert!(short("earthquakes June 2006").contains("M6.5 on 2006-06-14"));
+    assert!(short("earthquakes near Krakatau").contains("earthquakes; the largest was"));
+}
