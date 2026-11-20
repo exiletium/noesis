@@ -160,6 +160,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Geomagnetism and towns | "geomagnetism Oslo on 12 Feb 2007", "La Jolla", "cities with the word oak" |
 | Cyclone seasons | "Hurricanes in 1991", "typhoons in 2004", "Hurricane Beth max wind speed" |
 | Ionic radii | "acetate ionic radius", "ionic radius of Fe3+", "crystal radius of sodium" |
+| Tornadoes | "tornadoes in 2010", "F5 tornadoes after 1950 in Alabama", "tornadoes within 40 miles of St. Louis since 2010" |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
@@ -356,7 +357,7 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 
 Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
 
-**Understood:** Noesis gives an answer to **82.2%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+**Understood:** Noesis gives an answer to **82.4%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
 **Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 189 that could be checked (WolframAlpha answered and the run finished), the answers agree on **53%** (100). On the rest, Noesis gives a different answer on 14% (27) and does not understand 33% (62). The automatic checker alone reports 35% agreement (66); the difference is 34 answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. Most of the questions Noesis does not understand need live or very large datasets: current economic indicators, US state, county and school-district statistics, elected officials, recent earthquakes, fuel prices.
 
@@ -385,6 +386,7 @@ The script needs a WolframAlpha AppID, either in `WOLFRAM_APPID` or supplied by 
 * Country indicators: the [CIA World Factbook](https://www.cia.gov/the-world-factbook/) (US government work, public domain) via the CC0 [factbook.json](https://github.com/factbook/factbook.json) export, extracted by `tools/datagen/factbook_stats.py`.
 * Countries and cities: [GeoNames](https://www.geonames.org), licensed CC BY 4.0, via the `geonamescache` package; places of 15,000 people or more that are not in the city table are in `towns.z`, built by `tools/datagen/towns.py`.
 * Tropical cyclones (6,694 storms of tropical-storm strength): [IBTrACS](https://www.ncei.noaa.gov/products/international-best-track-archive) v04r01 (NOAA NCEI, public domain), extracted by `tools/datagen/cyclones.py`.
+* US tornadoes (71,813, 1950–2024): the NOAA Storm Prediction Center tornado database (public domain), extracted by `tools/datagen/tornadoes.py`.
 * Geomagnetic field: the International Geomagnetic Reference Field, 14th generation (IGRF-14, IAGA Working Group V-MOD), coefficients in `crates/engine/data/igrf14.txt`.
 * Chemical elements: the [`mendeleev`](https://github.com/lmmentel/mendeleev) package, MIT licensed; Shannon's effective ionic radii come from the same package, extracted by `tools/datagen/ionic_radii.py`.
 * Physical constants: CODATA 2018 recommended values.

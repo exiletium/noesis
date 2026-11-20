@@ -2125,3 +2125,10 @@ fn shannon_ionic_radii() {
     assert!(short("crystal radius of sodium").starts_with("116 pm"));
     assert!(short("acetate ionic radius").starts_with("162 pm"));
 }
+
+#[test]
+fn tornado_database() {
+    assert_eq!(short("tornadoes in 2010"), "1,281 tornadoes");
+    assert_eq!(short("F5 tornadoes after 1950 in Alabama"), "7 tornadoes");
+    assert!(noesis::query("tornadoes within 40 miles of St. Louis since 2010").success);
+}
