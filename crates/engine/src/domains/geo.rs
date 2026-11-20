@@ -7,6 +7,13 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
+macro_rules! re {
+    ($s:expr) => {{
+        static R: OnceLock<regex::Regex> = OnceLock::new();
+        R.get_or_init(|| regex::Regex::new($s).unwrap())
+    }};
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Country {
     pub name: String,
@@ -66,10 +73,35 @@ pub fn cities() -> &'static Vec<City> {
         // name, country, lat, lon, population, timezone, capital, admin1[, population year]
         let s = |r: &[serde_json::Value], k: usize| r.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
         let f = |r: &[serde_json::Value], k: usize| r.get(k).and_then(|v| v.as_f64()).unwrap_or(0.0);
-        raw.rows
+        let mut out: Vec<City> = raw
+            .rows
             .iter()
             .map(|r| City { name: s(r, 0), country: s(r, 1), lat: f(r, 2), lon: f(r, 3), population: f(r, 4) as u64, timezone: s(r, 5), capital: f(r, 6) == 1.0, population_year: s(r, 8), admin1: s(r, 7) })
-            .collect()
+            .collect();
+        // smaller places (15,000 people or more) from towns.z
+        let bytes = miniz_oxide::inflate::decompress_to_vec(TOWNS_Z).unwrap_or_default();
+        for line in String::from_utf8(bytes).unwrap_or_default().lines() {
+            let c: Vec<&str> = line.split('\t').collect();
+            if c.len() < 7 {
+                continue;
+            }
+            out.push(City { name: c[0].into(), country: c[1].into(), lat: c[2].parse().unwrap_or(0.0), lon: c[3].parse().unwrap_or(0.0), population: c[4].parse().unwrap_or(0), timezone: c[5].into(), capital: false, population_year: String::new(), admin1: c[6].into() });
+        }
+        out
+    })
+}
+
+static TOWNS_Z: &[u8] = include_bytes!("../../data/towns.z");
+
+/// Cities by accent-folded lower-case name.
+fn city_index() -> &'static std::collections::HashMap<String, Vec<usize>> {
+    static I: OnceLock<std::collections::HashMap<String, Vec<usize>>> = OnceLock::new();
+    I.get_or_init(|| {
+        let mut m: std::collections::HashMap<String, Vec<usize>> = std::collections::HashMap::new();
+        for (i, c) in cities().iter().enumerate() {
+            m.entry(fold_accents(&c.name.to_lowercase())).or_default().push(i);
+        }
+        m
     })
 }
 
@@ -165,7 +197,8 @@ pub fn find_city(q: &str) -> Option<&'static City> {
             if cc.is_none() {
                 if let Some(st) = us_state(c) {
                     let n = n.trim().to_lowercase();
-                    return cities().iter().filter(|x| x.country == "US" && x.admin1 == st && x.name.to_lowercase() == n).max_by_key(|x| x.population);
+                    let all = cities();
+                    return city_index().get(&fold_accents(&n))?.iter().map(|&i| &all[i]).filter(|x| x.country == "US" && x.admin1 == st).max_by_key(|x| x.population);
                 }
             }
             // "Madison, WI" keeps a short region; "Phoenix of traffic" is not one
@@ -206,10 +239,9 @@ pub fn find_city(q: &str) -> Option<&'static City> {
         other => other.to_string(),
     };
     // most populous match (exact, then ignoring accents: "Zurich", "Sao Paulo")
-    cities().iter().filter(|c| c.name.to_lowercase() == name && cc.as_ref().map_or(true, |k| &c.country == k)).max_by_key(|c| c.population).or_else(|| {
-        let n = fold_accents(&name);
-        cities().iter().filter(|c| fold_accents(&c.name.to_lowercase()) == n && cc.as_ref().map_or(true, |k| &c.country == k)).max_by_key(|c| c.population)
-    })
+    let all = cities();
+    let hits: Vec<&City> = city_index().get(&fold_accents(&name)).map(|v| v.iter().map(|&i| &all[i]).filter(|c| cc.as_ref().map_or(true, |k| &c.country == k)).collect()).unwrap_or_default();
+    hits.iter().filter(|c| c.name.to_lowercase() == name).max_by_key(|c| c.population).or_else(|| hits.iter().max_by_key(|c| c.population)).copied()
 }
 
 /// Great-circle distance in km (haversine on a spherical Earth).
@@ -339,6 +371,25 @@ fn city_pods(c: &City) -> Vec<Pod> {
 }
 
 /// "New York, Chicago, Denver", "London, Istanbul, Sydney time zones"
+/// "cities with the word oak": cities whose names contain a word.
+fn cities_with_word(l: &str) -> Option<Answer> {
+    let m = re!(r#"^(?:cities|towns|places|city names)\s+(?:with|containing|that contain|named with|including)\s+(?:the\s+)?(?:word|name|string)\s+"?([a-z]+)"?(?:\s+in\s+(?:their|the)\s+names?)?$"#).captures(l)?;
+    let w = m[1].to_string();
+    let mut list: Vec<&City> = cities().iter().filter(|c| c.name.to_lowercase().split(|ch: char| !ch.is_alphabetic()).any(|x| x.starts_with(w.as_str()) && x.len() <= w.len() + 4)).collect();
+    if list.is_empty() {
+        return None;
+    }
+    list.sort_by(|a, b| b.population.cmp(&a.population));
+    let n = list.len();
+    let country = |c: &City| countries().get(&c.country).map(|x| x.name.clone()).unwrap_or_else(|| c.country.clone());
+    let rows: Vec<Vec<Content>> = list.iter().take(25).map(|c| vec![text(c.name.clone()), text(country(c)), text(city_population(c))]).collect();
+    Some(Answer::new("cities with a word", vec![
+        pod("Input", "Input interpretation", text(format!("cities | name contains the word \"{w}\""))),
+        primary(pod("Result", "Cities", table(Some(vec!["city", "country", "population"]), rows))),
+        pod("Count", "Number of cities", text(format!("{n} cities in the database{}", if n > 25 { "; the 25 largest are shown" } else { "" }))),
+    ]))
+}
+
 fn city_list(l: &str) -> Option<Answer> {
     let (body, what) = match re_suffix().captures(l) {
         Some(m) => (m.get(1)?.as_str(), m.get(2).map(|x| x.as_str().to_string())),
@@ -380,6 +431,9 @@ fn re_suffix() -> &'static regex::Regex {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim();
+    if let Some(a) = cities_with_word(l) {
+        return Some(a);
+    }
     if let Some(a) = city_list(l) {
         return Some(a);
     }
@@ -483,7 +537,8 @@ pub fn handle(q: &Query) -> Option<Answer> {
     }
     if l.chars().all(|c| c.is_alphabetic() || c == ' ' || c == ',' || c == '.' || c == '-') && l.len() >= 3 {
         if let Some(c) = find_city(l) {
-            if c.population >= 50_000 {
+            // a single word must be a sizeable city to be read as one
+            if c.population >= 50_000 || (l.contains([' ', ',']) && c.population >= 15_000) {
                 return Some(Answer::new(format!("{} (city)", c.name), city_pods(c)));
             }
         }

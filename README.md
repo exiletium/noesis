@@ -157,6 +157,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Solution densities | "density of 3 molar ethanol", "density of 10% NaCl solution" |
 | Random structures | "C3NH4FO random isomers", "potential structures of C3H5N3O2" |
 | Ionic equations and reaction search | "C6H6 + NO2+ -> C6H5NO2 + H+", "KOH -> H2O", "-> nitrate" |
+| Geomagnetism and towns | "geomagnetism Oslo on 12 Feb 2007", "La Jolla", "cities with the word oak" |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
@@ -353,7 +354,7 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 
 Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
 
-**Understood:** Noesis gives an answer to **82.0%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+**Understood:** Noesis gives an answer to **82.1%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
 **Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 189 that could be checked (WolframAlpha answered and the run finished), the answers agree on **53%** (100). On the rest, Noesis gives a different answer on 14% (27) and does not understand 33% (62). The automatic checker alone reports 35% agreement (66); the difference is 34 answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. Most of the questions Noesis does not understand need live or very large datasets: current economic indicators, US state, county and school-district statistics, elected officials, recent earthquakes, fuel prices.
 
@@ -380,7 +381,8 @@ The script needs a WolframAlpha AppID, either in `WOLFRAM_APPID` or supplied by 
 
 * Airports: [OurAirports](https://ourairports.com/data/) (public domain), extracted by `tools/datagen/airports.py`.
 * Country indicators: the [CIA World Factbook](https://www.cia.gov/the-world-factbook/) (US government work, public domain) via the CC0 [factbook.json](https://github.com/factbook/factbook.json) export, extracted by `tools/datagen/factbook_stats.py`.
-* Countries and cities: [GeoNames](https://www.geonames.org), licensed CC BY 4.0, via the `geonamescache` package.
+* Countries and cities: [GeoNames](https://www.geonames.org), licensed CC BY 4.0, via the `geonamescache` package; places of 15,000 people or more that are not in the city table are in `towns.z`, built by `tools/datagen/towns.py`.
+* Geomagnetic field: the International Geomagnetic Reference Field, 14th generation (IGRF-14, IAGA Working Group V-MOD), coefficients in `crates/engine/data/igrf14.txt`.
 * Chemical elements: the [`mendeleev`](https://github.com/lmmentel/mendeleev) package, MIT licensed.
 * Physical constants: CODATA 2018 recommended values.
 * Words: the word list is the [`word-list`](https://github.com/sindresorhus/word-list) package (MIT); definitions, synonyms and broader and narrower terms are from [WordNet 3.1](https://wordnet.princeton.edu) (WordNet licence, Princeton University). Pronunciations are from the [CMU Pronouncing Dictionary](https://github.com/cmusphinx/cmudict) (BSD-style licence, Carnegie Mellon University; the notice is in `crates/engine/data/LICENSE-cmudict.txt`), extracted by `tools/datagen/pronounce.py`.

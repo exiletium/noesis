@@ -2102,3 +2102,11 @@ fn ionic_equations_and_reaction_search() {
     assert!(short("KOH -> H2O").contains("2 KOH + H₂SO₄ → K₂SO₄ + 2 H₂O"));
     assert!(short("-> nitrate").contains("KNO₃"));
 }
+
+#[test]
+fn geomagnetism_and_towns() {
+    assert!(short("geomagnetism Oslo on 12 Feb 2007").starts_with("declination 1° 25′ E"));
+    assert!(short("magnetic declination in Sydney").starts_with("declination 12°"));
+    assert!(short("population Venice").contains("51,298"));
+    assert!(short("cities with the word oak").contains("Oakland"));
+}
