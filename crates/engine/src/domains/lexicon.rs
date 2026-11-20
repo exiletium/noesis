@@ -621,7 +621,42 @@ fn soundex_query(l: &str) -> Option<Answer> {
     None
 }
 
+/// "Greek transliteration for "Pythagoras"": Latin letters to Greek (unaccented).
+fn to_greek(l: &str) -> Option<Answer> {
+    let m = Regex::new(r#"^(?:greek transliteration (?:for|of)|transliterate|transliteration of) "?([a-z ]+?)"?(?: (?:in|into|to) greek)?$|^"?([a-z ]+?)"? (?:in greek letters|in the greek alphabet|transliterated into greek)$"#).ok()?.captures(l)?;
+    let word = m.get(1).or(m.get(2))?.as_str().trim();
+    if word.is_empty() || word.len() > 60 {
+        return None;
+    }
+    let mut out = String::new();
+    let b: Vec<char> = word.chars().collect();
+    let mut i = 0;
+    while i < b.len() {
+        let two: String = b[i..(i + 2).min(b.len())].iter().collect();
+        let (g, k) = match two.as_str() {
+            "th" => ("θ", 2), "ph" => ("φ", 2), "ch" | "kh" => ("χ", 2), "ps" => ("ψ", 2), "rh" => ("ρ", 2), "ou" => ("ου", 2),
+            _ => (match b[i] {
+                'a' => "α", 'b' => "β", 'c' | 'k' | 'q' => "κ", 'd' => "δ", 'e' => "ε", 'f' => "φ", 'g' => "γ", 'h' => "", 'i' | 'j' => "ι", 'l' => "λ", 'm' => "μ", 'n' => "ν",
+                'o' => "ο", 'p' => "π", 'r' => "ρ", 's' => if i + 1 == b.len() || b[i + 1] == ' ' { "ς" } else { "σ" }, 't' => "τ", 'u' => "ου", 'v' => "β", 'w' => "ω", 'x' => "ξ", 'y' => "υ", 'z' => "ζ", ' ' => " ",
+                _ => return None,
+            }, 1),
+        };
+        out.push_str(g);
+        i += k;
+    }
+    let cap: String = out.split(' ').map(|w| { let mut c = w.chars(); c.next().map(|f| f.to_uppercase().chain(c).collect::<String>()).unwrap_or_default() }).collect::<Vec<_>>().join(" ");
+    Some(Answer::new("greek transliteration", vec![
+        pod("Input", "Input interpretation", text(format!("{word} | Greek transliteration"))),
+        primary(pod("Result", "Greek letters", text(cap.clone()))),
+        pod("Lower", "Lowercase", text(out)),
+        pod("Note", "Note", text("letter-by-letter transliteration without accents or breathing marks (th → θ, ph → φ, ch → χ, ps → ψ, y → υ)")),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches('?').trim();
+    if let Some(a) = to_greek(l) {
+        return Some(a);
+    }
     soundex_query(l).or_else(|| sounds(l)).or_else(|| related(l)).or_else(|| anagram_query(l)).or_else(|| subwords(l)).or_else(|| cryptograms(l)).or_else(|| define(l)).or_else(|| synonyms(l)).or_else(|| validity(l)).or_else(|| patterns(l))
 }

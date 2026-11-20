@@ -2059,3 +2059,12 @@ fn prayer_times_local_gravity_and_degree_days() {
     assert!(short("geogravity").ends_with("m/s²"));
     assert!(short("cooling degree days").contains("above a base temperature"));
 }
+
+#[test]
+fn game_releases_final_air_dates_air_tables_and_greek() {
+    assert!(short("When was Tomb Raider II released?").starts_with("October 31, 1997"));
+    assert_eq!(short("final air date for Firefly"), "December 20, 2002 (Fox)");
+    assert_eq!(short("Game of Thrones finale"), "May 19, 2019 (HBO)");
+    assert_eq!(short("internal energy of air"), "214.1 kJ/kg");
+    assert_eq!(short("Greek transliteration for \"Pythagoras\""), "Πυθαγορας");
+}

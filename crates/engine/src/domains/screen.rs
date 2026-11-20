@@ -424,6 +424,7 @@ const SHOWS: &[Show] = &[
     Show { title: "M*A*S*H", aliases: &["mash", "m*a*s*h", "m.a.s.h."], network: "CBS", years: "1972–1983", seasons: 11, episodes: 256, note: "the finale, \"Goodbye, Farewell and Amen\", aired February 28, 1983 and was watched by about 106 million Americans, long the most-watched US television broadcast", season_rows: &[] },
     Show { title: "The Twilight Zone", aliases: &["twilight zone", "the twilight zone (1959)"], network: "CBS", years: "1959–1964", seasons: 5, episodes: 156, note: "created and hosted by Rod Serling; later revivals ran 1985–1989, 2002–2003 and 2019–2020", season_rows: &[] },
     Show { title: "The Flintstones", aliases: &["flintstones", "the flintstones"], network: "ABC", years: "1960–1966", seasons: 6, episodes: 166, note: "Hanna-Barbera; the first animated series in prime time", season_rows: &[] },
+    Show { title: "Firefly", aliases: &["firefly tv series", "firefly series", "firefly tv show", "firefly (tv series)"], network: "Fox", years: "2002", seasons: 1, episodes: 14, note: "created by Joss Whedon; Fox aired 11 of the 14 episodes, out of order, and cancelled the series; the film Serenity (2005) concluded the story", season_rows: &[(1, 14, "September 20, 2002", "December 20, 2002")] },
     Show { title: "The Simpsons", aliases: &["simpsons", "the simpsons"], network: "Fox", years: "1989–", seasons: 36, episodes: 790, note: "created by Matt Groening; the longest-running American scripted prime-time series (counts as of the 2024–25 season)", season_rows: &[] },
 ];
 
@@ -440,6 +441,7 @@ struct Game {
 const GAMES: &[Game] = &[
     Game { title: "Pokémon Red and Blue", aliases: &["pokemon red", "pokémon red", "pokemon blue", "pokemon red and blue"], developer: "Game Freak", publisher: "Nintendo", released: "February 27, 1996 (Japan, as Red and Green); September 28, 1998 (North America)", platforms: "Game Boy", note: "the first Pokémon games, with 151 Pokémon" },
     Game { title: "Need for Speed: Underground", aliases: &["need for speed underground", "nfs underground"], developer: "EA Black Box", publisher: "Electronic Arts", released: "November 17, 2003", platforms: "PlayStation 2, Xbox, GameCube, Microsoft Windows, Game Boy Advance", note: "street racing with car tuning" },
+    Game { title: "Tomb Raider II", aliases: &["tomb raider 2", "tomb raider ii", "tomb raider ii: starring lara croft"], developer: "Core Design", publisher: "Eidos Interactive", released: "October 31, 1997 (Microsoft Windows and PlayStation)", platforms: "PlayStation, Microsoft Windows, Mac OS", note: "the second Tomb Raider game, starring Lara Croft" },
     Game { title: "NBA Jam", aliases: &["nba jam"], developer: "Midway", publisher: "Midway (arcade); Acclaim (home versions)", released: "1993 (arcade)", platforms: "arcade, Super NES, Sega Genesis, Sega CD, Game Gear, Game Boy, Atari Jaguar", note: "two-on-two basketball; \"He's on fire!\"" },
     Game { title: "Zelda II: The Adventure of Link", aliases: &["zelda 2", "zelda ii", "the adventure of link", "zelda ii: the adventure of link"], developer: "Nintendo R&D4", publisher: "Nintendo", released: "January 14, 1987 (Japan); December 1988 (North America)", platforms: "Famicom Disk System, NES", note: "side-scrolling action role-playing sequel to The Legend of Zelda" },
     Game { title: "Call of Duty 4: Modern Warfare", aliases: &["call of duty 4", "cod 4", "cod4", "call of duty 4 modern warfare"], developer: "Infinity Ward", publisher: "Activision", released: "November 5, 2007 (North America, PlayStation 3, Xbox 360 and Windows); November 9, 2007 (Europe)", platforms: "PlayStation 3, Xbox 360, Microsoft Windows, Mac OS X, Nintendo DS (separate version)", note: "" },
@@ -463,13 +465,24 @@ fn tv_and_games(l: &str) -> Option<Answer> {
         let (_, eps, a, b) = sh.season_rows.iter().find(|r| r.0 == n)?;
         return Some(simple(format!("{} season {n}", sh.title), "Season", format!("{eps} episodes, aired {a} – {b} on {}", sh.network), vec![pod("Show", "Series", table(None, vec![vec![text("network"), text(sh.network)], vec![text("aired"), text(sh.years)], vec![text("seasons"), text(sh.seasons.to_string())], vec![text("episodes"), text(sh.episodes.to_string())]]))]));
     }
+    // "final air date for Firefly"
+    if let Some(m) = re!(r"^(?:the )?(?:final|last) (?:air ?date|airdate|episode air date|broadcast date|episode date) (?:for|of) (.+)$|^when did (.+?) (?:end|stop airing|last air|go off the air)$").captures(l) {
+        let name = m.get(1).or(m.get(2))?.as_str();
+        let sh = find_show(name).or_else(|| SHOWS.iter().find(|x| x.title.to_lowercase() == name.trim()))?;
+        let last = sh.season_rows.last()?;
+        if sh.years.ends_with('–') {
+            return None;
+        }
+        return Some(simple(format!("{} | final air date", sh.title), "Final air date", format!("{} ({})", last.3, sh.network), vec![pod("Note", "Note", text(sh.note))]));
+    }
     // "when was the finale of mash"
     if let Some(m) = re!(r"^when (?:was|did) (?:the )?(?:series )?finale (?:of )?(.+?)(?: air)?$|^(.+?) (?:series )?finale(?: date)?$").captures(l) {
         let sh = find_show(m.get(1).or(m.get(2))?.as_str())?;
         if sh.title == "M*A*S*H" {
             return Some(simple("M*A*S*H | series finale".into(), "Result", "February 28, 1983 (\"Goodbye, Farewell and Amen\", CBS)".into(), vec![pod("Note", "Note", text(sh.note))]));
         }
-        return None;
+        let last = sh.season_rows.last().filter(|r| r.0 == sh.seasons && !sh.years.ends_with('–'))?;
+        return Some(simple(format!("{} | series finale", sh.title), "Result", format!("{} ({})", last.3, sh.network), vec![pod("Note", "Note", text(sh.note))]));
     }
     // "how many The Twilight Zone episodes are there"
     if let Some(m) = re!(r"^(?:how many )?(?:episodes of )?(.+?)(?: episodes)? (?:are there|were there|were made|were produced)$|^(?:number of )?episodes (?:of|in) (.+)$").captures(l) {
@@ -507,6 +520,12 @@ fn tv_and_games(l: &str) -> Option<Answer> {
         return Some(simple(format!("{}video games developed by {}", plat.map(|p| format!("{} ", p.to_uppercase())).unwrap_or_default(), cap_words(m[2].trim())), "Games", v.iter().map(|g| format!("{} ({})", g.0, g.1)).collect::<Vec<_>>().join(" | "), vec![pod("Table", "Games", table(Some(vec!["title", "year", "platforms"]), v.iter().map(|g| vec![text(g.0), text(g.1.to_string()), text(g.2)]).collect()))]));
     }
     let find_game = |s: &str| GAMES.iter().find(|g| g.title.to_lowercase() == s || g.aliases.contains(&s));
+    // "When was Tomb Raider II released?"
+    if let Some(m) = re!(r"^when (?:was|did) (.+?) (?:released|come out|release)$").captures(l) {
+        if let Some(g) = find_game(m[1].trim()) {
+            return Some(simple(format!("{} | release date", g.title), "Release date", g.released.into(), vec![game_pod(g)]));
+        }
+    }
     // "Who published Zelda 2?", "platforms for NBA Jam game", "release date of Call of Duty 4 for the PS3"
     if let Some(m) = re!(r"^who (published|developed|made) (.+)$|^(platforms?|publisher|developer|release date) (?:for|of) (.+?)(?: game)?(?: for the (?:ps3|playstation 3|xbox 360))?$|^what'?s? (?:is )?the (release date) of (.+?)(?: for the (?:ps3|playstation 3|xbox 360))?$").captures(l) {
         let (p, who) = if let Some(p) = m.get(1) { (p.as_str(), &m[2]) } else if let Some(p) = m.get(3) { (p.as_str(), &m[4]) } else { (&m[5], &m[6]) };

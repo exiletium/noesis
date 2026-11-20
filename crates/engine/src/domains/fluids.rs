@@ -389,9 +389,57 @@ pub(crate) fn mixture_card(l: &str) -> Option<Answer> {
     Some(Answer::new(title, pods))
 }
 
+/// Ideal-gas properties of air (standard tables; reference u = h = 0 at 0 K):
+/// T (K), h (kJ/kg), u (kJ/kg), s° (kJ/(kg·K)).
+const AIR_TABLE: &[(f64, f64, f64, f64)] = &[
+    (300.0, 300.19, 214.07, 1.70203),
+    (400.0, 400.98, 286.16, 1.99194),
+    (500.0, 503.02, 359.49, 2.21952),
+    (600.0, 607.02, 434.78, 2.40902),
+    (800.0, 821.95, 592.30, 2.71787),
+    (1000.0, 1046.04, 758.94, 2.96770),
+];
+
+/// "internal energy of air", "enthalpy of air at 500 K"
+fn air_props(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:specific )?(internal energy|enthalpy|entropy|thermodynamic properties) of (?:dry )?air(?: at (\d+(?:\.\d+)?) ?(k|kelvin|°c|c|degrees celsius))?$").captures(l)?;
+    let t = match m.get(2) {
+        Some(v) => {
+            let x: f64 = v.as_str().parse().ok()?;
+            if m[3].starts_with('k') { x } else { x + 273.15 }
+        }
+        None => 300.0,
+    };
+    let i = AIR_TABLE.windows(2).position(|w| t >= w[0].0 && t <= w[1].0)?;
+    let (a, b) = (AIR_TABLE[i], AIR_TABLE[i + 1]);
+    let f = (t - a.0) / (b.0 - a.0);
+    let lerp = |x: f64, y: f64| x + f * (y - x);
+    let (h, u, s) = (lerp(a.1, b.1), lerp(a.2, b.2), lerp(a.3, b.3));
+    let main = match &m[1] {
+        "internal energy" => format!("{:.1} kJ/kg", u),
+        "enthalpy" => format!("{:.1} kJ/kg", h),
+        "entropy" => format!("{:.4} kJ/(kg·K) (s°, at 1 atm)", s),
+        _ => format!("u = {:.1} kJ/kg, h = {:.1} kJ/kg", u, h),
+    };
+    Some(Answer::new("air properties", vec![
+        pod("Input", "Input interpretation", text(format!("air | {} | T = {} K", &m[1], t))),
+        primary(pod("Result", "Result", text(main))),
+        pod("Table", "Ideal-gas properties", table(None, vec![
+            vec![text("specific internal energy u"), text(format!("{:.2} kJ/kg", u))],
+            vec![text("specific enthalpy h"), text(format!("{:.2} kJ/kg", h))],
+            vec![text("standard entropy s°"), text(format!("{:.4} kJ/(kg·K)", s))],
+            vec![text("h − u = R T"), text(format!("{:.2} kJ/kg (R = 0.287 kJ/(kg·K))", 0.287 * t))],
+        ])),
+        pod("Note", "Note", text(format!("ideal-gas air tables with u = h = 0 at 0 K{}", if m.get(2).is_none() { "; 300 K assumed" } else { "; linear interpolation between table rows" }))),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).replace('’', "'");
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
+    if let Some(a) = air_props(&l) {
+        return Some(a);
+    }
     let l = re!(r"^(?:what is |what are |what's |find |compare |show |give me )?(?:the )?").replace(&l, "").to_string();
     // "how fast does sound travel in chloroform"
     if let Some(m) = re!(r"^how fast does sound (?:travel|move|go|propagate) (?:in|through) (.+)$").captures(&l) {
