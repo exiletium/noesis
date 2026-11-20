@@ -2132,3 +2132,10 @@ fn tornado_database() {
     assert_eq!(short("F5 tornadoes after 1950 in Alabama"), "7 tornadoes");
     assert!(noesis::query("tornadoes within 40 miles of St. Louis since 2010").success);
 }
+
+#[test]
+fn climate_normals_from_ghcn() {
+    assert!(short("climate Hannover").contains("warmest month July"));
+    assert!(short("average july temperature in Tokyo").starts_with("July average temperature: 26"));
+    assert!(short("heating degree days in Buffalo").contains("heating degree days"));
+}
