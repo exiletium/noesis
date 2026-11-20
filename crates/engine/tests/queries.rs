@@ -2145,3 +2145,11 @@ fn earthquake_catalog_search() {
     assert!(short("earthquakes June 2006").contains("M6.5 on 2006-06-14"));
     assert!(short("earthquakes near Krakatau").contains("earthquakes; the largest was"));
 }
+
+#[test]
+fn us_economic_series() {
+    assert!(short("US reserve bank credit March 2009").starts_with("$2.025 trillion"));
+    assert!(short("Alaska real GDP").contains("chained 2017 dollars"));
+    assert!(short("USA national debt / USA GDP").contains('%'));
+    assert!(noesis::query("treasury yield curve").success);
+}
