@@ -159,6 +159,7 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Ionic equations and reaction search | "C6H6 + NO2+ -> C6H5NO2 + H+", "KOH -> H2O", "-> nitrate" |
 | Geomagnetism and towns | "geomagnetism Oslo on 12 Feb 2007", "La Jolla", "cities with the word oak" |
 | Cyclone seasons | "Hurricanes in 1991", "typhoons in 2004", "Hurricane Beth max wind speed" |
+| Ionic radii | "acetate ionic radius", "ionic radius of Fe3+", "crystal radius of sodium" |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
@@ -385,7 +386,7 @@ The script needs a WolframAlpha AppID, either in `WOLFRAM_APPID` or supplied by 
 * Countries and cities: [GeoNames](https://www.geonames.org), licensed CC BY 4.0, via the `geonamescache` package; places of 15,000 people or more that are not in the city table are in `towns.z`, built by `tools/datagen/towns.py`.
 * Tropical cyclones (6,694 storms of tropical-storm strength): [IBTrACS](https://www.ncei.noaa.gov/products/international-best-track-archive) v04r01 (NOAA NCEI, public domain), extracted by `tools/datagen/cyclones.py`.
 * Geomagnetic field: the International Geomagnetic Reference Field, 14th generation (IGRF-14, IAGA Working Group V-MOD), coefficients in `crates/engine/data/igrf14.txt`.
-* Chemical elements: the [`mendeleev`](https://github.com/lmmentel/mendeleev) package, MIT licensed.
+* Chemical elements: the [`mendeleev`](https://github.com/lmmentel/mendeleev) package, MIT licensed; Shannon's effective ionic radii come from the same package, extracted by `tools/datagen/ionic_radii.py`.
 * Physical constants: CODATA 2018 recommended values.
 * Words: the word list is the [`word-list`](https://github.com/sindresorhus/word-list) package (MIT); definitions, synonyms and broader and narrower terms are from [WordNet 3.1](https://wordnet.princeton.edu) (WordNet licence, Princeton University). Pronunciations are from the [CMU Pronouncing Dictionary](https://github.com/cmusphinx/cmudict) (BSD-style licence, Carnegie Mellon University; the notice is in `crates/engine/data/LICENSE-cmudict.txt`), extracted by `tools/datagen/pronounce.py`.
 * General knowledge (works and their creators, events, office holders, Nobel prizes, people): [Wikidata](https://www.wikidata.org), CC0, extracted by `tools/datagen/wikidata.py`.

@@ -2117,3 +2117,11 @@ fn cyclone_seasons_from_best_track() {
     assert!(short("typhoons in 2004").contains("Chaba"));
     assert!(short("Hurricane Beth max wind speed").starts_with("85 mph"));
 }
+
+#[test]
+fn shannon_ionic_radii() {
+    assert!(short("chloride ionic radius").starts_with("181 pm"));
+    assert!(short("ionic radius of Fe3+").starts_with("64.5 pm"));
+    assert!(short("crystal radius of sodium").starts_with("116 pm"));
+    assert!(short("acetate ionic radius").starts_with("162 pm"));
+}
