@@ -2043,3 +2043,11 @@ fn state_officials_and_city_sales_tax() {
     assert!(short("sales tax New York City, Chicago, Los Angeles").contains("Chicago: 10.25%"));
     assert!(short("sales tax in California").starts_with("7.25%"));
 }
+
+#[test]
+fn greenhouse_levels_and_seismic_travel_times() {
+    assert_eq!(short("global methane level"), "1,922 ppb");
+    assert!(short("carbon dioxide").contains("g/mol"));
+    assert!(short("seismic travel times from San Francisco to Los Angeles").starts_with("P wave"));
+    assert!(short("distance from seismic wave travel times").contains("8.4 km/s"));
+}

@@ -767,8 +767,33 @@ fn clouds(l: &str) -> Option<Answer> {
     ]))
 }
 
+/// "global methane level", "atmospheric CO2": NOAA global annual means.
+fn greenhouse(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:current |global |atmospheric |global atmospheric |average )*(co2|carbon dioxide|methane|ch4|nitrous oxide|n2o)(?: level| levels| concentration| content| in the atmosphere| ppm| ppb)*(?: today| now)?$").captures(l)
+        .or_else(|| re!(r"^(?:global |atmospheric )?(?:level|concentration|amount) of (co2|carbon dioxide|methane|ch4|nitrous oxide|n2o)(?: in the atmosphere)?$").captures(l))?;
+    // a bare compound name stays with chemistry
+    if !re!(r"\b(?:level|levels|concentration|content|atmosphere|atmospheric|global|ppm|ppb)\b").is_match(l) {
+        return None;
+    }
+    let (name, now, pre, growth) = match &m[1] {
+        "co2" | "carbon dioxide" => ("carbon dioxide (CO₂)", "419.3 ppm", "about 280 ppm", "about 2–3 ppm per year in the 2020s"),
+        "methane" | "ch4" => ("methane (CH₄)", "1,922 ppb", "about 722 ppb", "about 8–18 ppb per year in the 2020s"),
+        _ => ("nitrous oxide (N₂O)", "336.7 ppb", "about 270 ppb", "about 1 ppb per year"),
+    };
+    Some(Answer::new("greenhouse gas", vec![
+        pod("Input", "Input interpretation", text(format!("{name} | global atmospheric concentration"))),
+        primary(pod("Result", "Global mean (2023)", text(now))),
+        pod("Pre", "Pre-industrial level (about 1750)", text(pre)),
+        pod("Growth", "Recent growth", text(growth)),
+        pod("Note", "Note", text("NOAA Global Monitoring Laboratory global annual mean for 2023; levels keep rising, so current values are somewhat higher")),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
+    if let Some(a) = greenhouse(l) {
+        return Some(a);
+    }
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
     compass_point(&q.raw, l)

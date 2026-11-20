@@ -272,7 +272,49 @@ fn cap(s: &str) -> String {
     }).collect::<Vec<_>>().join(" ")
 }
 
+/// Typical crustal wave speeds (km/s): P, S, and surface (Rayleigh) waves.
+const VP: f64 = 6.0;
+const VS: f64 = 3.5;
+const VR: f64 = 3.2;
+
+/// "seismic travel times from San Francisco to Los Angeles", "distance from seismic wave travel times"
+fn travel(l: &str) -> Option<Answer> {
+    if let Some(m) = re!(r"^(?:seismic|earthquake|seismic wave|p ?wave and s ?wave|p and s wave) travel times? (?:from )?(.+?) to (.+)$").captures(l) {
+        let a = super::geo::find_city(&m[1])?;
+        let b = super::geo::find_city(&m[2])?;
+        let d = super::geo::distance_km(a, b);
+        if d > 2500.0 {
+            return None;
+        }
+        let t = |v: f64| { let s = d / v; if s >= 60.0 { format!("{} min {} s", (s / 60.0).floor(), (s % 60.0).round()) } else { format!("{:.0} s", s) } };
+        return Some(Answer::new("seismic travel times", vec![
+            pod("Input", "Input interpretation", text(format!("seismic travel times | from {} to {}", a.name, b.name))),
+            primary(pod("Result", "Travel times", text(format!("P wave: {} | S wave: {} | surface waves: {}", t(VP), t(VS), t(VR))))),
+            pod("Distance", "Epicentral distance", text(format!("{:.0} km", d))),
+            pod("Gap", "S − P time", text(format!("{:.0} s", d / VS - d / VP))),
+            pod("Note", "Note", text(format!("straight-line estimates with typical crustal speeds (P {VP} km/s, S {VS} km/s, Rayleigh {VR} km/s) for a shallow source; real paths and speeds vary"))),
+        ]));
+    }
+    // distance from the S − P interval
+    let m = re!(r"^(?:epicent(?:er|re|ral) )?distance (?:from|using) (?:seismic )?(?:wave )?travel times?(?: (?:with |of )?(?:an? )?(?:s-p|s - p|s−p|s minus p)?(?: interval| time| delay)? (?:of )?(\d+(?:\.\d+)?) ?(?:s|sec|seconds))?$").captures(l)?;
+    let k = VP * VS / (VP - VS);
+    let mut pods = vec![
+        pod("Input", "Input interpretation", text("epicentral distance from the S − P interval")),
+        pod("Formula", "Formula", text(format!("d = Δt · v_P v_S / (v_P − v_S) ≈ {:.1} km/s × Δt (v_P = {VP} km/s, v_S = {VS} km/s)", k))),
+    ];
+    if let Some(dt) = m.get(1).and_then(|x| x.as_str().parse::<f64>().ok()) {
+        pods.insert(1, primary(pod("Result", "Distance", text(format!("about {:.0} km", k * dt)))));
+    } else {
+        pods[1].primary = true;
+        pods.push(pod("Rule", "Rule of thumb", text("about 8 km of distance for every second between the P and S arrivals; three stations locate the epicenter by triangulation")));
+    }
+    Some(Answer::new("seismic distance", pods))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
+    if let Some(a) = travel(q.lower.trim().trim_end_matches(['?', '.']).trim()) {
+        return Some(a);
+    }
     if let Some(a) = quakes(q.lower.trim().trim_end_matches(['?', '.']).trim()) {
         return Some(a);
     }
