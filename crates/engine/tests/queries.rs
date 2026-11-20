@@ -2110,3 +2110,10 @@ fn geomagnetism_and_towns() {
     assert!(short("population Venice").contains("51,298"));
     assert!(short("cities with the word oak").contains("Oakland"));
 }
+
+#[test]
+fn cyclone_seasons_from_best_track() {
+    assert!(short("Hurricanes in 1991").contains("Bob | North Atlantic"));
+    assert!(short("typhoons in 2004").contains("Chaba"));
+    assert!(short("Hurricane Beth max wind speed").starts_with("85 mph"));
+}

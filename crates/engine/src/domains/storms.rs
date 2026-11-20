@@ -53,6 +53,100 @@ const STORMS: &[Storm] = &[
     Storm { name: "Songda", kind: "typhoon", aliases: &[], year: 2004, basin: "western North Pacific", formed: (8, 26), dissipated: (9, 8), wind: N, pressure: 925.0, category: "super typhoon", deaths: "about 45", damage: "about $9 billion (2004 USD)", areas: "Okinawa, Kyushu and Hokkaido (Japan), South Korea", note: "made landfall near Nagasaki, Japan, on September 7, 2004; the name Songda was used again in 2011 and 2016" },
 ];
 
+static CYCLONES_Z: &[u8] = include_bytes!("../../data/cyclones.z");
+
+/// Every tropical cyclone of tropical-storm strength in IBTrACS (NOAA NCEI).
+fn best_track() -> &'static Vec<Storm> {
+    static B: OnceLock<Vec<Storm>> = OnceLock::new();
+    B.get_or_init(|| {
+        let bytes = miniz_oxide::inflate::decompress_to_vec(CYCLONES_Z).unwrap_or_default();
+        let text: &'static str = Box::leak(String::from_utf8(bytes).unwrap_or_default().into_boxed_str());
+        let md = |t: &str| -> (u32, u32) { (t.get(5..7).and_then(|x| x.parse().ok()).unwrap_or(0), t.get(8..10).and_then(|x| x.parse().ok()).unwrap_or(0)) };
+        text.lines()
+            .filter_map(|l| {
+                let c: Vec<&'static str> = l.split('\t').collect();
+                if c.len() < 10 {
+                    return None;
+                }
+                let kt: f64 = c[5].parse().ok()?;
+                let cat: i32 = c[7].parse().unwrap_or(0);
+                let (kind, word) = match (c[1], cat >= 1) {
+                    (_, false) => ("storm", "tropical storm"),
+                    ("NA" | "EP", true) => ("hurricane", "hurricane"),
+                    ("WP", true) => ("typhoon", if kt >= 130.0 { "super typhoon" } else { "typhoon" }),
+                    _ => ("cyclone", "tropical cyclone"),
+                };
+                let basin = match c[1] {
+                    "NA" => "North Atlantic",
+                    "EP" => "eastern North Pacific",
+                    "WP" => "western North Pacific",
+                    "NI" => "North Indian Ocean",
+                    "SI" => "South Indian Ocean",
+                    "SP" => "South Pacific",
+                    _ => "South Atlantic",
+                };
+                let category: &'static str = Box::leak(if cat >= 1 { format!("Category {cat} {word} (Saffir–Simpson scale)") } else { word.to_string() }.into_boxed_str());
+                let note: &'static str = Box::leak(format!("peak intensity near {}° {}, {}° {} (IBTrACS best track)", c[8].trim_start_matches('-'), if c[8].starts_with('-') { "S" } else { "N" }, c[9].trim_start_matches('-'), if c[9].starts_with('-') { "W" } else { "E" }).into_boxed_str());
+                Some(Storm {
+                    name: c[2],
+                    kind,
+                    aliases: &[],
+                    year: c[3].get(..4)?.parse().ok()?,
+                    basin,
+                    formed: md(c[3]),
+                    dissipated: md(c[4]),
+                    wind: (kt * 1.150779 / 5.0).round() * 5.0,
+                    pressure: c[6].parse().unwrap_or(N),
+                    category,
+                    deaths: "",
+                    damage: "",
+                    areas: "",
+                    note,
+                })
+            })
+            .collect()
+    })
+}
+
+/// "hurricanes in 1991", "typhoons in 2004", "cyclones in 1974"
+fn season_list(l: &str) -> Option<Answer> {
+    let (sea, what, year) = if let Some(m) = re!(r"^(?:list of |all |the )?(?:(atlantic|pacific|eastern pacific|indian ocean) )?(hurricanes|typhoons|cyclones|tropical cyclones|tropical storms)(?: in| of| during)?(?: the)? (\d{4})(?: season)?$").captures(l) {
+        (m.get(1).map(|x| x.as_str().to_string()), m[2].to_string(), m[3].parse::<i32>().ok()?)
+    } else {
+        let m = re!(r"^(?:the )?(\d{4}) (?:(atlantic|pacific|eastern pacific|indian ocean) )?(hurricanes|typhoons|cyclones|tropical cyclones|hurricane season|typhoon season|cyclone season)$").captures(l)?;
+        (m.get(2).map(|x| x.as_str().to_string()), m[3].to_string(), m[1].parse::<i32>().ok()?)
+    };
+    let basins: &[&str] = match (what.as_str(), sea.as_deref()) {
+        (_, Some("atlantic")) => &["North Atlantic"],
+        (_, Some("pacific" | "eastern pacific")) if what.starts_with("hurricane") => &["eastern North Pacific"],
+        (_, Some("pacific")) => &["western North Pacific"],
+        (_, Some("indian ocean")) => &["North Indian Ocean", "South Indian Ocean"],
+        (w, _) if w.starts_with("hurricane") => &["North Atlantic", "eastern North Pacific"],
+        (w, _) if w.starts_with("typhoon") => &["western North Pacific"],
+        (w, _) if w.starts_with("cyclone") => &["North Indian Ocean", "South Indian Ocean", "South Pacific"],
+        _ => &["North Atlantic", "eastern North Pacific", "western North Pacific", "North Indian Ocean", "South Indian Ocean", "South Pacific", "South Atlantic"],
+    };
+    let strong = !what.contains("storm") && !what.contains("tropical") && !what.contains("season");
+    let mut list: Vec<&Storm> = best_track().iter().filter(|s| s.year == year && basins.contains(&s.basin) && (!strong || s.kind != "storm")).collect();
+    if list.is_empty() {
+        return None;
+    }
+    list.sort_by_key(|s| (basins.iter().position(|b| *b == s.basin), s.formed, s.name));
+    let n = list.len();
+    let rows: Vec<Vec<Content>> = list
+        .iter()
+        .take(60)
+        .map(|s| vec![text(s.name), text(s.basin), text(format!("{} – {}", date(s, s.formed).unwrap_or_default().trim_end_matches(&format!(", {}", s.year)), date(s, s.dissipated).unwrap_or_default())), text(s.category.trim_end_matches(" (Saffir–Simpson scale)")), text(format!("{} mph", fmt_float(s.wind, 4))), text(if s.pressure.is_nan() { String::new() } else { format!("{} mbar", fmt_float(s.pressure, 5)) })])
+        .collect();
+    let strongest = list.iter().max_by(|a, b| a.wind.total_cmp(&b.wind))?;
+    Some(Answer::new("tropical cyclones", vec![
+        pod("Input", "Input interpretation", text(format!("{what} | {year} | {}", basins.join(", ")))),
+        primary(pod("Result", "Storms", table(Some(vec!["name", "basin", "dates", "peak intensity", "max wind", "min pressure"]), rows))),
+        pod("Summary", "Summary", text(format!("{n} {} in {year}; the strongest was {} ({} mph)", if strong { "storms of hurricane strength" } else { "tropical cyclones" }, title(strongest), fmt_float(strongest.wind, 4)))),
+        pod("Source", "Source", text("IBTrACS v04r01 best-track data (NOAA NCEI); winds are 1-minute sustained from US agencies where available, else 10-minute from the regional centre.")),
+    ]))
+}
+
 const MONTHS: [&str; 12] = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 fn date(s: &Storm, md: (u32, u32)) -> Option<String> {
@@ -75,6 +169,7 @@ fn title(s: &Storm) -> String {
     let k = match s.kind {
         "hurricane" => "Hurricane",
         "typhoon" => "Typhoon",
+        "storm" => "Tropical Storm",
         _ => "Cyclone",
     };
     format!("{k} {} ({})", s.name, s.year)
@@ -97,6 +192,18 @@ fn find(t: &str) -> Option<&'static Storm> {
             && year.is_none_or(|y| y == s.year)
             && (&m[1] == "storm" || &m[1] == s.kind || (s.kind == "cyclone" && &m[1] == "hurricane"))
     })
+    .or_else(|| {
+        // the best-track archive: the strongest storm of that name in a basin that uses the word
+        let basins: &[&str] = match &m[1] {
+            "hurricane" => &["North Atlantic", "eastern North Pacific"],
+            "typhoon" => &["western North Pacific"],
+            _ => &[],
+        };
+        best_track()
+            .iter()
+            .filter(|s| s.name.eq_ignore_ascii_case(name) && s.name != "Unnamed" && year.is_none_or(|y| y == s.year) && (basins.is_empty() || basins.contains(&s.basin)))
+            .max_by(|a, b| a.wind.total_cmp(&b.wind))
+    })
 }
 
 fn rows(s: &Storm) -> Vec<Vec<Content>> {
@@ -117,9 +224,11 @@ fn rows(s: &Storm) -> Vec<Vec<Content>> {
     if !s.pressure.is_nan() {
         r.push(vec![text("minimum pressure"), text(format!("{} mbar", fmt_float(s.pressure, 6)))]);
     }
-    r.push(vec![text("deaths"), text(s.deaths)]);
-    r.push(vec![text("damage"), text(s.damage)]);
-    r.push(vec![text("areas affected"), text(s.areas)]);
+    for (k, v) in [("deaths", s.deaths), ("damage", s.damage), ("areas affected", s.areas)] {
+        if !v.is_empty() {
+            r.push(vec![text(k), text(v)]);
+        }
+    }
     r
 }
 
@@ -138,8 +247,8 @@ fn prop(s: &Storm, p: &str) -> Option<(&'static str, String)> {
         "end" | "end date" | "dissipate" | "dissipation date" | "dissipated" => ("Dissipated", date(s, s.dissipated)?),
         "duration" | "length" | "how long" => ("Duration", format!("{} days ({} – {})", days(s)?, date(s, s.formed)?, date(s, s.dissipated)?)),
         "max wind speed" | "maximum wind speed" | "wind speed" | "peak wind speed" | "maximum sustained winds" | "max winds" | "top wind speed" => ("Maximum wind speed", (!s.wind.is_nan()).then(|| wind_text(s))?),
-        "deaths" | "death toll" | "fatalities" => ("Deaths", s.deaths.to_string()),
-        "damage" | "cost" => ("Damage", s.damage.to_string()),
+        "deaths" | "death toll" | "fatalities" if !s.deaths.is_empty() => ("Deaths", s.deaths.to_string()),
+        "damage" | "cost" if !s.damage.is_empty() => ("Damage", s.damage.to_string()),
         "pressure" | "minimum pressure" | "central pressure" => ("Minimum pressure", format!("{} mbar", fmt_float(s.pressure, 6))),
         "category" | "intensity" | "strength" => ("Peak intensity", s.category.to_string()),
         _ => return None,
@@ -160,6 +269,9 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
     let l = l.as_str();
+    if let Some(a) = season_list(l) {
+        return Some(a);
+    }
     // "when did Typhoon Angela start", "when did hurricane katrina end"
     if let Some(m) = re!(r"^when (?:did|was) (.+?) (start|begin|form|formed|end|dissipate|dissipated)$").captures(l) {
         let s = find(&m[1])?;
