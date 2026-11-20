@@ -122,6 +122,114 @@ diet of worms|1521-01-28|1521-05-25|Worms, Germany|imperial assembly at which Ma
 lindbergh's solo flight,lindbergh solo flight,lindbergh flight|1927-05-20|1927-05-21|from Roosevelt Field, New York, to Le Bourget, Paris|the first solo non-stop transatlantic flight: 33.5 hours in the Spirit of St. Louis
 ";
 
+/// Notable events by date, for "what happened in August 1969".
+const TIMELINE: &str = "1776-07-04|the Second Continental Congress adopts the Declaration of Independence
+1789-07-14|storming of the Bastille, Paris
+1912-04-15|RMS Titanic sinks after striking an iceberg
+1914-06-28|Archduke Franz Ferdinand assassinated in Sarajevo
+1929-10-29|Black Tuesday: the Wall Street stock market crash
+1941-12-07|Japanese attack on Pearl Harbor
+1944-06-06|D-Day: Allied landings in Normandy
+1945-05-08|V-E Day: Germany's surrender takes effect
+1945-08-06|atomic bombing of Hiroshima
+1945-08-09|atomic bombing of Nagasaki
+1957-10-04|Sputnik 1, the first artificial satellite, launched
+1961-04-12|Yuri Gagarin becomes the first human in space
+1963-11-22|President John F. Kennedy assassinated in Dallas
+1969-06-28|Stonewall riots begin in New York City
+1969-07-16|Apollo 11 launches from Kennedy Space Center
+1969-07-18|Chappaquiddick incident (Ted Kennedy's car accident)
+1969-07-20|Apollo 11 lands on the Moon; Neil Armstrong and Buzz Aldrin walk on the surface
+1969-08-08|the Beatles photographed crossing Abbey Road for the album cover
+1969-08-09|Manson Family murders of Sharon Tate and others in Los Angeles
+1969-08-14|British troops deployed in Northern Ireland (Operation Banner)
+1969-08-15|Woodstock music festival begins in Bethel, New York (to August 18)
+1969-08-17|Hurricane Camille makes landfall on the Mississippi coast as a Category 5 storm
+1969-10-29|the first ARPANET message is sent, from UCLA to SRI
+1986-01-28|Space Shuttle Challenger breaks apart after launch
+1986-04-26|Chernobyl nuclear disaster
+1989-03-24|Exxon Valdez oil spill in Prince William Sound, Alaska
+1989-06-04|Tiananmen Square crackdown in Beijing
+1989-10-17|Loma Prieta earthquake in the San Francisco Bay Area
+1989-11-09|fall of the Berlin Wall: East Germany opens its border crossings
+1989-11-10|Todor Zhivkov removed as leader of Bulgaria
+1989-11-17|Velvet Revolution begins with a student demonstration in Prague
+1989-12-20|United States invasion of Panama
+1989-12-25|Nicolae and Elena Ceaușescu executed in Romania
+1990-10-03|German reunification
+1991-12-26|the Soviet Union is dissolved
+2001-09-09|Afghan resistance leader Ahmad Shah Massoud assassinated
+2001-09-11|September 11 attacks on the World Trade Center and the Pentagon
+2001-09-18|first anthrax letters mailed in the United States
+2001-10-07|US-led invasion of Afghanistan begins (Operation Enduring Freedom)
+2001-10-23|Apple announces the iPod
+2001-10-25|Microsoft releases Windows XP
+2001-10-26|USA PATRIOT Act signed into law
+2004-12-26|Indian Ocean earthquake and tsunami
+2008-09-15|Lehman Brothers files for bankruptcy
+2009-01-15|US Airways Flight 1549 lands on the Hudson River
+2009-01-20|Barack Obama inaugurated as US president
+2009-05-18|Sri Lanka's government declares victory over the Tamil Tigers, ending the civil war
+2009-06-11|WHO declares the H1N1 swine flu pandemic
+2009-06-25|Michael Jackson dies
+2011-03-11|Tōhoku earthquake and tsunami; Fukushima nuclear disaster";
+
+/// "What happened in August 1969?", "events from November 1, 1989 to November 30, 1989", "May 18, 2009 events"
+fn timeline(l: &str) -> Option<Answer> {
+    const MONTHS: [&str; 12] = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+    let month = |s: &str| MONTHS.iter().position(|m| s.len() >= 3 && m.starts_with(s.trim_end_matches('.'))).map(|i| i as u32 + 1);
+    let body = re!(r"^(?:notable |major |historical |important )?(?:events (?:on|in|from|during|between) |events |what happened (?:on|in|during) |what happened |happenings (?:on|in) )(.+)$").captures(l).map(|m| m[1].to_string())
+        .or_else(|| re!(r"^(.+?) (?:events|happenings|in history)$").captures(l).map(|m| m[1].to_string()))?;
+    let date = re!(r"^([a-z]+)\.? (\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{4}))?$");
+    let month_year = re!(r"^([a-z]+) (\d{4})$");
+    let (lo, hi, label): ((i32, u32, u32), (i32, u32, u32), String) = if let Some(m) = re!(r"^(.+?) (?:to|through|until|and|-|–) (.+)$").captures(&body) {
+        let b = date.captures(m[2].trim())?;
+        let a = date.captures(m[1].trim())?;
+        let yb: i32 = b.get(3)?.as_str().parse().ok()?;
+        let ya: i32 = a.get(3).map_or(Some(yb), |y| y.as_str().parse().ok())?;
+        let (ma, mb) = (month(&a[1])?, month(&b[1])?);
+        ((ya, ma, a[2].parse().ok()?), (yb, mb, b[2].parse().ok()?), format!("{} {}, {ya} to {} {}, {yb}", cap(MONTHS[ma as usize - 1]), &a[2], cap(MONTHS[mb as usize - 1]), &b[2]))
+    } else if let Some(m) = date.captures(&body) {
+        let y: i32 = m.get(3)?.as_str().parse().ok()?;
+        let mo = month(&m[1])?;
+        let d: u32 = m[2].parse().ok()?;
+        ((y, mo, d), (y, mo, d), format!("{} {d}, {y}", cap(MONTHS[mo as usize - 1])))
+    } else if let Some(m) = month_year.captures(&body) {
+        let y: i32 = m[2].parse().ok()?;
+        let mo = month(&m[1])?;
+        ((y, mo, 1), (y, mo, 31), format!("{} {y}", cap(MONTHS[mo as usize - 1])))
+    } else if let Some(m) = re!(r"^(?:the year )?(\d{4})$").captures(&body) {
+        let y: i32 = m[1].parse().ok()?;
+        ((y, 1, 1), (y, 12, 31), y.to_string())
+    } else {
+        return None;
+    };
+    let rows: Vec<(String, &str)> = TIMELINE
+        .lines()
+        .filter_map(|r| {
+            let (d, e) = r.split_once('|')?;
+            let p: Vec<i64> = d.split('-').filter_map(|x| x.parse().ok()).collect();
+            let k = (p[0] as i32, p[1] as u32, p[2] as u32);
+            (k >= lo && k <= hi).then(|| (d.to_string(), e))
+        })
+        .collect();
+    if rows.is_empty() {
+        return None;
+    }
+    let shown = |d: &str| parse(d, false).map(show).unwrap_or_else(|| d.to_string());
+    Some(Answer::new(format!("events {label}"), vec![
+        input(format!("notable events | {label}")),
+        primary(pod("Result", "Notable events", text(rows.iter().map(|(d, e)| format!("{}: {e}", shown(d))).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Timeline", table(Some(vec!["date", "event"]), rows.iter().map(|(d, e)| vec![text(shown(d)), text(*e)]).collect())),
+        pod("Note", "Note", text("a selection of notable events, not a complete chronology")),
+    ]))
+}
+
+fn cap(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str())
+}
+
 /// A historical date in astronomical years (1 BCE = 0).
 #[derive(Clone, Copy)]
 struct D {
@@ -548,7 +656,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = re!(r"\s+").replace_all(&l, " ").replace('’', "'");
     let l = re!(r"^(?:what (?:is|was|were) |tell me about |show |the )").replace(&l, "").to_string();
     let l = l.trim_start_matches("compare the timelines of ").trim_start_matches("compare timelines of ").trim_start_matches("timeline of ").trim_start_matches("compare ");
-    if let Some(a) = lists(l).or_else(|| between(l)).or_else(|| property(l)) {
+    if let Some(a) = timeline(l).or_else(|| lists(l)).or_else(|| between(l)).or_else(|| property(l)) {
         return Some(a);
     }
     let names = split(l);

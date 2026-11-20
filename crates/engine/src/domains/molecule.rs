@@ -942,6 +942,15 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
         return Some(Answer::new("bonds", pods));
     }
+    // "C4H8O2 possible structures", "isomers of C3H6O"
+    if let Some(m) = re!(r"(?i)^(?:(?:the )?(?:possible |potential |known |random )?(?:structures|isomers|compounds) (?:of|for|with(?: the formula)?) ([A-Za-z0-9]+)|([A-Za-z0-9]+),? (?:possible |potential |known |random )?(?:structures|isomers))$").captures(c) {
+        let f = m.get(1).or(m.get(2))?.as_str();
+        if re!(r"^(?:[A-Z][a-z]?\d*){2,}$").is_match(f) {
+            if let Some(a) = isomers(f) {
+                return Some(a);
+            }
+        }
+    }
     // InChI strings
     if c.starts_with("InChI=") {
         return inchi_answer(c);
@@ -1565,6 +1574,25 @@ fn inchi_answer(s: &str) -> Option<Answer> {
     pods.push(pod("Structure", "Bonds from the InChI layers", text(form_text(&c.mol, &orders, &charges))));
     pods.push(pod("Properties", "Properties", multi_table(std::slice::from_ref(&c), &basic_rows)));
     Some(Answer::new("InChI", pods))
+}
+
+fn isomers(f: &str) -> Option<Answer> {
+    let counts = super::chem::parse_formula(f)?;
+    let mut seen = std::collections::HashSet::new();
+    let hits: Vec<&super::chem::DbCompound> = super::chem::compound_db().0.iter().filter(|c| super::chem::parse_formula(c.formula).as_ref() == Some(&counts) && !re!(r"(?i)-d\d*$|\bd\d+-|deuter|-13c|\(13c|-15n").is_match(c.name) && seen.insert(c.name.to_lowercase())).collect();
+    if hits.is_empty() {
+        return None;
+    }
+    let hill = hill_formula(&counts);
+    let mut shown: Vec<&&super::chem::DbCompound> = hits.iter().collect();
+    shown.sort_by_key(|c| (c.smiles.is_empty(), c.name.len()));
+    let shown: Vec<_> = shown.into_iter().take(30).collect();
+    Some(Answer::new(format!("compounds with formula {hill}"), vec![
+        pod("Input", "Input interpretation", text(format!("{hill} | possible structures"))),
+        primary(pod("Result", "Known compounds", text(format!("{} known compound{} with formula {hill}: {}", hits.len(), if hits.len() == 1 { "" } else { "s" }, shown.iter().take(8).map(|c| c.name).collect::<Vec<_>>().join(", "))))),
+        pod("Table", "Structures", table(Some(vec!["compound", "SMILES"]), shown.iter().map(|c| vec![text(c.name), text(if c.smiles.is_empty() { "—" } else { c.smiles })]).collect())),
+        pod("Note", "Note", text("isomers present in Noesis's compound table (from Wikidata), not an exhaustive enumeration")),
+    ]))
 }
 
 fn aromatic_answer(c: &Compound) -> Option<Answer> {

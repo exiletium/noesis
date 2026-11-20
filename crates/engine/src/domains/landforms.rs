@@ -225,6 +225,18 @@ kawhia harbour,kawhia harbor|harbor|Waikato, North Island, New Zealand|-38.07,17
 kenepuru sound|sound|Marlborough Sounds, South Island, New Zealand|-41.18,174.03||a long arm of Pelorus Sound
 broad sound|sound|central Queensland, Australia|-22.3,149.75||a large tidal inlet with the greatest tidal range on Australia's east coast (up to about 10 m)
 izmir limani,port of izmir,izmir harbor,izmir harbour,izmir limani harbor|harbor|İzmir, Turkey|38.44,27.15||the port of İzmir at the head of the Gulf of İzmir on the Aegean Sea
+sudbury crater,sudbury basin,sudbury impact structure|crater|Ontario, Canada|46.6,-81.18|diam=130;agema=1849|one of the largest and oldest known impact structures; its rocks hold rich nickel and copper ores
+beaverhead crater,beaverhead impact structure|crater|Montana and Idaho, United States|44.6,-113.0|diam=60;agema=600|a deeply eroded impact structure recognized from shatter cones
+chicxulub crater,chicxulub|crater|Yucatán Peninsula, Mexico|21.4,-89.52|diam=180;agema=66|buried under the Yucatán; the impact linked to the Cretaceous–Paleogene extinction
+meteor crater,barringer crater|crater|Arizona, United States|35.03,-111.02|diam=1.2;agema=0.05|the best-preserved impact crater on Earth
+popigai crater|crater|Siberia, Russia|71.65,111.18|diam=90;agema=35.7|
+chesapeake bay crater,chesapeake bay impact crater|crater|Virginia, United States|37.28,-76.02|diam=40;agema=35.5|buried beneath the mouth of Chesapeake Bay
+manicouagan crater,manicouagan impact structure|crater|Quebec, Canada|51.38,-68.7|diam=85;agema=214|the ring-shaped Manicouagan Reservoir fills the eroded crater
+siljan ring,siljan crater|crater|Dalarna, Sweden|61.03,14.87|diam=52;agema=377|the largest known impact structure in Europe
+ries crater,nördlinger ries|crater|Bavaria, Germany|48.88,10.62|diam=24;agema=14.8|the town of Nördlingen lies inside it
+kara crater|crater|Nenets, Russia|69.1,64.15|diam=65;agema=70.3|
+morokweng crater|crater|North West, South Africa|-26.47,23.53|diam=70;agema=145|buried under Kalahari sands
+vredefort crater,vredefort dome,vredefort impact structure|crater|Free State, South Africa|-27.0,27.5|diam=160;agema=2023|the largest verified impact structure on Earth
 hudson bay|sea|Canada|60.0,-85.0|area=1230000;avgdepth=100;depth=270|
 bay of bengal|sea|India, Bangladesh, Myanmar, Sri Lanka|15.0,88.0|area=2172000;avgdepth=2600;depth=4694|
 arabian sea|sea|between India and Arabia|15.0,65.0|area=3862000;avgdepth=2734;depth=4652|
@@ -393,6 +405,8 @@ fn group(s: String) -> String {
 
 const LABELS: &[(&str, &str)] = &[
     ("elev", "elevation"),
+    ("diam", "diameter"),
+    ("agema", "age"),
     ("prom", "prominence"),
     ("height", "height"),
     ("drop", "tallest single drop"),
@@ -424,6 +438,9 @@ fn value(f: &Feature, k: &str) -> Option<String> {
     Some(match (k, x) {
         ("elev", Some(m)) if f.kind == "island" => format!("{} m ({} ft) highest point", n(m), c(m * 3.280_84)),
         ("elev" | "prom" | "height" | "drop" | "depth" | "avgdepth" | "width", Some(m)) => format!("{} m ({} ft)", n(m), c(m * 3.280_84)),
+        ("diam", Some(km)) => format!("{} km ({} mi)", n(km), c(km * 0.621_371)),
+        ("agema", Some(ma)) if ma < 1.0 => format!("about {} years", c(ma * 1e6)),
+        ("agema", Some(ma)) => format!("about {} million years", c(ma)),
         ("wkm", Some(km)) => format!("{} km ({} mi)", n(km), c(km * 0.621_371)),
         ("len" | "coast", Some(km)) => format!("{} km ({} mi)", n(km), c(km * 0.621_371)),
         ("area" | "basin", Some(a)) if a < 10.0 => format!("{} km² ({} acres)", n(a), c(a * 247.105)),
@@ -478,6 +495,8 @@ fn prop_key(p: &str, f: &Feature) -> Option<&'static str> {
         "elevation" | "altitude" | "summit elevation" => if f.kind == "island" || f.get("elev").is_none() && f.get("height").is_some() { if f.get("elev").is_some() { "elev" } else { "height" } } else { "elev" },
         "height" | "how tall is" | "how high is" => if f.get("height").is_some() { "height" } else if f.get("elev").is_some() { "elev" } else { "depth" },
         "prominence" | "topographic prominence" => "prom",
+        "diameter" | "crater diameter" => "diam",
+        "age" | "how old is" => "agema",
         "length" | "how long is" => "len",
         "width" | "how wide is" => if f.get("wkm").is_some() { "wkm" } else { "width" },
         "area" | "surface area" | "size" => "area",
@@ -675,6 +694,62 @@ fn distance(l: &str) -> Option<Answer> {
     ]))
 }
 
+/// "Sudbury Crater diameter / Denali height"
+fn ratio(l: &str) -> Option<Answer> {
+    let (a, b) = l.split_once(" / ")?;
+    let side = |s: &str| -> Option<(&'static Feature, &'static str, f64, u8)> {
+        let m = re!(r"^(?:the )?(.+?) (diameter|height|elevation|length|area|surface area|depth|width|volume)$").captures(s.trim())?;
+        let f = find_loose(&m[1])?;
+        let k = prop_key(&m[2], f)?;
+        let v = f.num(k)?;
+        // value in SI and its dimension (1 length, 2 area, 3 volume)
+        Some(match k {
+            "diam" | "len" | "wkm" | "coast" => (f, k, v * 1000.0, 1),
+            "area" | "basin" => (f, k, v * 1e6, 2),
+            "vol" => (f, k, v * 1e9, 3),
+            _ => (f, k, v, 1),
+        })
+    };
+    let (x, y) = (side(a)?, side(b)?);
+    if x.3 != y.3 || y.2 == 0.0 {
+        return None;
+    }
+    let r = x.2 / y.2;
+    Some(Answer::new("ratio", vec![
+        pod("Input", "Input interpretation", text(format!("{} {} / {} {}", x.0.title(), label(x.1), y.0.title(), label(y.1)))),
+        primary(pod("Result", "Ratio", text(n(r)))),
+        pod("Values", "Values", table(None, vec![
+            vec![text(format!("{} {}", x.0.title(), label(x.1))), text(value(x.0, x.1).unwrap_or_default())],
+            vec![text(format!("{} {}", y.0.title(), label(y.1))), text(value(y.0, y.1).unwrap_or_default())],
+        ])),
+    ]))
+}
+
+/// "meteor impacts during the Phanerozoic Eon"
+fn impacts(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:major |large |largest )?(?:meteor(?:ite)? impacts?|impact craters?|asteroid impacts?|impact structures?)(?: (?:during|in|of) (?:the )?(phanerozoic|cenozoic|mesozoic|paleozoic|precambrian|proterozoic)(?: eon| era)?)?$").captures(l)?;
+    let (lo, hi, span) = match m.get(1).map(|x| x.as_str()) {
+        Some("phanerozoic") => (0.0, 538.8, "the Phanerozoic Eon (538.8 million years ago to now)"),
+        Some("cenozoic") => (0.0, 65.99, "the Cenozoic Era (66 million years ago to now)"),
+        Some("mesozoic") => (66.0, 251.902, "the Mesozoic Era (251.9 to 66 million years ago)"),
+        Some("paleozoic") => (251.902, 538.8, "the Paleozoic Era (538.8 to 251.9 million years ago)"),
+        Some(_) => (538.8, 4600.0, "the Precambrian (before 538.8 million years ago)"),
+        None => (0.0, 4600.0, "all ages"),
+    };
+    let mut list: Vec<&Feature> = data().iter().filter(|f| f.kind == "crater" && f.num("agema").is_some_and(|a| a >= lo && a <= hi)).collect();
+    if list.is_empty() {
+        return None;
+    }
+    list.sort_by(|a, b| b.num("diam").partial_cmp(&a.num("diam")).unwrap_or(std::cmp::Ordering::Equal));
+    let t: Vec<Vec<Content>> = list.iter().map(|f| vec![text(f.title()), text(f.place), text(value(f, "diam").unwrap_or_default()), text(value(f, "agema").unwrap_or_default())]).collect();
+    Some(Answer::new("impact craters", vec![
+        pod("Input", "Input interpretation", text(format!("impact craters | {span}"))),
+        primary(pod("Result", "Result", text(list.iter().map(|f| f.title()).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Impact structures (largest first)", table(Some(vec!["crater", "location", "diameter", "age"]), t)),
+        pod("Note", "Note", text("among the major impact structures in Noesis's table; diameters and ages are approximate (Earth Impact Database)")),
+    ]))
+}
+
 /// "caves in Italy", "volcanoes in Indonesia"
 fn in_place(l: &str) -> Option<Answer> {
     let m = re!(r"^(caves|volcanoes|mountains|lakes|rivers|waterfalls|deserts|islands)\s+in\s+(?:the\s+)?(.+)$").captures(l)?;
@@ -718,7 +793,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
     let l = re!(r"^(?:what is |what are |what's |where is |tell me about |show |compare )?(?:the )?").replace(&l, "").to_string();
     let l = l.trim_end_matches(" location").trim_end_matches(" wiki summaries").trim_end_matches(" wiki summary").to_string();
-    if let Some(a) = lists(&l).or_else(|| eruptions(&l)).or_else(|| distance(&l)).or_else(|| in_place(&l)).or_else(|| sum(&l)) {
+    if let Some(a) = lists(&l).or_else(|| eruptions(&l)).or_else(|| distance(&l)).or_else(|| in_place(&l)).or_else(|| sum(&l)).or_else(|| impacts(&l)).or_else(|| ratio(&l)) {
         return Some(a);
     }
     // a property: "length Amazon / Nile", "Pacific ocean lowest point", "volcanic arc of mt rainier"

@@ -220,10 +220,75 @@ fn ice(l: &str) -> Option<Answer> {
     Some(Answer::new("ice age", vec![pod("Input", "Input interpretation", text(*disp)), primary(pod("Result", title, text(main))), pod("Details", "Details", table(None, rows))]))
 }
 
+/// Approximate atmosphere and climate of the periods, from geochemical models
+/// (GEOCARB-type estimates): (period, O₂ vol %, CO₂ ppm, mean surface
+/// temperature °C, sea level relative to today).
+const PERIOD_CLIMATE: &[(&str, f64, f64, f64, &str)] = &[
+    ("Cambrian", 12.5, 4500.0, 21.0, "about 4 m rising to 90 m above today"),
+    ("Ordovician", 13.5, 4200.0, 16.0, "about 180 m above today, rising to 220 m, then falling sharply to 140 m in the end-Ordovician glaciation"),
+    ("Silurian", 14.0, 4500.0, 17.0, "about 180 m above today, with short-term falls"),
+    ("Devonian", 15.0, 2200.0, 20.0, "about 189 m above today, falling to 120 m"),
+    ("Carboniferous", 32.5, 800.0, 14.0, "falling from about 120 m above today to near today's level"),
+    ("Permian", 23.0, 900.0, 16.0, "about 60 m above today, falling through the period"),
+    ("Triassic", 16.0, 1750.0, 17.0, "relatively low, near today's level"),
+    ("Jurassic", 26.0, 1950.0, 16.5, "rising through the period, to about 140 m above today"),
+    ("Cretaceous", 30.0, 1700.0, 18.0, "high, about 100–250 m above today"),
+    ("Paleogene", 26.0, 500.0, 18.0, "falling from about 150 m above today"),
+    ("Neogene", 21.5, 280.0, 14.0, "falling toward today's level"),
+    ("Quaternary", 20.8, 250.0, 14.0, "swinging about 120 m below today in glacial maxima"),
+];
+
+fn period_climate(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:what (?:is|was|were) )?(?:the )?(?:mean |average )?(oxygen|o2|co2|carbon dioxide|sea level|temperature|surface temperature|climate|atmosphere)(?: levels?| contents?| concentrations?)? (?:during|in|of|for) (?:the )?([a-z]+)(?: period)?$").captures(l)?;
+    let (name, o2, co2, t, sea) = PERIOD_CLIMATE.iter().find(|x| x.0.eq_ignore_ascii_case(&m[2]))?;
+    let (title, main) = match &m[1] {
+        "oxygen" | "o2" => ("Mean atmospheric oxygen", format!("about {o2}% by volume (today 20.9%)")),
+        "co2" | "carbon dioxide" => ("Mean atmospheric CO₂", format!("about {co2} ppm (about {:.1} × the pre-industrial 280 ppm)", co2 / 280.0)),
+        "sea level" => ("Sea level", sea.to_string()),
+        "temperature" | "surface temperature" => ("Mean surface temperature", format!("about {t} °C (today about 14 °C)")),
+        _ => ("Climate", format!("O₂ about {o2}%, CO₂ about {co2} ppm, mean surface temperature about {t} °C")),
+    };
+    Some(Answer::new(format!("{name} {}", m[1].to_string()), vec![
+        pod("Input", "Input interpretation", text(format!("{name} Period | {}", title.to_lowercase()))),
+        primary(pod("Result", title, text(main))),
+        pod("Table", "Atmosphere and climate", table(None, vec![
+            vec![text("oxygen"), text(format!("about {o2}% by volume"))],
+            vec![text("carbon dioxide"), text(format!("about {co2} ppm"))],
+            vec![text("mean surface temperature"), text(format!("about {t} °C"))],
+            vec![text("sea level"), text(*sea)],
+        ])),
+        pod("Note", "Note", text("model estimates with large uncertainties (GEOCARB-type reconstructions)")),
+    ]))
+}
+
+/// "names of the geological rock layers associated with the Quaternary Period and the Ordovician Period"
+fn rock_systems(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:(?:the )?names? of )?(?:the )?(?:geologic(?:al)? )?(?:rock layers?|rock units?|strata|stratigraphic units?|systems?)(?: (?:associated with|of|for|from|deposited (?:in|during)|formed (?:in|during)))? (?:the )?(.+)$").captures(l)?;
+    let parts: Vec<&str> = re!(r"\s*(?:,\s*(?:and\s+)?(?:the\s+)?|\s+and\s+(?:the\s+)?)").split(&m[1]).filter(|p| !p.trim().is_empty()).collect();
+    let mut rows = Vec::new();
+    let mut names = Vec::new();
+    for p in parts {
+        let p = p.trim().trim_end_matches(" periods").trim_end_matches(" period");
+        let d = find(p).filter(|d| d.rank == Period)?;
+        let series: Vec<String> = children(d).iter().map(|c| format!("{} Series", c.name.replace("Early ", "Lower ").replace("Late ", "Upper "))).collect();
+        names.push(format!("{} System", d.name));
+        rows.push(vec![text(format!("{} Period", d.name)), text(format!("{} System", d.name)), text(series.join(", "))]);
+    }
+    if rows.is_empty() {
+        return None;
+    }
+    Some(Answer::new("rock systems", vec![
+        pod("Input", "Input interpretation", text("rock layers (chronostratigraphic systems) of the periods")),
+        primary(pod("Result", "Rock layers", text(names.join(" | ")))),
+        pod("Table", "Systems and series", table(Some(vec!["period (time)", "system (rocks)", "series"]), rows)),
+        pod("Note", "Note", text("rocks laid down during a period form a system; those of an epoch form a series, and of an age a stage")),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.clean.trim().trim_end_matches(['?', '.']).to_lowercase();
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
-    if let Some(a) = ice(&l) {
+    if let Some(a) = ice(&l).or_else(|| period_climate(&l)).or_else(|| rock_systems(&l)) {
         return Some(a);
     }
     // a moment in deep time: which eon, era, period and epoch

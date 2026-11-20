@@ -1955,3 +1955,16 @@ fn lewis_resonance_inchi_and_common_substructures() {
     assert!(short("trimethylamine gas").contains("g/mol"));
     assert!(short("distance from MoMath to Central Park").contains("km"));
 }
+
+#[test]
+fn interactions_isomers_craters_periods_and_timelines() {
+    assert!(short("ibuprofen drug interactions").contains("warfarin"));
+    assert!(short("C4H8O2 possible structures").contains("ethyl acetate"));
+    assert!(short("meteor impacts during the Phanerozoic Eon").starts_with("Chicxulub"));
+    assert!(short("mean oxygen levels during the Jurassic").contains("26%"));
+    assert_eq!(short("names of the geological rock layers associated with the Quaternary Period and the Ordovician Period"), "Quaternary System | Ordovician System");
+    assert_eq!(short("people born on Jan 17, 1922"), "Betty White");
+    assert!(short("What happened in August 1969?").contains("Woodstock"));
+    assert!(short("Sudbury Crater diameter / Denali height").starts_with("21.0"));
+    assert!(short("diet of worms").contains("1521"));
+}

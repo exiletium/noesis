@@ -553,6 +553,37 @@ pub fn handle(q: &Query) -> Option<Answer> {
         }
         return list_answer(&format!("famous people born in {}", place), ps);
     }
+    // "people born on Jan 17, 1922", "famous people born on December 18"
+    if let Some(m) = re!(r"^(?:famous |notable |well-known )?(?:people|celebrities|persons) (?:born|whose birthday is) on (?:the )?([a-z]+)\.? (\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{3,4}))?$").captures(&l) {
+        const MONTHS: [&str; 12] = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+        let mon = MONTHS.iter().position(|x| m[1].starts_with(x))? + 1;
+        let day: u32 = m[2].parse().ok()?;
+        let md = format!("-{mon:02}-{day:02}");
+        let ps: Vec<&Person> = people().iter().filter(|p| p.f[1].ends_with(&md) && m.get(3).is_none_or(|y| p.f[1].starts_with(&format!("{}-", y.as_str())))).collect();
+        let mn = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][mon - 1];
+        let when = match m.get(3) { Some(y) => format!("{mn} {day}, {}", y.as_str()), None => format!("{mn} {day}") };
+        return list_answer(&format!("famous people born on {when}"), ps);
+    }
+    // "birthdays of the discoverers of Neptune"
+    if let Some(m) = re!(r"^(?:the )?(birthdays?|birth dates?|ages?|deaths?|death dates?) of (?:the )?(?:discoverers?|discovery team) of (?:the )?(?:planet )?([a-z]+)$").captures(&l) {
+        let names: &[&str] = match &m[2] {
+            "neptune" => &["urbain le verrier", "johann gottfried galle", "john couch adams"],
+            "uranus" => &["william herschel"],
+            "pluto" => &["clyde tombaugh"],
+            _ => return None,
+        };
+        let ps: Vec<&Person> = names.iter().filter_map(|n| find(n, false)).collect();
+        if ps.is_empty() {
+            return None;
+        }
+        let death = m[1].starts_with("death");
+        let rows: Vec<Vec<Content>> = ps.iter().map(|p| vec![text(display(p)), text(date_text(p.f[1])), text(if p.f[3].is_empty() { "—".to_string() } else { date_text(p.f[3]) })]).collect();
+        return Some(Answer::new("discoverers", vec![
+            input(format!("discoverers of {} | {}", display_word(&m[2]), if death { "death dates" } else { "birth dates" })),
+            primary(pod("Result", if death { "Death dates" } else { "Birth dates" }, text(ps.iter().map(|p| format!("{}: {}", display(p), date_text(if death { p.f[3] } else { p.f[1] }))).collect::<Vec<_>>().join(" | ")))),
+            pod("Table", "Details", table(Some(vec!["name", "born", "died"]), rows)),
+        ]));
+    }
     if let Some(m) = re!(r"^(?:famous|notable|well-known)? ?people (?:named|called|with the first name|with the name) ([a-z]+)$").captures(&l) {
         let n = &m[1];
         let alt = match n { "stephen" => Some("steven"), "steven" => Some("stephen"), "sara" => Some("sarah"), _ => None };

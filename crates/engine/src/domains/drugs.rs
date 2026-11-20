@@ -50,6 +50,42 @@ const DRUGS: &[(&[&str], &str, &str, &str)] = &[
     (&["albuterol", "salbutamol"], "short-acting beta-2 agonist; bronchodilator", "activates beta-2 receptors, relaxing airway smooth muscle", "asthma; chronic obstructive pulmonary disease"),
 ];
 
+/// Well-known interactions: (names, &[(interacting drug or group, effect)]).
+const INTERACTIONS: &[(&[&str], &[(&str, &str)])] = &[
+    (&["ibuprofen", "advil", "motrin"], &[
+        ("warfarin and other anticoagulants", "higher risk of bleeding"),
+        ("aspirin (low-dose)", "ibuprofen taken first can block aspirin's antiplatelet effect; more stomach bleeding"),
+        ("other NSAIDs (naproxen, diclofenac)", "more gastrointestinal ulcers and bleeding, no added benefit"),
+        ("SSRIs and SNRIs (sertraline, fluoxetine, venlafaxine)", "higher risk of bleeding"),
+        ("corticosteroids (prednisone)", "more gastrointestinal ulcers and bleeding"),
+        ("ACE inhibitors, angiotensin receptor blockers and diuretics", "weaker blood-pressure lowering; kidney injury, especially all three together"),
+        ("lithium", "higher lithium levels (toxicity)"),
+        ("methotrexate", "higher methotrexate levels (toxicity)"),
+        ("alcohol", "more stomach bleeding"),
+    ]),
+    (&["aspirin", "acetylsalicylic acid"], &[
+        ("warfarin, heparin and direct oral anticoagulants", "higher risk of bleeding"),
+        ("ibuprofen and other NSAIDs", "less antiplatelet effect (ibuprofen) and more stomach bleeding"),
+        ("SSRIs and SNRIs", "higher risk of bleeding"),
+        ("corticosteroids", "more gastrointestinal ulcers and bleeding"),
+        ("methotrexate", "higher methotrexate levels (toxicity)"),
+        ("alcohol", "more stomach bleeding"),
+    ]),
+    (&["acetaminophen", "paracetamol", "tylenol"], &[
+        ("alcohol (regular heavy use)", "higher risk of liver damage"),
+        ("other acetaminophen-containing products (cold and flu remedies)", "accidental overdose"),
+        ("warfarin", "raised INR with regular daily use"),
+        ("carbamazepine, phenytoin, rifampin and isoniazid", "higher risk of liver toxicity"),
+    ]),
+    (&["warfarin", "coumadin"], &[
+        ("aspirin, NSAIDs and antiplatelet drugs", "higher risk of bleeding"),
+        ("antibiotics (metronidazole, ciprofloxacin, trimethoprim–sulfamethoxazole)", "raised INR, bleeding"),
+        ("fluconazole and amiodarone", "raised INR, bleeding"),
+        ("rifampin, carbamazepine and St John's wort", "lower INR, less protection from clots"),
+        ("vitamin K-rich foods (leafy greens), in changing amounts", "unstable INR"),
+    ]),
+];
+
 fn cap(s: &str) -> String {
     let mut c = s.chars();
     c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str())
@@ -58,6 +94,17 @@ fn cap(s: &str) -> String {
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
+    // "ibuprofen drug interactions"
+    if let Some(m) = re!(r"^(?:(?:drug )?interactions (?:of|for|with) (.+)|(.+?) (?:drug )?interactions)$").captures(&l) {
+        let name = m.get(1).or(m.get(2))?.as_str().trim();
+        let (names, list) = INTERACTIONS.iter().find(|d| d.0.contains(&name))?;
+        return Some(Answer::new(format!("{} drug interactions", names[0]), vec![
+            pod("Input", "Input interpretation", text(format!("{} | drug interactions", names[0]))),
+            primary(pod("Result", "Notable interactions", text(list.iter().map(|x| x.0).collect::<Vec<_>>().join(" | ")))),
+            pod("Table", "Effects", table(Some(vec!["with", "effect"]), list.iter().map(|(a, b)| vec![text(*a), text(*b)]).collect())),
+            pod("Note", "Note", text("The best-known interactions only, not a complete list and not medical advice.")),
+        ]));
+    }
     // reverse: "drugs prescribed for type 2 diabetes"
     if let Some(m) = re!(r"^(?:what |which )?(?:are )?(?:the )?(?:common )?(?:drugs|medications|medicines)(?: (?:that are |which are )?(?:prescribed|used|given|taken))? (?:for|to treat|against) (.+)$").captures(&l) {
         let want = m[1].trim().trim_start_matches("the ");
