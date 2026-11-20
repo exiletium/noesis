@@ -100,9 +100,46 @@ fn hms(deg: f64) -> String {
     format!("{}h {}m {}s", s / 3600, s / 60 % 60, s % 60)
 }
 
+/// "Islamic prayer times", "prayer times in Cairo": Muslim World League angles
+/// (Fajr 18°, Isha 17° below the horizon) and the standard (Shafi'i) Asr shadow.
+fn prayer_times(l: &str) -> Option<Answer> {
+    use chrono::TimeZone;
+    let m = re!(r"^(?:islamic |muslim |salat |salah )?(?:prayer times?|prayer schedule|namaz times?|salat times?)(?: (?:in|for|at) (.+?))?(?: today| now)?$").captures(l)?;
+    let p = place(m.get(1).map(|x| x.as_str()))?;
+    let today = Utc::now().with_timezone(&p.tz).date_naive();
+    let start = p.tz.from_local_datetime(&today.and_hms_opt(0, 0, 0)?).earliest()?.with_timezone(&Utc);
+    let sun = |t: DateTime<Utc>| horizontal("sun", t, p.lat, p.lon);
+    let below = |deg: f64| move |t: DateTime<Utc>| sun(t).map(|x| x.1 + deg);
+    let fajr = next_crossing(&below(18.0), start, true, 24);
+    let sunrise = next_crossing(&below(0.8333), start, true, 24);
+    let ha = |t: DateTime<Utc>| sun(t).map(|x| if x.0.abs() > 170.0 { -1.0 } else { x.0 });
+    let dhuhr = next_crossing(&ha, start, true, 24)?;
+    let noon_alt = sun(dhuhr)?.1;
+    let zen = (90.0 - noon_alt).to_radians();
+    let asr_alt = (1.0 / (1.0 + zen.tan())).atan().to_degrees();
+    let asr = next_crossing(&move |t: DateTime<Utc>| sun(t).map(|x| x.1 - asr_alt), dhuhr, false, 12);
+    let maghrib = next_crossing(&below(0.8333), dhuhr, false, 12);
+    let isha = next_crossing(&below(17.0), dhuhr, false, 14);
+    let fmt = |t: Option<DateTime<Utc>>| t.map_or("— (the Sun does not reach this angle today)".to_string(), |t| t.with_timezone(&p.tz).format("%-I:%M %p").to_string());
+    let rows: Vec<Vec<Content>> = [("Fajr", fajr), ("Sunrise", sunrise), ("Dhuhr", Some(dhuhr)), ("Asr", asr), ("Maghrib", maghrib), ("Isha", isha)].iter().map(|(n, t)| vec![text(*n), text(fmt(*t))]).collect();
+    let mut pods = vec![
+        pod("Input", "Input interpretation", text(format!("Islamic prayer times | {} | {}", p.name, today.format("%A, %B %-d, %Y")))),
+        primary(pod("Result", "Prayer times", text(format!("Fajr {} | Dhuhr {} | Asr {} | Maghrib {} | Isha {}", fmt(fajr), fmt(Some(dhuhr)), fmt(asr), fmt(maghrib), fmt(isha))))),
+        pod("Table", "Schedule", table(None, rows)),
+        pod("Note", "Method", text("Muslim World League convention: Fajr at 18° and Isha at 17° solar depression, Asr when an object's shadow equals its length plus its noon shadow, Maghrib at sunset; local time, flat horizon")),
+    ];
+    if p.assumed {
+        pods.push(pod("Assumption", "Assumption", text(format!("location: {} (no place given; set NOESIS_LOCATION to a city name to change)", p.name))));
+    }
+    Some(Answer::new("prayer times", pods))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"\s+").replace_all(l, " ").to_string();
+    if let Some(a) = prayer_times(&l) {
+        return Some(a);
+    }
     let loc = r"(?: (?:from|in|at|for|over) (.+?))?(?: (?:now|today|tonight|right now))?$";
     if let Some(m) = Regex::new(&format!(r"^(?:what is |what's )?(?:the )?(?:local )?hour angle of (?:the )?{BODY}{loc}")).ok()?.captures(&l) {
         let p = place(m.get(2).map(|x| x.as_str()))?;

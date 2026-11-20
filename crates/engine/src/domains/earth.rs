@@ -160,6 +160,15 @@ fn latitude_line(l: &str) -> Option<Answer> {
 /// second-order free-air correction for height: "geogravity 21.28N 157.60W",
 /// "gravity in Denver", "acceleration due to gravity at 45N 0E at 3000 m".
 fn gravity_at(l: &str) -> Option<Answer> {
+    // no place given: the current location
+    let home_q;
+    let l = if re!(r"^(?:geogravity|(?:local |my )?gravity (?:here|at my location)|local gravity|gravitational acceleration here)$").is_match(l) {
+        let (_, la, lo, _) = super::geo::home();
+        home_q = format!("geogravity {}{} {}{}", la.abs(), if la >= 0.0 { "n" } else { "s" }, lo.abs(), if lo >= 0.0 { "e" } else { "w" });
+        home_q.as_str()
+    } else {
+        l
+    };
     let m = re!(r"^(?:geogravity|(?:what is )?(?:the )?(?:local |normal |theoretical )?(?:gravity|gravitational acceleration|acceleration (?:due to|of) gravity|value of g|g)\s+(?:at|in|for|of))\s+(.+?)(?:\s+(?:at|elevation|altitude|height)\s+(\d+(?:\.\d+)?)\s*(m|meters|metres|km|ft|feet))?$").captures(l)?;
     let place = m[1].trim();
     let (lat, lon, name) = match position(place) {
@@ -767,6 +776,23 @@ fn clouds(l: &str) -> Option<Answer> {
     ]))
 }
 
+/// "cooling degree days", "heating degree days", "degree days"
+fn degree_days(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:what (?:are|is) )?(?:the )?(cooling |heating |growing )?degree[- ]days?(?: definition| formula)?$").captures(l)?;
+    let (title, def, formula) = match m.get(1).map(|x| x.as_str().trim()) {
+        Some("cooling") => ("cooling degree days", "how much, and for how long, the daily mean temperature is above a base temperature; a measure of the energy needed to cool buildings", "CDD = Σ max(0, T_mean − T_base) over the days, with T_base = 65 °F (18.3 °C) in the US or 18 °C elsewhere"),
+        Some("heating") => ("heating degree days", "how much, and for how long, the daily mean temperature is below a base temperature; a measure of the energy needed to heat buildings", "HDD = Σ max(0, T_base − T_mean) over the days, with T_base = 65 °F (18.3 °C) in the US or 15.5–18 °C elsewhere"),
+        Some("growing") => ("growing degree days", "accumulated warmth available for crop and insect development", "GDD = Σ max(0, (T_max + T_min)/2 − T_base), with T_base = 10 °C (50 °F) for corn"),
+        _ => ("degree days", "the accumulated difference between the daily mean temperature and a base temperature; heating degree days (HDD) count cold, cooling degree days (CDD) count warmth", "HDD = Σ max(0, T_base − T_mean), CDD = Σ max(0, T_mean − T_base), with T_mean = (T_max + T_min)/2 and T_base = 65 °F (18.3 °C) in the US"),
+    };
+    Some(Answer::new("degree days", vec![
+        pod("Input", "Input interpretation", text(title)),
+        primary(pod("Result", "Definition", text(def))),
+        pod("Formula", "Formula", text(formula)),
+        pod("Example", "Example", text("a day with a mean of 75 °F counts 10 cooling degree days and 0 heating degree days at a 65 °F base")),
+    ]))
+}
+
 /// "global methane level", "atmospheric CO2": NOAA global annual means.
 fn greenhouse(l: &str) -> Option<Answer> {
     let m = re!(r"^(?:current |global |atmospheric |global atmospheric |average )*(co2|carbon dioxide|methane|ch4|nitrous oxide|n2o)(?: level| levels| concentration| content| in the atmosphere| ppm| ppb)*(?: today| now)?$").captures(l)
@@ -791,7 +817,7 @@ fn greenhouse(l: &str) -> Option<Answer> {
 
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
-    if let Some(a) = greenhouse(l) {
+    if let Some(a) = greenhouse(l).or_else(|| degree_days(l)) {
         return Some(a);
     }
     let l = re!(r"\s+").replace_all(l, " ").to_string();

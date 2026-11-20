@@ -2051,3 +2051,11 @@ fn greenhouse_levels_and_seismic_travel_times() {
     assert!(short("seismic travel times from San Francisco to Los Angeles").starts_with("P wave"));
     assert!(short("distance from seismic wave travel times").contains("8.4 km/s"));
 }
+
+#[test]
+fn prayer_times_local_gravity_and_degree_days() {
+    let p = short("prayer times in Cairo");
+    assert!(p.starts_with("Fajr") && p.contains("Isha"));
+    assert!(short("geogravity").ends_with("m/s²"));
+    assert!(short("cooling degree days").contains("above a base temperature"));
+}
