@@ -270,8 +270,133 @@ fn several(ents: &[&'static (&'static str, Rows)], p: &(&str, &str, &str, &str))
     ]))
 }
 
+fn continent_name(s: &str) -> Option<&'static str> {
+    Some(match s {
+        "africa" | "african" => "Africa",
+        "europe" | "european" => "Europe",
+        "asia" | "asian" => "Asia",
+        "south america" | "south american" => "South America",
+        "north america" | "north american" => "North America",
+        "oceania" | "oceanian" => "Oceania",
+        _ => return None,
+    })
+}
+
+/// Factbook entities of the countries on a continent, with their populations.
+fn members(cont: &str) -> Vec<(&'static (&'static str, Rows), f64)> {
+    countries().values().filter(|c| c.continent == cont && c.population > 0).filter_map(|c| Some((entity(&c.name)?, c.population as f64))).collect()
+}
+
+/// A continent total or population-weighted average: (value text, countries used, countries on the continent).
+fn continent_value(cont: &str, what: &str) -> Option<(String, String, usize, usize)> {
+    let ms = members(cont);
+    let total = ms.len();
+    if what == "population" {
+        let pop: f64 = ms.iter().map(|m| m.1).sum();
+        return Some(("population".into(), format!("about {} people", super::geo::fmt_int(pop as u64)), total, total));
+    }
+    let (field, sub, label) = match what {
+        "gdp" | "nominal gdp" | "economy" | "gdp official exchange rate" => ("GDP (official exchange rate)", "=", "GDP (official exchange rate)"),
+        _ => {
+            let p = prop(what)?;
+            (p.1, p.2, p.3)
+        }
+    };
+    let vals: Vec<(f64, f64, &str)> = ms.iter().filter_map(|(e, pop)| {
+        let t = values(&e.1, field, sub).first()?.1;
+        Some((number(t)?, *pop, t))
+    }).collect();
+    if vals.len() * 2 < total.max(2) {
+        return None;
+    }
+    let sample = vals[0].2;
+    let rate = sample.contains('%') || sample.contains("years") || sample.contains('/') || sample.contains(" per ");
+    let text_v = if rate {
+        let w: f64 = vals.iter().map(|v| v.1).sum();
+        let mean = vals.iter().map(|v| v.0 * v.1).sum::<f64>() / w;
+        let unit = if sample.contains("years") { " years" } else if sample.contains('%') { "%" } else { "" };
+        format!("{:.1}{unit} (population-weighted average)", mean)
+    } else {
+        let s: f64 = vals.iter().map(|v| v.0).sum();
+        let money = sample.trim_start().starts_with('$');
+        let (x, word) = if s >= 1e12 { (s / 1e12, " trillion") } else if s >= 1e9 { (s / 1e9, " billion") } else if s >= 1e6 { (s / 1e6, " million") } else { (s, "") };
+        format!("{}{:.2}{word} (sum over countries)", if money { "$" } else { "" }, x)
+    };
+    Some((label.to_string(), text_v, vals.len(), total))
+}
+
+/// "Europe life expectancy", "internet users in South America", "Africa population vs Africa GDP"
+fn continent(l: &str) -> Option<Answer> {
+    let parse = |s: &str| -> Option<(&'static str, String)> {
+        let s = s.trim();
+        if let Some(m) = re!(r"^(.+?) (?:of|in|for) (africa|europe|asia|south america|north america|oceania)$").captures(s) {
+            return Some((continent_name(&m[2])?, m[1].to_string()));
+        }
+        let m = re!(r"^(africa|europe|asia|south america|north america|oceania)(?:'s)? (.+)$").captures(s)?;
+        Some((continent_name(&m[1])?, m[2].to_string()))
+    };
+    let parts: Vec<&str> = l.split(" vs ").collect();
+    let items: Vec<(&str, String)> = parts.iter().map(|p| parse(p)).collect::<Option<Vec<_>>>()?;
+    let mut rows = Vec::new();
+    let mut short = Vec::new();
+    for (cont, what) in &items {
+        let (label, v, used, total) = continent_value(cont, what)?;
+        short.push(if items.len() == 1 { v.clone() } else { format!("{cont} {label}: {v}") });
+        rows.push(vec![text(format!("{cont} | {label}")), text(v), text(format!("{used} of {total} countries"))]);
+    }
+    Some(Answer::new("continent data", vec![
+        input(items.iter().map(|(c, w)| format!("{c} | {w}")).collect::<Vec<_>>().join(" vs ")),
+        primary(pod("Result", "Result", text(short.join(" | ")))),
+        pod("Table", "Details", table(Some(vec!["", "value", "countries with data"]), rows)),
+        pod("Note", "Note", text("computed from the Factbook values of each country on the continent; rates are averaged with population weights")),
+        source(),
+    ]))
+}
+
+/// "European countries with unemployment < Denmark"
+fn threshold(l: &str) -> Option<Answer> {
+    let m = re!(r"^(african|european|asian|south american|north american|oceanian)? ?countries with (?:an? |the )?(.+?) (<|>|less than|lower than|below|under|greater than|higher than|above|more than|over) (.+)$").captures(l)?;
+    let cont = m.get(1).map(|c| continent_name(c.as_str())).flatten();
+    let p = prop(&m[2])?;
+    let below = matches!(&m[3], "<" | "less than" | "lower than" | "below" | "under");
+    let rhs = m[4].trim().trim_start_matches("that of ").trim_start_matches("the ");
+    let (limit, against) = match rhs.trim_end_matches('%').trim().parse::<f64>() {
+        Ok(x) => (x, rhs.to_string()),
+        Err(_) => {
+            let e = entity(rhs)?;
+            let t = values(&e.1, p.1, p.2).first()?.1;
+            (number(t)?, format!("{} ({t})", e.0))
+        }
+    };
+    let sovereign: std::collections::HashSet<String> = countries().values().filter(|c| c.population > 0 && cont.is_none_or(|k| c.continent == k)).map(|c| c.name.to_lowercase()).collect();
+    let mut v: Vec<(&str, f64, &str)> = data().iter().filter(|(k, e)| sovereign.contains(*k) && !e.1.iter().any(|r| r.0 == "Dependency status")).filter_map(|(_, e)| {
+        let t = values(&e.1, p.1, p.2).first()?.1;
+        Some((e.0, number(t)?, t))
+    }).filter(|x| if below { x.1 < limit } else { x.1 > limit }).collect();
+    if v.is_empty() {
+        return None;
+    }
+    v.sort_by(|a, b| a.1.total_cmp(&b.1));
+    let scope = cont.map_or_else(|| "countries".to_string(), |k| format!("countries in {k}"));
+    Some(Answer::new("country filter", vec![
+        input(format!("{scope} | {} {} {against}", p.3, if below { "<" } else { ">" })),
+        primary(pod("Result", "Countries", text(v.iter().map(|x| x.0).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Values", table(Some(vec!["country", p.3]), v.iter().map(|x| vec![text(x.0), text(x.2)]).collect())),
+        source(),
+    ]))
+}
+
 /// "countries with the highest inflation", "lowest life expectancy in the world"
 fn ranking(l: &str) -> Option<Answer> {
+    // "African country with highest life expectancy", "countries with the highest inflation in Europe"
+    let (l, cont) = match re!(r"^(?:which |what )?(african|european|asian|south american|north american|oceanian) (.+)$").captures(l) {
+        Some(m) => (m[2].to_string(), Some(continent_name(&m[1])?)),
+        None => match re!(r"^(.+?) in (africa|europe|asia|south america|north america|oceania)$").captures(l) {
+            Some(m) if m[1].contains("countr") => (m[1].to_string(), Some(continent_name(&m[2])?)),
+            _ => (l.to_string(), None),
+        },
+    };
+    let l = l.as_str();
     let m = re!(r"^(?:which |what )?(?:countries|country|nations?)?\s*(?:with|has|have)?\s*(?:the )?(highest|largest|biggest|most|lowest|smallest|least|longest|shortest|top \d+)\s+(.+?)(?: in the world| worldwide| of all countries| by country)?$").captures(l)
         .or_else(|| re!(r"^(?:countries|nations) (?:ranked |sorted |ordered )?by (.+?)()$").captures(l).map(|c| c))?;
     let (dir, what) = if m.get(2).map_or(false, |x| !x.as_str().is_empty()) { (m[1].to_string(), m[2].to_string()) } else { ("highest".to_string(), m[1].to_string()) };
@@ -281,22 +406,24 @@ fn ranking(l: &str) -> Option<Answer> {
     let p = prop(what.trim_start_matches("in "))?;
     let low = ["lowest", "smallest", "least", "shortest"].contains(&dir.as_str());
     let n = dir.strip_prefix("top ").and_then(|x| x.parse().ok()).unwrap_or(10usize).min(50);
-    let sovereign: std::collections::HashSet<String> = countries().values().filter(|c| c.population > 0).map(|c| c.name.to_lowercase()).collect();
+    let sovereign: std::collections::HashSet<String> = countries().values().filter(|c| c.population > 0 && cont.is_none_or(|k| c.continent == k)).map(|c| c.name.to_lowercase()).collect();
     let mut v: Vec<(&str, f64, &str)> = data()
         .iter()
         .filter(|(k, _)| sovereign.contains(*k))
+        .filter(|(_, e)| cont.is_none() || !e.1.iter().any(|r| r.0 == "Dependency status"))
         .filter_map(|(_, e)| {
             let t = values(&e.1, p.1, p.2).first()?.1;
             Some((e.0, number(t)?, t))
         })
         .collect();
-    if v.len() < 5 {
+    if v.len() < if cont.is_some() { 3 } else { 5 } {
         return None;
     }
     v.sort_by(|a, b| if low { a.1.total_cmp(&b.1) } else { b.1.total_cmp(&a.1) });
+    let where_ = cont.map_or_else(|| "countries".to_string(), |k| format!("countries in {k}"));
     let rows = v.iter().take(n).enumerate().map(|(i, x)| vec![text(format!("{}", i + 1)), text(x.0), text(x.2)]).collect();
     Some(Answer::new("country ranking", vec![
-        input(format!("countries | {} | {}", p.3, if low { "lowest" } else { "highest" })),
+        input(format!("{where_} | {} | {}", p.3, if low { "lowest" } else { "highest" })),
         primary(pod("Result", &format!("{} {}", if low { "Lowest" } else { "Highest" }, p.3), text(format!("{} ({})", v[0].0, v[0].2)))),
         pod("Table", &format!("Top {n}"), table(Some(vec!["rank", "country", p.3]), rows)),
         source(),
@@ -434,7 +561,14 @@ pub fn handle(q: &Query) -> Option<Answer> {
             l = r;
         }
     }
-    if let Some(a) = ranking(l) {
+    // "how much does Ireland spend on education", "US education spending vs GDP"
+    let rewritten;
+    if let Some(m) = re!(r"^how much does (?:the )?(.+?) spend on (education|health|health care|healthcare|the military|military|defense|defence)$").captures(l).or_else(|| re!(r"^(.+?) (education|health|healthcare|military|defense) spending(?: vs\.? gdp| as a share of gdp| % of gdp| percent of gdp)$").captures(l)) {
+        let what = match &m[2] { "education" => "education expenditure", "health" | "health care" | "healthcare" => "health expenditure", _ => "military expenditures" };
+        rewritten = format!("{what} of {}", &m[1]);
+        l = rewritten.as_str();
+    }
+    if let Some(a) = ranking(l).or_else(|| threshold(l)).or_else(|| continent(l)) {
         return Some(a);
     }
     if let Some(a) = aggregate_gdp(l) {

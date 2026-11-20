@@ -1977,3 +1977,13 @@ fn wood_loads_show_hours_radio_and_festivals() {
     assert!(short("ComicCon International vs Burning Man").contains("Burning Man"));
     assert!(short("Orange County California, Orange County Florida").contains("2020 census"));
 }
+
+#[test]
+fn continent_aggregates_and_filters() {
+    assert!(short("Europe life expectancy").contains("years"));
+    assert!(short("internet users in South America").contains('%'));
+    assert!(short("Africa population vs Africa GDP").contains("trillion"));
+    assert!(!short("African country with highest life expectancy").contains("Saint Helena"));
+    assert!(short("European countries with unemployment < Denmark").contains("Germany"));
+    assert!(short("How much does Ireland spend on education?").contains("GDP"));
+}
