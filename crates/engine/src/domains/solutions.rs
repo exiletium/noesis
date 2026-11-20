@@ -124,9 +124,62 @@ fn moles_of(v: f64, kind: Kind, f: f64, t: &Thing) -> Option<f64> {
     })
 }
 
+/// Densities of aqueous solutions at 20 °C (CRC Handbook): (mass percent, g/mL).
+const ETHANOL_AQ: &[(f64, f64)] = &[(0.0, 0.99820), (5.0, 0.98938), (10.0, 0.98187), (15.0, 0.97514), (20.0, 0.96864), (25.0, 0.96168), (30.0, 0.95382), (40.0, 0.93518), (50.0, 0.91384), (60.0, 0.89113), (70.0, 0.86766), (80.0, 0.84344), (90.0, 0.81797), (100.0, 0.78934)];
+const NACL_AQ: &[(f64, f64)] = &[(0.0, 0.99820), (1.0, 1.0053), (2.0, 1.0125), (4.0, 1.0268), (6.0, 1.0413), (8.0, 1.0559), (10.0, 1.0707), (12.0, 1.0857), (14.0, 1.1009), (16.0, 1.1162), (20.0, 1.1478), (24.0, 1.1804), (26.0, 1.1972)];
+const SUCROSE_AQ: &[(f64, f64)] = &[(0.0, 0.99820), (10.0, 1.0381), (20.0, 1.0810), (30.0, 1.1270), (40.0, 1.1764), (50.0, 1.2296), (60.0, 1.2865)];
+
+fn interp(t: &[(f64, f64)], w: f64) -> Option<f64> {
+    let i = t.windows(2).position(|p| w >= p[0].0 && w <= p[1].0)?;
+    let (a, b) = (t[i], t[i + 1]);
+    Some(a.1 + (w - a.0) / (b.0 - a.0) * (b.1 - a.1))
+}
+
+/// "density of 3 molar ethanol", "density of 10% NaCl solution"
+fn solution_density(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:the )?density of (?:an? )?(\d+(?:\.\d+)?) ?(molar|m|mol/l|%|percent|wt ?%|mass ?%|weight percent|mass percent) (?:aqueous )?(ethanol|ethyl alcohol|nacl|sodium chloride|salt|sucrose|sugar)(?: solution| in water)?$").captures(l)?;
+    let (name, mm, t) = match &m[3] {
+        "ethanol" | "ethyl alcohol" => ("ethanol", 46.069, ETHANOL_AQ),
+        "nacl" | "sodium chloride" | "salt" => ("sodium chloride", 58.443, NACL_AQ),
+        _ => ("sucrose", 342.30, SUCROSE_AQ),
+    };
+    let v: f64 = m[1].parse().ok()?;
+    let molar = matches!(&m[2], "molar" | "m" | "mol/l");
+    // mass percent: given, or solved from c = w ρ / M
+    let w = if molar {
+        let (mut lo, mut hi) = (0.0, t.last()?.0);
+        for _ in 0..60 {
+            let mid = (lo + hi) / 2.0;
+            let c = mid / 100.0 * interp(t, mid)? * 1000.0 / mm;
+            if c < v { lo = mid } else { hi = mid }
+        }
+        if (lo - t.last()?.0).abs() < 1e-6 {
+            return None;
+        }
+        lo
+    } else {
+        v
+    };
+    let rho = interp(t, w)?;
+    let c = w / 100.0 * rho * 1000.0 / mm;
+    Some(Answer::new("solution density", vec![
+        pod("Input", "Input interpretation", text(format!("{name} in water | {} | 20 °C", if molar { format!("{v} mol/L") } else { format!("{v}% by mass") }))),
+        primary(pod("Result", "Density", text(format!("{:.4} g/mL ({:.1} kg/m³)", rho, rho * 1000.0)))),
+        pod("Table", "Composition", table(None, vec![
+            vec![text("mass fraction"), text(format!("{:.2}%", w))],
+            vec![text("molarity"), text(format!("{:.3} mol/L", c))],
+            vec![text("molality"), text(format!("{:.3} mol/kg", w / (100.0 - w) * 1000.0 / mm))],
+        ])),
+        pod("Note", "Note", text("interpolated from CRC Handbook tables of aqueous solution densities at 20 °C")),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let c = q.clean.trim().trim_end_matches(['?', '.']).trim();
     let l = c.to_lowercase();
+    if let Some(a) = solution_density(&l) {
+        return Some(a);
+    }
     ions(c, &l)
         .or_else(|| stoichiometry(c))
         .or_else(|| dilute(c, &l))

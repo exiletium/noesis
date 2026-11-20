@@ -2081,3 +2081,9 @@ fn exoplanet_hosts_and_memristance() {
     assert!(short("51 Pegasi").contains("51 Pegasi b"));
     assert!(short("magnetic memristance").contains("dΦ/dq"));
 }
+
+#[test]
+fn aqueous_solution_densities() {
+    assert!(short("density of 3 molar ethanol").starts_with("0.976"));
+    assert!(short("density of 10% NaCl solution").starts_with("1.0707"));
+}
