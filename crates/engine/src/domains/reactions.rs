@@ -245,14 +245,19 @@ fn parse_species(p: &str) -> Option<Species> {
         return Some(Species { coef, formula: sym, charge: z, state });
     }
     // written charges: "Cl-", "Pb2+", "SO4^2-", "PO4 3-"
-    if let Some(m) = re!(r"^([A-Z][A-Za-z0-9()]*?)\s*\^?\s*(\d?)([+-])$").captures(&p) {
-        let k: i32 = if m[2].is_empty() { 1 } else { m[2].parse().ok()? };
-        let f = m[1].to_string();
+    if let Some(m) = re!(r"^([A-Z][A-Za-z0-9()]*?)(\s*\^?\s*)(\d?)([+-])$").captures(&p) {
+        // "NO2+" is NO₂⁺, but "Fe3+" is Fe³⁺: a bare digit is a charge only
+        // after a lone element symbol
+        let (f, digits) = if m[2].is_empty() && !m[3].is_empty() && by_symbol(&m[1]).is_none() { (format!("{}{}", &m[1], &m[3]), String::new()) } else { (m[1].to_string(), m[3].to_string()) };
+        let k: i32 = if digits.is_empty() { 1 } else { digits.parse().ok()? };
         parse_formula(&f)?;
-        return Some(Species { coef, formula: f, charge: if &m[3] == "+" { k } else { -k }, state });
+        return Some(Species { coef, formula: f, charge: if &m[4] == "+" { k } else { -k }, state });
     }
-    let lower = p.to_lowercase();
-    let lower = lower.trim_end_matches(" ion");
+    let full = p.to_lowercase();
+    if matches!(full.as_str(), "hydrogen ion" | "hydrogen ions" | "proton" | "protons" | "hydron") {
+        return Some(Species { coef, formula: "H".into(), charge: 1, state });
+    }
+    let lower = full.trim_end_matches('s').trim_end_matches(" ion");
     if let Some(i) = IONS.iter().find(|i| i.0 == lower) {
         return Some(Species { coef, formula: i.1.to_string(), charge: i.2, state });
     }
@@ -390,6 +395,206 @@ fn ionize(side: &[Species]) -> Vec<Species> {
         }
     }
     out
+}
+
+/// Equations with ions ("Ag+ + Cl- -> AgCl") or with an amount of one
+/// species ("benzene + nitronium -> 0.02 mol nitrobenzene + hydrogen ion").
+fn charged_equation(q: &Query) -> Option<Answer> {
+    let c = q.clean.trim().trim_end_matches('?').trim();
+    let body = re!(r"(?i)^(?:balance\s+(?:the\s+)?(?:chemical\s+)?(?:equation\s+|reaction\s+)?:?\s*)?(.+)$").captures(c)?.get(1)?.as_str().to_string();
+    let arrow = ["-->", "->", "=>", "→", "⟶"].iter().find(|a| body.contains(**a))?;
+    let (l, r) = body.split_once(arrow)?;
+    let mut amount: Option<(usize, f64, bool)> = None;
+    let mut sides = Vec::new();
+    let mut idx = 0;
+    for side in [l, r] {
+        let mut v = Vec::new();
+        for p in split_plus(side) {
+            let p = if let Some(m) = re!(r"(?i)^(\d*\.?\d+)\s*(mols?|moles?|g|grams?)\s+(?:of\s+)?(.+)$").captures(&p) {
+                amount = Some((idx, m[1].parse().ok()?, m[2].to_lowercase().starts_with('g')));
+                m[3].to_string()
+            } else {
+                p
+            };
+            v.push(parse_species(&p)?);
+            idx += 1;
+        }
+        sides.push(v);
+    }
+    let mut right = sides.pop()?;
+    let mut left = sides.pop()?;
+    if left.is_empty() || right.is_empty() || (amount.is_none() && left.iter().chain(right.iter()).all(|s| s.charge == 0)) {
+        return None;
+    }
+    for s in left.iter_mut().chain(right.iter_mut()) {
+        s.coef = None;
+    }
+    let unbalanced = format!("{} → {}", show_side(&left, true), show_side(&right, true));
+    balanced(&mut left, &mut right)?;
+    let eq = format!("{} → {}", show_side(&left, true), show_side(&right, true));
+    let mut pods = vec![pod("Input", "Input interpretation", text(unbalanced)), primary(pod("Result", "Balanced equation", text(eq)))];
+    let all: Vec<&Species> = left.iter().chain(right.iter()).collect();
+    let charge = |v: &[Species]| -> i64 { v.iter().map(|s| s.coef.unwrap_or(1) * s.charge as i64).sum() };
+    if all.iter().any(|s| s.charge != 0) {
+        let fmt = |z: i64| if z > 0 { format!("+{z}") } else { z.to_string() };
+        pods.push(pod("Charge", "Charge balance", text(format!("net charge {} on the left, {} on the right", fmt(charge(&left)), fmt(charge(&right))))));
+    }
+    let mass = |s: &Species| parse_formula(&s.formula).map_or(0.0, |c| super::chem::molar_mass(&c));
+    if let Some((i, v, is_mass)) = amount {
+        let base_mol = if is_mass { v / mass(all[i]) } else { v };
+        let per = base_mol / all[i].coef.unwrap_or(1) as f64;
+        let rows: Vec<Vec<Content>> = all
+            .iter()
+            .enumerate()
+            .map(|(k, s)| {
+                let mol = per * s.coef.unwrap_or(1) as f64;
+                vec![text(ion_text(&s.formula, s.charge)), text(if k < left.len() { "reactant" } else { "product" }), text(format!("{} mol", fmt_float(mol, 4))), text(format!("{} g/mol", fmt_float(mass(s), 6))), text(format!("{} g", fmt_float(mol * mass(s), 4)))]
+            })
+            .collect();
+        pods.push(pod("Stoichiometry", "Stoichiometry", table(Some(vec!["species", "role", "amount", "molar mass", "mass"]), rows)));
+    } else {
+        let rows: Vec<Vec<Content>> = all.iter().enumerate().map(|(k, s)| vec![text(ion_text(&s.formula, s.charge)), text(if k < left.len() { "reactant" } else { "product" }), text(s.coef.unwrap_or(1).to_string()), text(format!("{} g/mol", fmt_float(mass(s), 6)))]).collect();
+        pods.push(pod("Masses", "Stoichiometry", table(Some(vec!["species", "role", "moles", "molar mass"]), rows)));
+    }
+    Some(Answer::new("balance chemical equation", pods))
+}
+
+/// Common textbook reactions, generated from templates, for searches such as
+/// "KOH -> H2O" (reactions of KOH that make water) or "-> nitrate".
+fn reaction_library() -> Vec<(Vec<String>, Vec<String>)> {
+    let salt = |cat: &str, zc: i32, an: &str, za: i32| -> String {
+        let g = gcd(zc as i64, -za as i64) as i32;
+        let (nc, na) = ((-za) / g, zc / g);
+        let poly = |f: &str| f.chars().filter(|c| c.is_ascii_uppercase()).count() > 1 || f.chars().any(|c| c.is_ascii_digit());
+        let part = |f: &str, n: i32| if n == 1 { f.to_string() } else if poly(f) { format!("({f}){n}") } else { format!("{f}{n}") };
+        if an == "CH3COO" {
+            return format!("{}{}", part(an, na), part(cat, nc));
+        }
+        format!("{}{}", part(cat, nc), part(an, na))
+    };
+    let bases = [("NaOH", "Na", 1), ("KOH", "K", 1), ("LiOH", "Li", 1), ("Ca(OH)2", "Ca", 2), ("Ba(OH)2", "Ba", 2), ("Mg(OH)2", "Mg", 2)];
+    let acids = [("HCl", "Cl", -1), ("HBr", "Br", -1), ("HI", "I", -1), ("HF", "F", -1), ("HNO3", "NO3", -1), ("H2SO4", "SO4", -2), ("H3PO4", "PO4", -3), ("CH3COOH", "CH3COO", -1)];
+    let v = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let mut out = Vec::new();
+    for (b, cat, zc) in bases {
+        for (a, an, za) in acids {
+            out.push((v(&[b, a]), v(&[&salt(cat, zc, an, za), "H2O"])));
+        }
+    }
+    for (m, z) in [("Zn", 2), ("Mg", 2), ("Fe", 2), ("Al", 3), ("Ca", 2)] {
+        for (a, an, za) in acids.iter().take(6) {
+            if *a != "HNO3" {
+                out.push((v(&[m, a]), v(&[&salt(m, z, an, *za), "H2"])));
+            }
+        }
+    }
+    for (c, cat, zc) in [("Na2CO3", "Na", 1), ("K2CO3", "K", 1), ("CaCO3", "Ca", 2), ("MgCO3", "Mg", 2)] {
+        for (a, an, za) in acids.iter().take(7) {
+            out.push((v(&[c, a]), v(&[&salt(cat, zc, an, *za), "H2O", "CO2"])));
+        }
+    }
+    for (a, an, za) in acids.iter().take(7) {
+        out.push((v(&["NaHCO3", a]), v(&[&salt("Na", 1, an, *za), "H2O", "CO2"])));
+    }
+    for (o, cat, zc) in [("CuO", "Cu", 2), ("MgO", "Mg", 2), ("CaO", "Ca", 2), ("ZnO", "Zn", 2), ("Fe2O3", "Fe", 3), ("Na2O", "Na", 1)] {
+        for (a, an, za) in acids.iter().take(7) {
+            out.push((v(&[o, a]), v(&[&salt(cat, zc, an, *za), "H2O"])));
+        }
+    }
+    for (x, an, za) in [("NaCl", "Cl", -1), ("KCl", "Cl", -1), ("NaBr", "Br", -1), ("KI", "I", -1)] {
+        out.push((v(&["AgNO3", x]), v(&[&salt("Ag", 1, an, za), &format!("{}NO3", &x[..x.len() - an.len()])])));
+    }
+    out.push((v(&["Pb(NO3)2", "KI"]), v(&["PbI2", "KNO3"])));
+    out.push((v(&["BaCl2", "Na2SO4"]), v(&["BaSO4", "NaCl"])));
+    out.push((v(&["NH3", "HCl"]), v(&["NH4Cl"])));
+    out.push((v(&["NH3", "HNO3"]), v(&["NH4NO3"])));
+    out.push((v(&["NH3", "H2SO4"]), v(&["(NH4)2SO4"])));
+    out.push((v(&["N2O5", "H2O"]), v(&["HNO3"])));
+    out.push((v(&["NO2", "H2O", "O2"]), v(&["HNO3"])));
+    out.push((v(&["Cu", "HNO3"]), v(&["Cu(NO3)2", "NO2", "H2O"])));
+    out.push((v(&["KOH", "CO2"]), v(&["K2CO3", "H2O"])));
+    out.push((v(&["NaOH", "CO2"]), v(&["Na2CO3", "H2O"])));
+    out.push((v(&["Ca(OH)2", "CO2"]), v(&["CaCO3", "H2O"])));
+    out.push((v(&["K", "H2O"]), v(&["KOH", "H2"])));
+    out.push((v(&["Na", "H2O"]), v(&["NaOH", "H2"])));
+    out.push((v(&["K2O", "H2O"]), v(&["KOH"])));
+    out.push((v(&["CaO", "H2O"]), v(&["Ca(OH)2"])));
+    out.push((v(&["Cl2", "KOH"]), v(&["KCl", "KClO", "H2O"])));
+    out.push((v(&["Cl2", "NaOH"]), v(&["NaCl", "NaClO", "H2O"])));
+    for f in ["H2", "CH4", "C2H6", "C3H8", "C4H10", "C8H18", "C2H4", "C2H2", "CH3OH", "C2H5OH", "C6H12O6", "C6H6"] {
+        out.push((v(&[f, "O2"]), if f == "H2" { v(&["H2O"]) } else { v(&["CO2", "H2O"]) }));
+    }
+    out.push((v(&["N2", "H2"]), v(&["NH3"])));
+    out.push((v(&["Na", "Cl2"]), v(&["NaCl"])));
+    out.push((v(&["Fe", "O2"]), v(&["Fe2O3"])));
+    out.push((v(&["Mg", "O2"]), v(&["MgO"])));
+    out.push((v(&["H2O2"]), v(&["H2O", "O2"])));
+    out.push((v(&["CaCO3"]), v(&["CaO", "CO2"])));
+    out.push((v(&["KClO3"]), v(&["KCl", "O2"])));
+    out.push((v(&["NaHCO3"]), v(&["Na2CO3", "H2O", "CO2"])));
+    out.push((v(&["H2O"]), v(&["H2", "O2"])));
+    out.push((v(&["Zn", "CuSO4"]), v(&["ZnSO4", "Cu"])));
+    out.push((v(&["Fe", "CuSO4"]), v(&["FeSO4", "Cu"])));
+    out.push((v(&["Cu", "AgNO3"]), v(&["Cu(NO3)2", "Ag"])));
+    out
+}
+
+fn reaction_search(q: &Query) -> Option<Answer> {
+    let c = q.clean.trim().trim_end_matches('?').trim();
+    let (l, r) = if let Some(m) = re!(r"(?i)^(?:(?:chemical\s+)?reactions?\s+(?:that\s+)?(?:producing|produce|forming|form|making|make|yielding|giving)\s+(.+))$").captures(c) {
+        (String::new(), m[1].to_string())
+    } else if let Some(m) = re!(r"(?i)^(?:(?:chemical\s+)?reactions?\s+(?:of|with|involving|using)\s+(.+))$").captures(c) {
+        (m[1].to_string(), String::new())
+    } else {
+        let arrow = ["-->", "->", "=>", "→", "⟶"].iter().find(|a| c.contains(**a))?;
+        let (a, b) = c.split_once(arrow)?;
+        (a.to_string(), b.to_string())
+    };
+    let parse = |s: &str| -> Option<Vec<Species>> { split_plus(s).iter().map(|p| parse_species(p)).collect() };
+    let (want_l, want_r) = (parse(&l)?, parse(&r)?);
+    if want_l.is_empty() && want_r.is_empty() {
+        return None;
+    }
+    // a species matches a written one when the formulas agree, or for an ion
+    // when the compound contains it
+    let hits = |have: &[String], want: &[Species]| {
+        want.iter().all(|w| {
+            have.iter().any(|h| {
+                if w.charge == 0 {
+                    parse_formula(h).is_some() && parse_formula(h) == parse_formula(&w.formula)
+                } else {
+                    let ion = format!("({})", w.formula);
+                    decompose(h).is_some_and(|i| i.an == w.formula || i.cat == w.formula) || h.contains(&ion) || (h.ends_with(&w.formula) && w.charge < 0) || (h.starts_with(&w.formula) && w.charge > 0 && h != &w.formula)
+                }
+            })
+        })
+    };
+    let mut rows = Vec::new();
+    for (re_, pr) in reaction_library() {
+        if !hits(&re_, &want_l) || !hits(&pr, &want_r) {
+            continue;
+        }
+        let lc: Vec<BTreeMap<String, u32>> = re_.iter().map(|f| parse_formula(f)).collect::<Option<_>>()?;
+        let rc: Vec<BTreeMap<String, u32>> = pr.iter().map(|f| parse_formula(f)).collect::<Option<_>>()?;
+        let Some(k) = coefficients(&lc, &rc) else { continue };
+        let side = |v: &[String], off: usize| v.iter().enumerate().map(|(i, f)| if k[off + i] == 1 { pretty(f) } else { format!("{} {}", k[off + i], pretty(f)) }).collect::<Vec<_>>().join(" + ");
+        rows.push(format!("{} → {}", side(&re_, 0), side(&pr, re_.len())));
+        if rows.len() >= 10 {
+            break;
+        }
+    }
+    if rows.is_empty() {
+        return None;
+    }
+    let show = |v: &[Species]| v.iter().map(|s| ion_text(&s.formula, s.charge)).collect::<Vec<_>>().join(" + ");
+    let input = format!("{} → {}", if want_l.is_empty() { "?".to_string() } else { show(&want_l) + " + ?" }, if want_r.is_empty() { "?".to_string() } else { show(&want_r) + " + ?" });
+    let n = rows.len();
+    let pods = vec![
+        pod("Input", "Input interpretation", text(format!("chemical reactions {input}"))),
+        primary(pod("Result", "Reactions", table(None, rows.into_iter().map(|r| vec![text(r)]).collect()))),
+        pod("Notes", "Notes", text(format!("{n} common textbook reaction{} (neutralizations, acids with metals, oxides and carbonates, precipitations, combustions and decompositions) match the species given; coefficients are balanced.", if n == 1 { "" } else { "s" }))),
+    ];
+    Some(Answer::new("chemical reaction search", pods))
 }
 
 fn ionic_equation(q: &Query) -> Option<Answer> {
@@ -822,6 +1027,8 @@ pub fn handle(q: &Query) -> Option<Answer> {
         .or_else(|| named_ion(q))
         .or_else(|| ionic_name(q))
         .or_else(|| compare_compounds(q))
+        .or_else(|| charged_equation(q))
+        .or_else(|| reaction_search(q))
 }
 
 #[cfg(test)]

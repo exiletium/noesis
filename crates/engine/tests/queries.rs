@@ -2094,3 +2094,11 @@ fn random_structures_for_unlisted_formulas() {
     assert!(s.contains('|') && s.contains('F'));
     assert!(short("isomers of C3H6O").contains("acetone"));
 }
+
+#[test]
+fn ionic_equations_and_reaction_search() {
+    assert_eq!(short("MnO4- + Fe2+ + H+ -> Mn2+ + Fe3+ + H2O"), "MnO₄⁻ + 5 Fe²⁺ + 8 H⁺ → Mn²⁺ + 5 Fe³⁺ + 4 H₂O");
+    assert_eq!(short("benzene + nitronium -> 0.02 mols nitrobenzene + hydrogen ion"), "C₆H₆ + NO₂⁺ → C₆H₅NO₂ + H⁺");
+    assert!(short("KOH -> H2O").contains("2 KOH + H₂SO₄ → K₂SO₄ + 2 H₂O"));
+    assert!(short("-> nitrate").contains("KNO₃"));
+}
