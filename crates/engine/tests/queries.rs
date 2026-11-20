@@ -2087,3 +2087,10 @@ fn aqueous_solution_densities() {
     assert!(short("density of 3 molar ethanol").starts_with("0.976"));
     assert!(short("density of 10% NaCl solution").starts_with("1.0707"));
 }
+
+#[test]
+fn random_structures_for_unlisted_formulas() {
+    let s = short("C3NH4FO random isomers");
+    assert!(s.contains('|') && s.contains('F'));
+    assert!(short("isomers of C3H6O").contains("acetone"));
+}

@@ -1642,12 +1642,252 @@ fn inchi_answer(s: &str) -> Option<Answer> {
     Some(Answer::new("InChI", pods))
 }
 
+/// Write a SMILES string for a neutral molecule of organic-subset atoms with
+/// implicit hydrogens (hydrogen counts must equal the default valence remainder).
+fn write_smiles(els: &[&str], bonds: &[(usize, usize, u8)]) -> String {
+    let n = els.len();
+    let mut g: Vec<Vec<(usize, u8)>> = vec![Vec::new(); n];
+    for &(a, b, o) in bonds {
+        g[a].push((b, o));
+        g[b].push((a, o));
+    }
+    // DFS tree; non-tree edges become ring closures
+    let mut seen = vec![false; n];
+    let mut parent = vec![usize::MAX; n];
+    let mut order = Vec::new();
+    let mut stack = vec![0usize];
+    while let Some(u) = stack.pop() {
+        if seen[u] {
+            continue;
+        }
+        seen[u] = true;
+        order.push(u);
+        for &(v, _) in g[u].iter().rev() {
+            if !seen[v] {
+                parent[v] = u;
+                stack.push(v);
+            }
+        }
+    }
+    let tree = |a: usize, b: usize| parent[a] == b || parent[b] == a;
+    let mut ring: Vec<Vec<(u32, u8)>> = vec![Vec::new(); n];
+    let mut digit = 0u32;
+    for &(a, b, o) in bonds {
+        if !tree(a, b) {
+            digit += 1;
+            ring[a].push((digit, o));
+            ring[b].push((digit, o));
+        }
+    }
+    let sym = |o: u8| match o { 2 => "=", 3 => "#", _ => "" };
+    fn emit(u: usize, els: &[&str], g: &[Vec<(usize, u8)>], parent: &[usize], ring: &[Vec<(u32, u8)>], sym: &dyn Fn(u8) -> &'static str, out: &mut String, first_ring: &mut std::collections::HashSet<u32>) {
+        out.push_str(els[u]);
+        for &(d, o) in &ring[u] {
+            // write the bond order only at the first occurrence
+            if first_ring.insert(d) {
+                out.push_str(sym(o));
+            }
+            if d < 10 { out.push_str(&d.to_string()) } else { out.push_str(&format!("%{d}")) }
+        }
+        let kids: Vec<(usize, u8)> = g[u].iter().filter(|&&(v, _)| parent[v] == u).copied().collect();
+        for (k, &(v, o)) in kids.iter().enumerate() {
+            let last = k + 1 == kids.len();
+            if !last {
+                out.push('(');
+            }
+            out.push_str(sym(o));
+            emit(v, els, g, parent, ring, sym, out, first_ring);
+            if !last {
+                out.push(')');
+            }
+        }
+    }
+    let mut out = String::new();
+    let mut fr = std::collections::HashSet::new();
+    emit(order.first().copied().unwrap_or(0), els, &g, &parent, &ring, &sym, &mut out, &mut fr);
+    // renumber ring closures in order of appearance
+    if digit < 10 {
+        let mut map = std::collections::HashMap::new();
+        out = out.chars().map(|c| match c.to_digit(10) {
+            Some(d) => {
+                let k = map.len() as u32 + 1;
+                char::from_digit(*map.entry(d).or_insert(k), 10).unwrap_or(c)
+            }
+            None => c,
+        }).collect();
+    }
+    out
+}
+
+/// A graph invariant for de-duplicating generated structures (Morgan-style refinement).
+fn graph_key(els: &[&str], bonds: &[(usize, usize, u8)]) -> Vec<u64> {
+    use std::hash::{Hash, Hasher};
+    let n = els.len();
+    let mut g: Vec<Vec<(usize, u8)>> = vec![Vec::new(); n];
+    for &(a, b, o) in bonds {
+        g[a].push((b, o));
+        g[b].push((a, o));
+    }
+    let h = |x: &dyn Fn(&mut std::collections::hash_map::DefaultHasher)| { let mut s = std::collections::hash_map::DefaultHasher::new(); x(&mut s); s.finish() };
+    let mut lab: Vec<u64> = (0..n).map(|i| h(&|s| { els[i].hash(s); g[i].len().hash(s); g[i].iter().map(|x| x.1 as u32).sum::<u32>().hash(s); })).collect();
+    for _ in 0..n.min(8) {
+        lab = (0..n).map(|i| {
+            let mut nb: Vec<(u8, u64)> = g[i].iter().map(|&(j, o)| (o, lab[j])).collect();
+            nb.sort();
+            h(&|s| { lab[i].hash(s); nb.hash(s); })
+        }).collect();
+    }
+    lab.sort();
+    lab
+}
+
+/// Random connected structures for a molecular formula: (SMILES list, attempts).
+fn random_structures(counts: &BTreeMap<String, u32>, want: usize) -> Vec<String> {
+    let val = |e: &str| -> Option<u32> { Some(match e { "C" | "Si" => 4, "N" | "P" | "B" => 3, "O" | "S" => 2, "F" | "Cl" | "Br" | "I" => 1, _ => return None }) };
+    let hcount = counts.get("H").copied().unwrap_or(0);
+    let mut els: Vec<&str> = Vec::new();
+    for (e, &k) in counts {
+        if e == "H" {
+            continue;
+        }
+        if val(e).is_none() {
+            return Vec::new();
+        }
+        for _ in 0..k {
+            els.push(e.as_str());
+        }
+    }
+    let n = els.len();
+    if n < 2 || n > 30 {
+        return Vec::new();
+    }
+    let total: u32 = els.iter().map(|e| val(e).unwrap_or(0)).sum();
+    if total < hcount || (total - hcount) % 2 == 1 {
+        return Vec::new();
+    }
+    let nb = ((total - hcount) / 2) as usize;
+    if nb + 1 < n {
+        return Vec::new();
+    }
+    // deterministic xorshift seeded by the formula
+    let mut seed: u64 = 0x9e37_79b9_7f4a_7c15 ^ els.len() as u64 ^ ((hcount as u64) << 17);
+    for e in &els {
+        for b in e.bytes() {
+            seed = seed.wrapping_mul(0x100_0000_01b3) ^ b as u64;
+        }
+    }
+    let mut rnd = move |m: usize| -> usize {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        (seed % m.max(1) as u64) as usize
+    };
+    let mut out = Vec::new();
+    let mut keys = std::collections::HashSet::new();
+    'attempt: for _ in 0..4000 {
+        if out.len() >= want {
+            break;
+        }
+        // multivalent atoms first, in random order, then the monovalent ones
+        let mut idx: Vec<usize> = (0..n).collect();
+        for i in (1..n).rev() {
+            let j = rnd(i + 1);
+            idx.swap(i, j);
+        }
+        idx.sort_by_key(|&i| val(els[i]).unwrap_or(0) == 1);
+        let order: Vec<&str> = idx.iter().map(|&i| els[i]).collect();
+        let mut free: Vec<i32> = order.iter().map(|e| val(e).unwrap_or(0) as i32).collect();
+        let mut bonds: Vec<(usize, usize, u8)> = Vec::new();
+        for i in 1..n {
+            let cand: Vec<usize> = (0..i).filter(|&j| free[j] > 0).collect();
+            if cand.is_empty() {
+                continue 'attempt;
+            }
+            let j = cand[rnd(cand.len())];
+            bonds.push((j, i, 1));
+            free[i] -= 1;
+            free[j] -= 1;
+        }
+        if free.iter().any(|&f| f < 0) {
+            continue;
+        }
+        for _ in 0..(nb + 1 - n) {
+            let mut done = false;
+            for t in 0..120 {
+                // prefer a multiple bond on an existing bond; close rings of five or more atoms
+                let (a, b) = if t % 3 != 2 {
+                    let k = rnd(bonds.len());
+                    (bonds[k].0, bonds[k].1)
+                } else {
+                    (rnd(n), rnd(n))
+                };
+                if a == b || free[a] == 0 || free[b] == 0 {
+                    continue;
+                }
+                match bonds.iter().position(|&(x, y, _)| (x == a && y == b) || (x == b && y == a)) {
+                    Some(k) if bonds[k].2 < 3 => bonds[k].2 += 1,
+                    Some(_) => continue,
+                    None => {
+                        // graph distance between a and b
+                        let mut dist = vec![usize::MAX; n];
+                        dist[a] = 0;
+                        let mut qu = std::collections::VecDeque::from([a]);
+                        while let Some(u) = qu.pop_front() {
+                            for &(x, y, _) in &bonds {
+                                let v = if x == u { y } else if y == u { x } else { continue };
+                                if dist[v] == usize::MAX {
+                                    dist[v] = dist[u] + 1;
+                                    qu.push_back(v);
+                                }
+                            }
+                        }
+                        if dist[b] < if t < 100 { 4 } else { 2 } {
+                            continue;
+                        }
+                        bonds.push((a.min(b), a.max(b), 1))
+                    }
+                }
+                free[a] -= 1;
+                free[b] -= 1;
+                done = true;
+                break;
+            }
+            if !done {
+                continue 'attempt;
+            }
+        }
+        // avoid strained or unusual motifs: no three-membered rings with multiple bonds, no O–O, no cumulated triple bonds on one atom
+        if bonds.iter().any(|&(a, b, _)| order[a] == "O" && order[b] == "O") {
+            continue;
+        }
+        let key = graph_key(&order, &bonds);
+        if !keys.insert(key) {
+            continue;
+        }
+        let smi = write_smiles(&order, &bonds);
+        if parse_smiles(&smi).is_some_and(|m| m.counts() == *counts) {
+            out.push(smi);
+        }
+    }
+    out
+}
+
 fn isomers(f: &str) -> Option<Answer> {
     let counts = super::chem::parse_formula(f)?;
     let mut seen = std::collections::HashSet::new();
     let hits: Vec<&super::chem::DbCompound> = super::chem::compound_db().0.iter().filter(|c| super::chem::parse_formula(c.formula).as_ref() == Some(&counts) && !re!(r"(?i)-d\d*$|\bd\d+-|deuter|-13c|\(13c|-15n").is_match(c.name) && seen.insert(c.name.to_lowercase())).collect();
     if hits.is_empty() {
-        return None;
+        let hill = hill_formula(&counts);
+        let gen = random_structures(&counts, 8);
+        if gen.is_empty() {
+            return None;
+        }
+        return Some(Answer::new(format!("structures with formula {hill}"), vec![
+            pod("Input", "Input interpretation", text(format!("{hill} | possible structures"))),
+            primary(pod("Result", "Random structures", text(gen.iter().take(5).cloned().collect::<Vec<_>>().join(" | ")))),
+            pod("Table", "Structures (SMILES)", table(Some(vec!["#", "SMILES"]), gen.iter().enumerate().map(|(i, s)| vec![text((i + 1).to_string()), text(s.clone())]).collect())),
+            pod("Note", "Note", text("randomly generated connected structures that satisfy standard valences (C 4, N 3, O 2, halogens 1); no known compound with this formula is in Noesis's table, and some generated structures may be unstable")),
+        ]));
     }
     let hill = hill_formula(&counts);
     let mut shown: Vec<&&super::chem::DbCompound> = hits.iter().collect();
