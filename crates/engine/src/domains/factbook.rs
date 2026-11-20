@@ -74,6 +74,15 @@ const PROPS: &[(&str, &str, &str, &str)] = &[
     ("infant mortality|infant mortality rate", "Infant mortality rate", "total", "infant mortality rate"),
     ("maternal mortality|maternal mortality rate|maternal mortality ratio", "Maternal mortality ratio", "=", "maternal mortality ratio"),
     ("literacy|literacy rate", "Literacy", "total population", "literacy rate"),
+    ("underweight children|children underweight|child underweight|underweight|children under 5 underweight", "Children under the age of 5 years underweight", "=", "children under 5 who are underweight"),
+    ("household consumption|household consumption share|private consumption", "GDP - composition, by end use", "household consumption", "household consumption (share of GDP)"),
+    ("government consumption|government consumption share|public consumption", "GDP - composition, by end use", "government consumption", "government consumption (share of GDP)"),
+    ("capital investment|fixed investment|investment in fixed capital|investment", "GDP - composition, by end use", "investment in fixed capital", "investment in fixed capital (share of GDP)"),
+    ("labor force by occupation|employment by sector|labor force by sector|employment by occupation|labour force by occupation|jobs by sector", "Labor force - by occupation", "", "labor force by occupation"),
+    ("child marriage|child marriage rate", "Child marriage", "", "child marriage"),
+    ("gross reproduction rate", "Gross reproduction rate", "=", "gross reproduction rate"),
+    ("currently married women|married women", "Currently married women (ages 15-49)", "=", "currently married women (ages 15–49)"),
+    ("particulate matter emissions|particulate emissions|pm2.5 emissions|pm2.5", "Particulate matter emissions", "=", "particulate matter emissions"),
     ("urban population|urbanization|urbanisation|urbanization rate|percent urban", "Urbanization", "urban population", "urban population"),
     ("obesity|obesity rate|adult obesity", "Obesity - adult prevalence rate", "=", "adult obesity rate"),
     ("alcohol consumption|alcohol consumption per capita|alcohol use", "Alcohol consumption per capita", "total", "alcohol consumption per capita"),
@@ -85,7 +94,7 @@ const PROPS: &[(&str, &str, &str, &str)] = &[
     ("ethnic groups|ethnicity|ethnicities", "Ethnic groups", "", "ethnic groups"),
     ("religions|religion|religious groups", "Religions", "", "religions"),
     ("sex ratio|gender ratio", "Sex ratio", "total population", "sex ratio"),
-    ("age structure|age distribution", "Age structure", "", "age structure"),
+    ("age structure|age distribution|age pyramid|population pyramid", "Age structure", "", "age structure"),
     ("dependency ratio|dependency ratios", "Dependency ratios", "", "dependency ratios"),
     ("school life expectancy", "School life expectancy (primary to tertiary education)", "total", "school life expectancy"),
     ("drinking water|drinking water access|access to drinking water", "Drinking water source", "", "drinking water source"),
@@ -99,7 +108,7 @@ const PROPS: &[(&str, &str, &str, &str)] = &[
     ("inflation|inflation rate|consumer price inflation", "Inflation rate (consumer prices)", "=", "inflation rate (consumer prices)"),
     ("unemployment|unemployment rate|jobless rate", "Unemployment rate", "=", "unemployment rate"),
     ("youth unemployment|youth unemployment rate", "Youth unemployment rate (ages 15-24)", "total", "youth unemployment rate (ages 15–24)"),
-    ("poverty|poverty rate|population below poverty line|poverty line", "Population below poverty line", "=", "population below poverty line"),
+    ("poverty|poverty rate|population below poverty line|poverty line|people in poverty|population in poverty|people below the poverty line", "Population below poverty line", "=", "population below poverty line"),
     ("gini|gini index|gini coefficient|income inequality|inequality", "Gini Index coefficient - distribution of family income", "=", "Gini index"),
     ("exports|total exports|export value", "Exports", "=", "exports"),
     ("imports|total imports|import value", "Imports", "=", "imports"),
@@ -282,15 +291,34 @@ fn continent_name(s: &str) -> Option<&'static str> {
     })
 }
 
-/// Factbook entities of the countries on a continent, with their populations.
+/// Country groups besides the continents: (name, members as ISO 3166 alpha-2 codes).
+const GROUPS: &[(&str, &[&str])] = &[
+    ("OPEC", &["DZ", "CG", "GQ", "GA", "IR", "IQ", "KW", "LY", "NG", "SA", "AE", "VE"]),
+    ("G7", &["CA", "FR", "DE", "IT", "JP", "GB", "US"]),
+];
+
+fn group_name(s: &str) -> Option<&'static str> {
+    continent_name(s).or_else(|| GROUPS.iter().find(|g| g.0.eq_ignore_ascii_case(s.trim_start_matches("the "))).map(|g| g.0))
+}
+
+/// Factbook entities of the countries on a continent (or in a group), with their populations.
 fn members(cont: &str) -> Vec<(&'static (&'static str, Rows), f64)> {
-    countries().values().filter(|c| c.continent == cont && c.population > 0).filter_map(|c| Some((entity(&c.name)?, c.population as f64))).collect()
+    let group = GROUPS.iter().find(|g| g.0 == cont);
+    countries().values().filter(|c| c.population > 0 && group.map_or(c.continent == cont, |g| g.1.contains(&c.iso2.as_str()))).filter_map(|c| Some((entity(&c.name)?, c.population as f64))).collect()
+}
+
+fn member_area(cont: &str) -> f64 {
+    let group = GROUPS.iter().find(|g| g.0 == cont);
+    countries().values().filter(|c| c.population > 0 && group.map_or(c.continent == cont, |g| g.1.contains(&c.iso2.as_str()))).map(|c| c.area_km2).sum()
 }
 
 /// A continent total or population-weighted average: (value text, countries used, countries on the continent).
 fn continent_value(cont: &str, what: &str) -> Option<(String, String, usize, usize)> {
     let ms = members(cont);
     let total = ms.len();
+    if what == "area" || what == "total area" || what == "land area" {
+        return Some(("area".into(), format!("about {} km²", super::geo::fmt_int(member_area(cont) as u64)), total, total));
+    }
     if what == "population" {
         let pop: f64 = ms.iter().map(|m| m.1).sum();
         return Some(("population".into(), format!("about {} people", super::geo::fmt_int(pop as u64)), total, total));
@@ -310,7 +338,8 @@ fn continent_value(cont: &str, what: &str) -> Option<(String, String, usize, usi
         return None;
     }
     let sample = vals[0].2;
-    let rate = sample.contains('%') || sample.contains("years") || sample.contains('/') || sample.contains(" per ");
+    let countable = sample.trim_start().starts_with('$') || re!(r" (?:million|billion|trillion)\b|kWh|bbl|cu m|\bkm\b").is_match(sample) || re!(r"airports|heliports|railways|merchant|coastline|labor force|military personnel|telephones|subscriptions").is_match(&label.to_lowercase());
+    let rate = !countable;
     let text_v = if rate {
         let w: f64 = vals.iter().map(|v| v.1).sum();
         let mean = vals.iter().map(|v| v.0 * v.1).sum::<f64>() / w;
@@ -327,13 +356,42 @@ fn continent_value(cont: &str, what: &str) -> Option<(String, String, usize, usi
 
 /// "Europe life expectancy", "internet users in South America", "Africa population vs Africa GDP"
 fn continent(l: &str) -> Option<Answer> {
+    // "Oceania, South America GDP" and "Asian GINI index"
+    const C: &str = r"(?:africa|europe|asia|south america|north america|oceania|opec|g7)";
+    let l = &if let Some(m) = Regex::new(&format!(r"^({C}(?:,? (?:and )?{C})+) (.+)$")).ok()?.captures(l) {
+        re!(r",\s*(?:and\s+)?|\s+and\s+").split(&m[1]).map(|c| format!("{c} {}", &m[2])).collect::<Vec<_>>().join(" vs ")
+    } else if let Some(m) = re!(r"^(african|european|asian|south american|north american|oceanian) (.+)$").captures(l) {
+        format!("{} {}", continent_name(&m[1])?.to_lowercase(), &m[2])
+    } else {
+        l.to_string()
+    };
+    // a bare comparison of continents or groups: "Europe vs OPEC"
+    let bare: Option<Vec<&str>> = l.split(" vs ").map(|p| group_name(p.trim())).collect();
+    if let Some(gs) = bare.filter(|g| g.len() >= 2) {
+        let mut rows = Vec::new();
+        for what in ["population", "area", "gdp", "life expectancy"] {
+            let mut r = vec![text(what)];
+            for g in &gs {
+                r.push(text(continent_value(g, what).map_or("—".to_string(), |v| v.1)));
+            }
+            rows.push(r);
+        }
+        let mut head = vec![""];
+        head.extend(gs.iter().copied());
+        return Some(Answer::new("group comparison", vec![
+            input(gs.join(" vs ")),
+            primary(pod("Result", "Comparison", table(Some(head), rows))),
+            pod("Note", "Note", text("sums and population-weighted averages of the member countries' Factbook values; OPEC has 12 members and the G7 seven")),
+            source(),
+        ]));
+    }
     let parse = |s: &str| -> Option<(&'static str, String)> {
         let s = s.trim();
-        if let Some(m) = re!(r"^(.+?) (?:of|in|for) (africa|europe|asia|south america|north america|oceania)$").captures(s) {
-            return Some((continent_name(&m[2])?, m[1].to_string()));
+        if let Some(m) = re!(r"^(.+?) (?:of|in|for) (?:the )?(africa|europe|asia|south america|north america|oceania|opec|g7)$").captures(s) {
+            return Some((group_name(&m[2])?, m[1].to_string()));
         }
-        let m = re!(r"^(africa|europe|asia|south america|north america|oceania)(?:'s)? (.+)$").captures(s)?;
-        Some((continent_name(&m[1])?, m[2].to_string()))
+        let m = re!(r"^(?:the )?(africa|europe|asia|south america|north america|oceania|opec|g7)(?:'s)? (.+)$").captures(s)?;
+        Some((group_name(&m[1])?, m[2].to_string()))
     };
     let parts: Vec<&str> = l.split(" vs ").collect();
     let items: Vec<(&str, String)> = parts.iter().map(|p| parse(p)).collect::<Option<Vec<_>>>()?;
@@ -591,6 +649,9 @@ pub fn handle(q: &Query) -> Option<Answer> {
     let tries: Vec<(String, String)> = {
         let mut t = vec![];
         if let Some(m) = re!(r"^(.+?) (?:of|in|for) (.+)$").captures(l) {
+            t.push((m[1].to_string(), m[2].to_string()));
+        }
+        if let Some(m) = re!(r"^(.+) (?:of|in|for) (.+)$").captures(l) {
             t.push((m[1].to_string(), m[2].to_string()));
         }
         if let Some(m) = re!(r"^(.+?)'s (.+)$").captures(l) {

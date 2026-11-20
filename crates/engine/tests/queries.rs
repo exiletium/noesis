@@ -1987,3 +1987,11 @@ fn continent_aggregates_and_filters() {
     assert!(short("European countries with unemployment < Denmark").contains("Germany"));
     assert!(short("How much does Ireland spend on education?").contains("GDP"));
 }
+
+#[test]
+fn continent_groups_and_more_factbook_fields() {
+    assert!(short("Europe vs Opec").contains("OPEC"));
+    assert!(short("Oceania, South America GDP").contains("South America"));
+    assert!(short("Asian GINI index").contains("average"));
+    assert!(short("Oceania, South America GDP").contains("sum"));
+}
