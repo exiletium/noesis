@@ -2035,3 +2035,11 @@ fn continent_country_tables_and_city_nicknames() {
     assert!(short("OPEC countries oil production").starts_with("Saudi Arabia"));
     assert!(short("the windy city").contains("2,731,585"));
 }
+
+#[test]
+fn state_officials_and_city_sales_tax() {
+    assert_eq!(short("Senators from New York"), "Chuck Schumer (D) | Kirsten Gillibrand (D)");
+    assert_eq!(short("Who is the Governor of California today"), "Gavin Newsom (D)");
+    assert!(short("sales tax New York City, Chicago, Los Angeles").contains("Chicago: 10.25%"));
+    assert!(short("sales tax in California").starts_with("7.25%"));
+}

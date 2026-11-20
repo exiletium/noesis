@@ -270,7 +270,131 @@ fn ranking(l: &str) -> Option<Answer> {
     Some(a)
 }
 
+/// Governors and US senators serving in 2026 (terms of the 119th Congress; the
+/// results of the November 2026 elections take office in January 2027).
+/// postal code | governor (party) | senior senator (party) | junior senator (party)
+const OFFICIALS: &str = "\
+AL|Kay Ivey (R)|Tommy Tuberville (R)|Katie Britt (R)
+AK|Mike Dunleavy (R)|Lisa Murkowski (R)|Dan Sullivan (R)
+AZ|Katie Hobbs (D)|Mark Kelly (D)|Ruben Gallego (D)
+AR|Sarah Huckabee Sanders (R)|John Boozman (R)|Tom Cotton (R)
+CA|Gavin Newsom (D)|Alex Padilla (D)|Adam Schiff (D)
+CO|Jared Polis (D)|Michael Bennet (D)|John Hickenlooper (D)
+CT|Ned Lamont (D)|Richard Blumenthal (D)|Chris Murphy (D)
+DE|Matt Meyer (D)|Chris Coons (D)|Lisa Blunt Rochester (D)
+FL|Ron DeSantis (R)|Rick Scott (R)|Ashley Moody (R)
+GA|Brian Kemp (R)|Jon Ossoff (D)|Raphael Warnock (D)
+HI|Josh Green (D)|Brian Schatz (D)|Mazie Hirono (D)
+ID|Brad Little (R)|Mike Crapo (R)|Jim Risch (R)
+IL|JB Pritzker (D)|Dick Durbin (D)|Tammy Duckworth (D)
+IN|Mike Braun (R)|Todd Young (R)|Jim Banks (R)
+IA|Kim Reynolds (R)|Chuck Grassley (R)|Joni Ernst (R)
+KS|Laura Kelly (D)|Jerry Moran (R)|Roger Marshall (R)
+KY|Andy Beshear (D)|Mitch McConnell (R)|Rand Paul (R)
+LA|Jeff Landry (R)|Bill Cassidy (R)|John Kennedy (R)
+ME|Janet Mills (D)|Susan Collins (R)|Angus King (I)
+MD|Wes Moore (D)|Chris Van Hollen (D)|Angela Alsobrooks (D)
+MA|Maura Healey (D)|Elizabeth Warren (D)|Ed Markey (D)
+MI|Gretchen Whitmer (D)|Gary Peters (D)|Elissa Slotkin (D)
+MN|Tim Walz (DFL)|Amy Klobuchar (DFL)|Tina Smith (DFL)
+MS|Tate Reeves (R)|Roger Wicker (R)|Cindy Hyde-Smith (R)
+MO|Mike Kehoe (R)|Josh Hawley (R)|Eric Schmitt (R)
+MT|Greg Gianforte (R)|Steve Daines (R)|Tim Sheehy (R)
+NE|Jim Pillen (R)|Deb Fischer (R)|Pete Ricketts (R)
+NV|Joe Lombardo (R)|Catherine Cortez Masto (D)|Jacky Rosen (D)
+NH|Kelly Ayotte (R)|Jeanne Shaheen (D)|Maggie Hassan (D)
+NJ|Mikie Sherrill (D)|Cory Booker (D)|Andy Kim (D)
+NM|Michelle Lujan Grisham (D)|Martin Heinrich (D)|Ben Ray Luján (D)
+NY|Kathy Hochul (D)|Chuck Schumer (D)|Kirsten Gillibrand (D)
+NC|Josh Stein (D)|Thom Tillis (R)|Ted Budd (R)
+ND|Kelly Armstrong (R)|John Hoeven (R)|Kevin Cramer (R)
+OH|Mike DeWine (R)|Bernie Moreno (R)|Jon Husted (R)
+OK|Kevin Stitt (R)|James Lankford (R)|Markwayne Mullin (R)
+OR|Tina Kotek (D)|Ron Wyden (D)|Jeff Merkley (D)
+PA|Josh Shapiro (D)|John Fetterman (D)|Dave McCormick (R)
+RI|Dan McKee (D)|Jack Reed (D)|Sheldon Whitehouse (D)
+SC|Henry McMaster (R)|Lindsey Graham (R)|Tim Scott (R)
+SD|Larry Rhoden (R)|John Thune (R)|Mike Rounds (R)
+TN|Bill Lee (R)|Marsha Blackburn (R)|Bill Hagerty (R)
+TX|Greg Abbott (R)|John Cornyn (R)|Ted Cruz (R)
+UT|Spencer Cox (R)|Mike Lee (R)|John Curtis (R)
+VT|Phil Scott (R)|Bernie Sanders (I)|Peter Welch (D)
+VA|Abigail Spanberger (D)|Mark Warner (D)|Tim Kaine (D)
+WA|Bob Ferguson (D)|Patty Murray (D)|Maria Cantwell (D)
+WV|Patrick Morrisey (R)|Shelley Moore Capito (R)|Jim Justice (R)
+WI|Tony Evers (D)|Ron Johnson (R)|Tammy Baldwin (D)
+WY|Mark Gordon (R)|John Barrasso (R)|Cynthia Lummis (R)";
+
+/// "Senators from New York", "Who is the Governor of California today"
+fn officials(l: &str) -> Option<Answer> {
+    let (what, st) = if let Some(m) = re!(r"^(?:who (?:is|are) )?(?:the )?(?:current |us |u\.s\. |united states )?(governor|senators?)(?: of| from| for| in) (?:the state of )?(.+?)(?: today| now| currently| right now)?$").captures(l) {
+        (m[1].to_string(), m[2].to_string())
+    } else {
+        let m = re!(r"^(?:who (?:is|are) )?(?:the )?(.+?)(?:'s)? (?:current |us |u\.s\. )?(governor|senators?)(?: today| now)?$").captures(l)?;
+        (m[2].to_string(), m[1].to_string())
+    };
+    let s = find(&st, true)?;
+    let row: Vec<&str> = OFFICIALS.lines().find(|r| r.starts_with(&format!("{}|", s.abbr)))?.split('|').collect();
+    let note = pod("Note", "Note", text("officeholders serving in 2026; winners of the November 2026 elections take office in January 2027"));
+    if what == "governor" {
+        return Some(Answer::new("governor", vec![
+            pod("Input", "Input interpretation", text(format!("{} | governor", s.name))),
+            primary(pod("Result", "Governor", text(row[1]))),
+            pod("Senators", "US senators", text(format!("{} | {}", row[2], row[3]))),
+            note,
+        ]));
+    }
+    Some(Answer::new("senators", vec![
+        pod("Input", "Input interpretation", text(format!("{} | US senators", s.name))),
+        primary(pod("Result", "US senators", text(format!("{} | {}", row[2], row[3])))),
+        pod("Table", "Details", table(None, vec![vec![text("senior senator"), text(row[2])], vec![text("junior senator"), text(row[3])], vec![text("governor"), text(row[1])]])),
+        note,
+    ]))
+}
+
+/// Combined state and local sales tax in large US cities, and the bare "sales tax".
+fn city_sales_tax(l: &str) -> Option<Answer> {
+    const CITY: &[(&str, &str, &str)] = &[
+        ("new york city", "New York City", "8.875% (4% state + 4.5% city + 0.375% MCTD)"),
+        ("chicago", "Chicago", "10.25% (6.25% state + 1.75% Cook County + 1.25% city + 1% transit)"),
+        ("los angeles", "Los Angeles", "9.75% since April 2025 (7.25% state base + county and district taxes)"),
+        ("houston", "Houston", "8.25% (6.25% state + 1% city + 1% transit)"),
+        ("dallas", "Dallas", "8.25% (6.25% state + 1% city + 1% transit)"),
+        ("boston", "Boston", "6.25% (state rate; no local sales tax)"),
+        ("philadelphia", "Philadelphia", "8% (6% state + 2% local)"),
+        ("miami", "Miami", "7% (6% state + 1% Miami-Dade County)"),
+        ("detroit", "Detroit", "6% (state rate; no local sales tax)"),
+        ("atlanta", "Atlanta", "8.9% (4% state + local option taxes)"),
+    ];
+    if l == "sales tax" || l == "what is sales tax" || l == "sales tax definition" {
+        return Some(Answer::new("sales tax", vec![
+            pod("Input", "Input interpretation", text("sales tax")),
+            primary(pod("Result", "Definition", text("a tax on the sale of goods and services, collected by the seller as a percentage of the price"))),
+            pod("US", "In the United States", text("set by states and localities: 45 states and the District of Columbia levy a statewide sales tax (Alaska, Delaware, Montana, New Hampshire and Oregon do not); state rates run up to 7.25% (California), and local taxes are added on top")),
+        ]));
+    }
+    let m = re!(r"^(?:combined |total )?sales tax(?: rates?)?(?: in| for| of)? (.+)$").captures(l).or_else(|| re!(r"^(.+?)(?:'s)? sales tax(?: rates?)?$").captures(l))?;
+    let names: Vec<&str> = re!(r"\s*,\s*(?:and\s+)?|\s+and\s+|\s+vs\.?\s+").split(m[1].trim()).collect();
+    let rows: Vec<&(&str, &str, &str)> = names.iter().map(|n| {
+        let n = n.trim().trim_end_matches(" city").trim();
+        let n = match n { "nyc" | "new york" => "new york city", "la" => "los angeles", x => x };
+        CITY.iter().find(|c| c.0 == n || c.0 == format!("{n} city"))
+    }).collect::<Option<Vec<_>>>()?;
+    Some(Answer::new("sales tax", vec![
+        pod("Input", "Input interpretation", text(format!("{} | combined sales tax rate", rows.iter().map(|r| r.1).collect::<Vec<_>>().join(" | ")))),
+        primary(pod("Result", "Combined sales tax rate", text(rows.iter().map(|r| if rows.len() == 1 { r.2.to_string() } else { format!("{}: {}", r.1, r.2.split(' ').next().unwrap_or("")) }).collect::<Vec<_>>().join(" | ")))),
+        pod("Table", "Details", table(None, rows.iter().map(|r| vec![text(r.1), text(r.2)]).collect())),
+        pod("Note", "Note", text("general rates on most goods; groceries and some items are taxed at lower rates or exempt")),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
+    {
+        let l = q.lower.trim().trim_end_matches(['?', '.', '!']).trim();
+        if let Some(a) = officials(l).or_else(|| city_sales_tax(l)) {
+            return Some(a);
+        }
+    }
     let raw = q.clean.trim().trim_end_matches(['?', '.', '!']).trim();
     let raw = re!(r"\s+").replace_all(raw, " ").to_string();
     let l = raw.to_lowercase();
