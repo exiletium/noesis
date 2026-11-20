@@ -98,7 +98,184 @@ fn magnitude_card(m: f64, from_moment: bool) -> Answer {
     ])
 }
 
+/// Notable historical earthquakes: date | name | ISO 3166 alpha-2 | latitude | longitude | moment magnitude | deaths.
+/// Magnitudes and death tolls are the commonly cited values (USGS and standard references); tolls are approximate.
+const QUAKES: &str = "\
+1556-01-23|Shaanxi earthquake|CN|34.5|109.7|8.0|about 830,000 (estimated)
+1693-01-11|Sicily earthquake|IT|37.2|15.0|7.4|about 60,000
+1755-11-01|Lisbon earthquake|PT|36.0|-11.0|8.5|about 30,000–50,000
+1811-12-16|New Madrid earthquake|US|36.6|-89.6|7.5|few
+1886-08-31|Charleston earthquake|US|32.9|-80.0|7.0|about 60
+1906-04-18|San Francisco earthquake|US|37.75|-122.55|7.9|about 3,000
+1908-12-28|Messina earthquake|IT|38.15|15.68|7.1|about 75,000–82,000
+1915-01-13|Avezzano earthquake|IT|42.0|13.5|6.7|about 30,000
+1920-12-16|Haiyuan earthquake|CN|36.6|105.3|7.9|about 200,000–270,000
+1923-09-01|Great Kantō earthquake|JP|35.3|139.1|7.9|about 105,000
+1933-03-11|Long Beach earthquake|US|33.6|-118.0|6.4|about 120
+1940-05-24|Lima earthquake|PE|-11.2|-77.8|8.2|about 180
+1960-05-22|Valdivia earthquake|CL|-38.2|-73.0|9.5|about 1,000–6,000
+1964-03-28|Great Alaska earthquake|US|61.0|-147.7|9.2|131
+1965-02-04|Rat Islands earthquake|US|51.2|178.5|8.7|0
+1968-01-15|Belice earthquake|IT|37.8|12.9|6.4|about 230–400
+1970-05-31|Ancash earthquake|PE|-9.2|-78.8|7.9|about 67,000–70,000
+1971-02-09|San Fernando earthquake|US|34.4|-118.4|6.6|65
+1974-10-03|Lima earthquake|PE|-12.3|-77.8|8.1|78
+1976-02-04|Guatemala earthquake|GT|15.3|-89.1|7.5|about 23,000
+1976-05-06|Friuli earthquake|IT|46.3|13.2|6.5|about 990
+1976-07-28|Tangshan earthquake|CN|39.6|118.2|7.6|about 242,000 (official)
+1980-11-23|Irpinia earthquake|IT|40.8|15.3|6.9|about 2,900
+1985-09-19|Mexico City earthquake (Michoacán)|MX|18.2|-102.5|8.0|about 5,000–10,000
+1985-09-21|Mexico City aftershock|MX|17.8|-101.6|7.5|included above
+1988-12-07|Spitak earthquake|AM|40.9|44.2|6.8|about 25,000
+1989-10-17|Loma Prieta earthquake|US|37.04|-121.88|6.9|63
+1990-06-21|Manjil–Rudbar earthquake|IR|36.96|49.41|7.4|about 35,000–40,000
+1990-07-16|Luzon earthquake|PH|15.7|121.2|7.7|about 1,600
+1994-01-17|Northridge earthquake|US|34.21|-118.54|6.7|57
+1995-01-17|Great Hanshin (Kobe) earthquake|JP|34.6|135.0|6.9|6,434
+1997-09-26|Umbria and Marche earthquake|IT|43.1|12.8|6.0|11
+1999-08-17|İzmit earthquake|TR|40.75|29.86|7.6|about 17,000
+1999-09-21|Chi-Chi earthquake|TW|23.8|120.8|7.7|2,415
+2001-01-26|Gujarat earthquake|IN|23.4|70.2|7.7|about 20,000
+2002-11-03|Denali earthquake|US|63.5|-147.4|7.9|0
+2003-12-26|Bam earthquake|IR|29.0|58.3|6.6|about 26,000–34,000
+2004-12-23|Macquarie Island earthquake|AU|-50.1|160.4|8.1|0
+2004-12-26|Indian Ocean earthquake and tsunami (Sumatra–Andaman)|ID|3.3|95.9|9.1|about 228,000
+2005-03-28|Nias–Simeulue earthquake|ID|2.1|97.1|8.6|about 1,300
+2005-10-08|Kashmir earthquake|PK|34.5|73.6|7.6|about 86,000
+2006-05-27|Yogyakarta earthquake|ID|-7.96|110.4|6.4|about 5,700
+2007-08-15|Pisco earthquake|PE|-13.4|-76.6|8.0|519
+2008-05-12|Wenchuan (Sichuan) earthquake|CN|31.0|103.4|7.9|about 87,600 (dead or missing)
+2009-04-06|L'Aquila earthquake|IT|42.35|13.38|6.3|309
+2009-09-30|Padang earthquake|ID|-0.7|99.9|7.6|about 1,100
+2010-01-12|Haiti earthquake|HT|18.45|-72.5|7.0|about 100,000–300,000 (estimates vary)
+2010-02-27|Maule earthquake|CL|-36.1|-72.9|8.8|525
+2011-02-22|Christchurch earthquake|NZ|-43.6|172.7|6.2|185
+2011-03-11|Tōhoku earthquake and tsunami|JP|38.3|142.4|9.1|about 18,500 (dead or missing)
+2012-05-20|Emilia earthquake|IT|44.9|11.2|6.1|27
+2013-10-15|Bohol earthquake|PH|9.9|124.1|7.2|222
+2015-04-25|Gorkha (Nepal) earthquake|NP|28.2|84.7|7.8|about 9,000
+2016-08-24|Amatrice earthquake|IT|42.7|13.2|6.2|299
+2016-10-30|Norcia earthquake|IT|42.8|13.1|6.5|0 (direct)
+2017-09-08|Chiapas earthquake|MX|15.0|-93.9|8.2|about 98
+2017-09-19|Puebla earthquake|MX|18.5|-98.4|7.1|370
+2018-09-28|Sulawesi (Palu) earthquake and tsunami|ID|-0.2|119.8|7.5|about 4,300
+2018-11-30|Anchorage earthquake|US|61.3|-149.9|7.1|0
+2019-07-06|Ridgecrest earthquake|US|35.8|-117.6|7.1|1
+2021-07-29|Chignik earthquake|US|55.4|-157.9|8.2|0
+2023-02-06|Turkey–Syria (Kahramanmaraş) earthquake|TR|37.2|37.0|7.8|about 59,000
+2023-09-08|Al Haouz (Morocco) earthquake|MA|31.1|-8.4|6.8|about 2,960
+2024-01-01|Noto Peninsula earthquake|JP|37.5|137.2|7.5|about 500 (including related deaths)
+2024-04-03|Hualien earthquake|TW|23.8|121.6|7.4|18";
+
+const MONTHS: [&str; 12] = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/// "earthquakes in Italy", "earthquakes Mexico 1985", "earthquakes Dec 2004", "earthquakes near Lima", "earthquakes Asia"
+fn quakes(l: &str) -> Option<Answer> {
+    let m = re!(r"^(?:notable |historical |major |largest |biggest |significant |recent )?earthquakes?(?: (?:in|near|around|of|from|for|at))? ?(.*)$").captures(l)?;
+    let mut rest = m[1].trim().to_string();
+    // a date filter: a year, optionally preceded by a month
+    let mut year: Option<i32> = None;
+    let mut month: Option<usize> = None;
+    if let Some(d) = re!(r"(?:^|\s)(?:in )?(?:(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? )?(\d{4})$").captures(&rest.clone()) {
+        year = d[2].parse().ok();
+        if let Some(mo) = d.get(1) {
+            month = Some(MONTHS.iter().position(|x| *x == mo.as_str())? + 1);
+        }
+        rest = rest[..d.get(0)?.start()].trim().to_string();
+    }
+    let rest = rest.trim_start_matches("in ").trim_start_matches("near ").trim_start_matches("the ").trim();
+    if re!(r"\b(?:last|this|past|today|week|month|now|map|focal|mechanism|slip|travel|ground|prediction)\b").is_match(rest) {
+        return None;
+    }
+    let rows: Vec<Vec<&str>> = QUAKES.lines().map(|x| x.split('|').collect()).collect();
+    let (filtered, scope): (Vec<(&Vec<&str>, Option<f64>)>, String) = if rest.is_empty() {
+        (rows.iter().map(|r| (r, None)).collect(), "worldwide".to_string())
+    } else if let Some(cont) = match rest {
+        "asia" => Some("Asia"),
+        "europe" => Some("Europe"),
+        "africa" => Some("Africa"),
+        "north america" => Some("North America"),
+        "south america" => Some("South America"),
+        "oceania" => Some("Oceania"),
+        _ => None,
+    } {
+        let cs = super::geo::countries();
+        (rows.iter().filter(|r| cs.values().any(|c| c.iso2 == r[2] && c.continent == cont)).map(|r| (r, None)).collect(), format!("in {cont}"))
+    } else if let Some(st) = super::geo::us_state(rest).filter(|_| rest.len() > 2) {
+        // US states: within about 600 km of the state's largest city
+        let c = super::geo::cities().iter().filter(|c| c.country == "US" && c.admin1 == st).max_by_key(|c| c.population)?;
+        let near: Vec<_> = rows.iter().filter(|r| r[2] == "US").filter_map(|r| {
+            let d = dist(c.lat, c.lon, r[3].parse().ok()?, r[4].parse().ok()?);
+            (d < if st == "AK" { 1500.0 } else { 600.0 }).then_some((r, Some(d)))
+        }).collect();
+        (near, format!("in {}", cap(rest)))
+    } else if let Some(c) = super::geo::find_country(rest).filter(|_| super::geo::find_city(rest).is_none_or(|x| !x.capital || rest.split_whitespace().count() > 1 || rest == "mexico")) {
+        (rows.iter().filter(|r| r[2] == c.iso2).map(|r| (r, None)).collect(), format!("in {}", c.name))
+    } else {
+        let c = super::geo::find_city(rest.trim_end_matches(" 101").trim_end_matches(" tower"))?;
+        let near: Vec<_> = rows.iter().filter_map(|r| {
+            let d = dist(c.lat, c.lon, r[3].parse().ok()?, r[4].parse().ok()?);
+            (d < 500.0).then_some((r, Some(d)))
+        }).collect();
+        (near, format!("within 500 km of {}", c.name))
+    };
+    let picked: Vec<_> = filtered.into_iter().filter(|(r, _)| {
+        let y: i32 = r[0][..4].parse().unwrap_or(0);
+        let mo: usize = r[0][5..7].parse().unwrap_or(0);
+        year.is_none_or(|k| k == y) && month.is_none_or(|k| k == mo)
+    }).collect();
+    if picked.is_empty() {
+        return None;
+    }
+    let mut picked = picked;
+    if rest.is_empty() && year.is_none() {
+        picked.sort_by(|a, b| b.0[5].parse::<f64>().unwrap_or(0.0).total_cmp(&a.0[5].parse::<f64>().unwrap_or(0.0)));
+        picked.truncate(12);
+    } else {
+        picked.sort_by(|a, b| b.0[0].cmp(a.0[0]));
+    }
+    let when = match (month, year) {
+        (Some(mo), Some(y)) => format!(" | {} {y}", cap(MONTHS[mo - 1])),
+        (None, Some(y)) => format!(" | {y}"),
+        _ => String::new(),
+    };
+    let mut head = vec!["date", "earthquake", "magnitude", "deaths"];
+    if picked.iter().any(|p| p.1.is_some()) {
+        head.push("distance");
+    }
+    let rows: Vec<Vec<Content>> = picked.iter().map(|(r, d)| {
+        let mut v = vec![text(r[0]), text(r[1]), text(format!("M_w {}", r[5])), text(r[6])];
+        if let Some(d) = d {
+            v.push(text(format!("{} km", super::geo::fmt_int(((d / 10.0).round() * 10.0) as u64))));
+        }
+        v
+    }).collect();
+    let short = picked.iter().take(6).map(|(r, _)| format!("{} {} (M_w {})", r[0], r[1], r[5])).collect::<Vec<_>>().join(" | ");
+    Some(Answer::new("earthquakes", vec![
+        pod("Input", "Input interpretation", text(format!("notable earthquakes | {scope}{when}"))),
+        primary(pod("Result", "Notable earthquakes", text(short))),
+        pod("Table", "Details", table(Some(head), rows)),
+        pod("Note", "Note", text("offline catalog of notable historical earthquakes (moment magnitudes and approximate death tolls); recent and minor events need a live seismic feed such as the USGS")),
+    ]))
+}
+
+fn dist(a: f64, b: f64, c: f64, d: f64) -> f64 {
+    let (p1, p2) = (a.to_radians(), c.to_radians());
+    let h = ((p2 - p1) / 2.0).sin().powi(2) + p1.cos() * p2.cos() * ((d - b).to_radians() / 2.0).sin().powi(2);
+    2.0 * 6371.0 * h.sqrt().asin()
+}
+
+fn cap(s: &str) -> String {
+    s.split(' ').map(|w| {
+        let mut c = w.chars();
+        c.next().map_or(String::new(), |f| f.to_uppercase().chain(c).collect())
+    }).collect::<Vec<_>>().join(" ")
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
+    if let Some(a) = quakes(q.lower.trim().trim_end_matches(['?', '.']).trim()) {
+        return Some(a);
+    }
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim();
     let l = re!(r"^(?:what is (?:the |a )?|what are (?:the )?|define (?:the )?|definition of (?:the )?|calculate earthquake characteristics,?\s*|earthquake characteristics,?\s*|the )").replace(l, "").to_string();
     let l = re!(r"\s+(?:definition|defined)$").replace(&l, "").to_string();

@@ -411,6 +411,94 @@ fn continent(l: &str) -> Option<Answer> {
     ]))
 }
 
+/// A numeric value for an entity, including counts derived from rates:
+/// (label, value, shown text, unit word).
+fn quantity(what: &str, e: &(&'static str, Rows)) -> Option<(String, f64, String)> {
+    let what = what.trim().trim_start_matches("the ").trim_start_matches("annual ").trim_start_matches("number of ").trim();
+    let first = |f: &str, s: &str| -> Option<f64> { number(values(&e.1, f, s).first()?.1) };
+    let pop = first("Population", "total");
+    let count = |label: &str, v: f64| Some((label.to_string(), v, format!("about {} per year", super::geo::fmt_int(v.abs().round() as u64))));
+    match what {
+        "deaths" | "deaths per year" | "yearly deaths" => count("deaths", first("Death rate", "=")? * pop? / 1000.0),
+        "births" | "births per year" | "yearly births" | "babies born" => count("births", first("Birth rate", "=")? * pop? / 1000.0),
+        "net migration" | "net migrants" | "migrants" => {
+            let r = values(&e.1, "Net migration rate", "=").first()?.1;
+            let sign = if r.trim_start().starts_with('-') { -1.0 } else { 1.0 };
+            let v = sign * number(r)? * pop? / 1000.0;
+            Some(("net migration".into(), v, format!("{}about {} per year", if v < 0.0 { "−" } else { "" }, super::geo::fmt_int(v.abs().round() as u64))))
+        }
+        "female population" | "females" | "women" | "number of women" => Some(("female population".into(), first("Population", "female")?, format!("{} people", super::geo::fmt_int(first("Population", "female")? as u64)))),
+        "male population" | "males" | "men" | "number of men" => Some(("male population".into(), first("Population", "male")?, format!("{} people", super::geo::fmt_int(first("Population", "male")? as u64)))),
+        "pop" | "population" | "total population" => Some(("population".into(), pop?, format!("{} people", super::geo::fmt_int(pop? as u64)))),
+        "trade surplus" | "trade balance" | "trade deficit" | "balance of trade" => {
+            let v = first("Exports", "=")? - first("Imports", "=")?;
+            let (x, w) = if v.abs() >= 1e12 { (v / 1e12, " trillion") } else if v.abs() >= 1e9 { (v / 1e9, " billion") } else { (v / 1e6, " million") };
+            Some(("trade balance (exports − imports)".into(), v, format!("{}${:.1}{w} ({})", if v < 0.0 { "−" } else { "" }, x.abs(), if v < 0.0 { "deficit" } else { "surplus" })))
+        }
+        _ => {
+            let p = prop(what)?;
+            let t = values(&e.1, p.1, p.2).first()?.1;
+            Some((p.3.to_string(), number(t)?, t.to_string()))
+        }
+    }
+}
+
+/// "deaths Japan", "Norway trade surplus", "Japan female population / male population", "net migration of spain / population of spain"
+fn derived(l: &str) -> Option<Answer> {
+    const D: &str = r"(?:number of )?(?:deaths(?: per year)?|yearly deaths|births(?: per year)?|yearly births|babies born|net migration|net migrants|female population|male population|females|males|trade surplus|trade balance|trade deficit|balance of trade)";
+    let side = |s: &str, dflt: Option<&'static (&'static str, Rows)>| -> Option<(&'static (&'static str, Rows), String)> {
+        let s = s.trim();
+        if let Some(m) = re!(r"^(.+?) (?:of|in|for) (.+)$").captures(s) {
+            if let Some(e) = entity(&m[2]) {
+                return Some((e, m[1].to_string()));
+            }
+        }
+        let w: Vec<&str> = s.split(' ').collect();
+        for k in 1..w.len() {
+            if let Some(e) = entity(&w[..k].join(" ")) {
+                return Some((e, w[k..].join(" ")));
+            }
+            if let Some(e) = entity(&w[k..].join(" ")) {
+                return Some((e, w[..k].join(" ")));
+            }
+        }
+        Some((dflt?, s.to_string()))
+    };
+    if let Some((a, b)) = l.split_once(" / ") {
+        let (ea, wa) = side(a, None)?;
+        let (eb, wb) = side(b, Some(ea))?;
+        let (la, va, ta) = quantity(&wa, ea)?;
+        let (lb, vb, tb) = quantity(&wb, eb)?;
+        if vb == 0.0 {
+            return None;
+        }
+        let r = va / vb;
+        return Some(Answer::new("country data ratio", vec![
+            input(format!("({} {la}) / ({} {lb})", ea.0, eb.0)),
+            primary(pod("Result", "Result", text(format!("{}", fmt_ratio(r))))),
+            pod("Table", "Values", table(None, vec![vec![text(format!("{} {la}", ea.0)), text(ta)], vec![text(format!("{} {lb}", eb.0)), text(tb)]])),
+            source(),
+        ]));
+    }
+    let (e, what) = Regex::new(&format!(r"^({D}) (?:of |in |for )?(?:the )?(.+)$")).ok()?.captures(l).map(|m| (m[2].to_string(), m[1].to_string()))
+        .or_else(|| Regex::new(&format!(r"^(.+?)(?:'s)? ({D})$")).ok()?.captures(l).map(|m| (m[1].to_string(), m[2].to_string())))?;
+    let e = entity(&e)?;
+    let (label, _, t) = quantity(&what, e)?;
+    Some(Answer::new("country data", vec![
+        input(format!("{} | {label}", e.0)),
+        primary(pod("Result", "Result", text(t))),
+        pod("Note", "Note", text(match label.as_str() {
+            "deaths" | "births" | "net migration" => "estimated from the Factbook rate per 1,000 people times the population",
+            _ => "from the Factbook values",
+        })),
+        source(),
+    ]))
+}
+
+fn fmt_ratio(r: f64) -> String {
+    if r.abs() >= 100.0 { format!("{:.0}", r) } else if r.abs() >= 0.01 { format!("{:.4}", r).trim_end_matches('0').trim_end_matches('.').to_string() } else { format!("{:.3e}", r) }
+}
+
 /// "European countries with unemployment < Denmark"
 fn threshold(l: &str) -> Option<Answer> {
     let m = re!(r"^(african|european|asian|south american|north american|oceanian)? ?countries with (?:an? |the )?(.+?) (<|>|less than|lower than|below|under|greater than|higher than|above|more than|over) (.+)$").captures(l)?;
@@ -626,7 +714,7 @@ pub fn handle(q: &Query) -> Option<Answer> {
         rewritten = format!("{what} of {}", &m[1]);
         l = rewritten.as_str();
     }
-    if let Some(a) = ranking(l).or_else(|| threshold(l)).or_else(|| continent(l)) {
+    if let Some(a) = ranking(l).or_else(|| threshold(l)).or_else(|| continent(l)).or_else(|| derived(l)) {
         return Some(a);
     }
     if let Some(a) = aggregate_gdp(l) {

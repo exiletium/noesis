@@ -1995,3 +1995,14 @@ fn continent_groups_and_more_factbook_fields() {
     assert!(short("Asian GINI index").contains("average"));
     assert!(short("Oceania, South America GDP").contains("sum"));
 }
+
+#[test]
+fn notable_earthquakes_and_derived_country_counts() {
+    assert!(short("earthquakes Mexico 1985").contains("8.0"));
+    assert!(short("earthquakes in Italy").contains("L'Aquila"));
+    assert!(short("earthquakes Dec 2004").contains("Indian Ocean"));
+    assert!(short("earthquakes near Lima").contains("Pisco"));
+    assert!(short("deaths Japan").contains("per year"));
+    assert!(short("Norway trade surplus").contains("surplus"));
+    assert!(short("Japan female population / male population").starts_with("1.0"));
+}
