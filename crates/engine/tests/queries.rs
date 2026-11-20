@@ -2074,3 +2074,10 @@ fn ability_queries_list_cognitive_tasks() {
     assert!(short("arithmetic processing").contains("mental arithmetic task"));
     assert!(short("visual pattern recognition and visual face recognition").contains("Cambridge Face Memory Test"));
 }
+
+#[test]
+fn exoplanet_hosts_and_memristance() {
+    assert!(short("WASP-17 versus WASP-17 b").starts_with("WASP-17 is the host star"));
+    assert!(short("51 Pegasi").contains("51 Pegasi b"));
+    assert!(short("magnetic memristance").contains("dΦ/dq"));
+}

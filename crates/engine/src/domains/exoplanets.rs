@@ -139,9 +139,48 @@ fn card(p: &Planet) -> Answer {
     Answer::new(format!("{} exoplanet", title(p)), pods)
 }
 
+/// The host star named `s` (without its spectral type): (display name, spectral type, planets).
+fn host(s: &str) -> Option<(&'static str, &'static str, Vec<&'static Planet>)> {
+    let s = s.trim().trim_start_matches("the star ").trim_end_matches(" star").trim();
+    let ps: Vec<&Planet> = PLANETS.iter().filter(|p| p.host.split(" (").next().unwrap_or("").to_lowercase() == s).collect();
+    let first = ps.first()?;
+    let name = first.host.split(" (").next()?;
+    let spec = first.host.split_once(" (").map_or("", |x| x.1.trim_end_matches(')'));
+    Some((name, spec, ps))
+}
+
+/// "WASP-17", "WASP-17 versus WASP-17 b": a host star and its known planets.
+fn star_systems(l: &str) -> Option<Answer> {
+    let parts: Vec<&str> = re!(r"\s+(?:versus|vs\.?|and)\s+").split(l).collect();
+    if !parts.iter().any(|p| host(p).is_some()) {
+        return None;
+    }
+    let mut rows: Vec<Vec<Content>> = Vec::new();
+    let mut names = Vec::new();
+    for p in &parts {
+        if let Some((name, spec, ps)) = host(p) {
+            names.push(name.to_string());
+            rows.push(vec![text(name), text(format!("star{}", if spec.is_empty() { String::new() } else { format!(", spectral type {spec}") })), text(format!("{} ly", fmt_float(ps[0].ly, 4))), text(ps.iter().map(|x| title(x)).collect::<Vec<_>>().join(", "))]);
+        } else {
+            let pl = find(p)?;
+            names.push(title(pl));
+            rows.push(vec![text(title(pl)), text(format!("planet: {}, {}", mass_text(pl), radius_text(pl))), text(format!("{} ly", fmt_float(pl.ly, 4))), text(format!("orbits {} every {}", pl.host, period_text(pl)))]);
+        }
+    }
+    let (name, _, ps) = parts.iter().find_map(|p| host(p))?;
+    Some(Answer::new("star system", vec![
+        pod("Input", "Input interpretation", text(names.join(" | "))),
+        primary(pod("Result", "Result", text(if parts.len() == 1 { format!("star with {} known planet{} in Noesis's list: {}", ps.len(), if ps.len() == 1 { "" } else { "s" }, ps.iter().map(|x| title(x)).collect::<Vec<_>>().join(", ")) } else { format!("{name} is the host star; {}", ps.iter().map(|x| format!("{} orbits it every {}", title(x), period_text(x))).collect::<Vec<_>>().join("; ")) }))),
+        pod("Table", "Details", table(Some(vec!["object", "type", "distance", "planets / orbit"]), rows)),
+    ]))
+}
+
 pub fn handle(q: &Query) -> Option<Answer> {
     let l = q.lower.trim().trim_end_matches(['?', '.']).trim().replace('–', "-");
     let l = re!(r"\s+").replace_all(&l, " ").to_string();
+    if let Some(a) = star_systems(&l) {
+        return Some(a);
+    }
     // "how was CoRoT-1b discovered", "when was 51 Pegasi b discovered"
     if let Some(m) = re!(r"^(how|when|who|by whom) (?:was|were) (.+?) (?:discovered|found|detected)$").captures(&l) {
         let p = find(&m[2])?;
