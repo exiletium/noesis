@@ -151,7 +151,8 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | State officials and sales tax | "Senators from New York", "Who is the Governor of California today", "sales tax New York City, Chicago, Los Angeles" |
 | Atmosphere and seismic waves | "global methane level", "global CO2 level", "seismic travel times from San Francisco to Los Angeles" |
 | Prayer times and local gravity | "Islamic prayer times", "geogravity", "cooling degree days" |
-| Releases, air tables and transliteration | "When was Tomb Raider II released?", "final air date for Firefly", "internal energy of air", "Greek transliteration for \"Pythagoras\"" |
+| Releases, air tables and transliteration | "When was Tomb Raider II released?", "final air date for Firefly", "internal energy of air", "Pythagoras in greek letters" |
+| Cognitive abilities | "arithmetic processing", "visual pattern recognition and visual face recognition" |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |

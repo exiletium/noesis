@@ -2068,3 +2068,9 @@ fn game_releases_final_air_dates_air_tables_and_greek() {
     assert_eq!(short("internal energy of air"), "214.1 kJ/kg");
     assert_eq!(short("Greek transliteration for \"Pythagoras\""), "Πυθαγορας");
 }
+
+#[test]
+fn ability_queries_list_cognitive_tasks() {
+    assert!(short("arithmetic processing").contains("mental arithmetic task"));
+    assert!(short("visual pattern recognition and visual face recognition").contains("Cambridge Face Memory Test"));
+}

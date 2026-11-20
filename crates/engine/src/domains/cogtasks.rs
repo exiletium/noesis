@@ -17,6 +17,13 @@ macro_rules! re {
 
 /// names | display | measures (abilities) | procedure
 const TASKS: &[(&[&str], &str, &[&str], &str)] = &[
+    (&["wais arithmetic subtest", "arithmetic subtest", "wechsler arithmetic subtest"], "WAIS Arithmetic subtest", &["arithmetic processing", "working memory", "numerical reasoning"], "solve orally presented arithmetic word problems mentally, within a time limit"),
+    (&["mental arithmetic task", "serial subtraction task", "serial sevens", "serial 7s"], "mental arithmetic task", &["arithmetic processing", "working memory", "sustained attention"], "add or subtract mentally, for example counting backwards from 100 by sevens"),
+    (&["number comparison task", "numerical comparison task", "magnitude comparison task"], "number comparison task", &["numerical magnitude processing", "arithmetic processing"], "decide quickly which of two numbers or dot arrays is larger; responses slow as the numbers get closer"),
+    (&["benton facial recognition test", "benton face recognition test"], "Benton Facial Recognition Test", &["visual face recognition", "face perception"], "match a target face to photographs of the same person shown from other angles and under other lighting"),
+    (&["cambridge face memory test", "cfmt"], "Cambridge Face Memory Test", &["visual face recognition", "face memory"], "learn six unfamiliar faces, then pick them out from distractors in new views and with added noise"),
+    (&["visual patterns test", "visual pattern test"], "Visual Patterns Test", &["visual pattern recognition", "visual short-term memory"], "view a grid with some cells filled, then reproduce the pattern on a blank grid; the grids grow until errors appear"),
+    (&["raven's progressive matrices", "ravens progressive matrices", "raven progressive matrices", "raven's matrices"], "Raven's Progressive Matrices", &["visual pattern recognition", "abstract reasoning", "fluid intelligence"], "choose the piece that completes a visual pattern in a matrix of figures"),
     (&["iowa gambling task", "iowa gambling test"], "Iowa gambling task", &["decision making", "decision making under uncertainty", "reward and punishment learning"], "choose cards from four decks, two with large gains but larger losses and two with small gains and smaller losses; healthy players learn to prefer the safe decks"),
     (&["cambridge gambling task"], "Cambridge gambling task", &["decision making", "risk taking", "impulsivity"], "bet a share of points on whether a token is hidden under a red or a blue box, with the odds shown"),
     (&["balloon analogue risk task", "balloon analog risk task"], "Balloon Analogue Risk Task", &["risk taking", "decision making"], "pump a virtual balloon for money per pump, cashing out before it bursts"),
@@ -61,6 +68,19 @@ pub fn handle(q: &Query) -> Option<Answer> {
             primary(pod("Result", "Tasks", text(hits.iter().map(|t| t.1).collect::<Vec<_>>().join(" | ")))),
             pod("Table", "Details", table(Some(vec!["task", "measures", "procedure"]), rows)),
         ]));
+    }
+    // a bare ability or list of abilities: "arithmetic processing", "visual pattern recognition and visual face recognition"
+    {
+        let parts: Vec<&str> = re!(r"\s*,\s*(?:and\s+)?|\s+and\s+").split(&l).map(|s| s.trim()).collect();
+        if (parts.len() >= 2 || re!(r"processing$|recognition$").is_match(&l)) && parts.iter().all(|p| TASKS.iter().any(|t| t.2.contains(p))) && !TASKS.iter().any(|t| t.0.contains(&l.as_str())) {
+            let hits: Vec<_> = TASKS.iter().filter(|t| parts.iter().any(|p| t.2.contains(p))).collect();
+            let rows = hits.iter().map(|t| vec![text(t.1), text(t.2.join(", ")), text(t.3)]).collect();
+            return Some(Answer::new(format!("tasks measuring {}", parts.join(" and ")), vec![
+                pod("Input", "Input interpretation", text(format!("{} | cognitive ability", parts.join(" | ")))),
+                primary(pod("Result", "Tasks that measure it", text(hits.iter().map(|t| t.1).collect::<Vec<_>>().join(" | ")))),
+                pod("Table", "Details", table(Some(vec!["task", "measures", "procedure"]), rows)),
+            ]));
+        }
     }
     let name = re!(r"^(?:what (?:does|do) (?:the |an? )?(.+?) (?:measure|test|assess)|what is (?:the |an? )?(.+?) used (?:for|to measure)|(?:the )?(.+?)(?: measures| what it measures)?)$").captures(&l)?;
     let name = name.get(1).or(name.get(2)).or(name.get(3))?.as_str().trim();
