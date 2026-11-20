@@ -2176,3 +2176,15 @@ fn faostat_agriculture() {
     assert!(short("wheat production").contains("metric tons per year"));
     assert!(!noesis::query("cows").success || !short("cows").contains("animals"));
 }
+
+#[test]
+fn american_community_survey() {
+    assert!(short("black population in Philadelphia").contains("% of population"));
+    assert!(short("Los Angeles vs New York naturalized citizens").contains("New York, New York"));
+    assert!(short("US county with the highest fraction of separated women").contains("County"));
+    assert!(short("median home value Madison, WI").starts_with('$'));
+    assert!(short("PA citizenship breakdown").contains("naturalization"));
+    assert!(short("seniors in Colorado 3rd Congressional District").contains("people"));
+    assert!(short("West Virginia citizens born in US territories").contains("people"));
+    assert!(short("US counties with a white Hispanic population fraction > 60%").starts_with("none"));
+}
