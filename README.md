@@ -164,6 +164,8 @@ Type a calculation, an equation, a function, a question in plain English or a un
 | Climate normals | "climate Hannover", "heating degree days in Buffalo", "average july temperature in Tokyo" |
 | Earthquake catalog | "earthquakes June 2006", "earthquakes near Krakatau" |
 | US economic series | "US retail sales", "US reserve bank credit March 2009", "Alaska real GDP", "treasury yield curve" |
+| World development indicators | "total Brazil savings as a percent of GNI", "self-employed workers in Canada", "R&D spending in Europe", "migrant population of usa vs migrant population of canada" |
+| Agriculture | "corn yield in China vs Russia", "Germany cattle vs hogs", "US chickens + turkeys + ducks", "Italy coffee consumption" |
 | File formats and keyboards | `.pdf file format`, `what is a .docx file`, `mime type of mp3`, `english keyboard layout`, `dvorak keyboard` |
 | Airports | `LAX`, `JFK, LGA, EWR`, `Heathrow airport`, `elevation of Denver airport`, `ICAO code of Heathrow airport`, `distance from JFK to LAX`, `flight time from LAX to NYC`, `airports near Chicago` |
 | Nutrition | `2 slices of swiss cheese`, `broccoli nutrition label`, `turkey + provolone cheese + lettuce`, `sodium in white bread vs wheat bread`, `caffeine in 24 oz. coffee, 24 oz. soda`, `iron DRI for 65 year old male`, `fat RDA * 1 week`, `what size turkey is needed to feed 10 adults and 5 children` |
@@ -360,7 +362,7 @@ cargo run --release -p noesis-engine --example corpus -- crates/engine/tests/dat
 
 Two measurements, both on WolframAlpha's own published example queries (4,311 of them, collected by `tools/benchmark/collect_examples.py`):
 
-**Understood:** Noesis gives an answer to **82.9%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
+**Understood:** Noesis gives an answer to **84.0%** of the 4,311 examples (`tools/benchmark/coverage.py`). This counts any answer, right or wrong.
 
 **Agreement:** a stratified random sample of 200 examples was run through both Noesis and the WolframAlpha API (`wa_bench.py`). On the 189 that could be checked (WolframAlpha answered and the run finished), the answers agree on **53%** (100). On the rest, Noesis gives a different answer on 14% (27) and does not understand 33% (62). The automatic checker alone reports 35% agreement (66); the difference is 34 answers that are the same in substance but formatted differently ("yes" against "B₆ is a rational number", 0.604 mPa·s against 6.04 × 10⁻⁴ Pa·s), which were reviewed by hand. Most of the questions Noesis does not understand need live or very large datasets: current economic indicators, US state, county and school-district statistics, elected officials, recent earthquakes, fuel prices.
 
@@ -393,6 +395,8 @@ The script needs a WolframAlpha AppID, either in `WOLFRAM_APPID` or supplied by 
 * Climate normals (1991–2020 monthly mean temperatures at 10,044 stations): GHCN-Monthly v4 (NOAA NCEI, public domain), computed by `tools/datagen/climate.py`.
 * Earthquakes (39,660 of magnitude 5.5 or more since 1900): the USGS ComCat catalog (public domain), extracted by `tools/datagen/quakes.py`.
 * US economic series (GDP, retail sales, consumer credit, federal debt, money supply, Treasury yields, state real GDP and others): the Bureau of Economic Analysis, Census Bureau, Federal Reserve Board, Treasury and Bureau of Labor Statistics (US government works, public domain), as a snapshot taken through [FRED](https://fred.stlouisfed.org) by `tools/datagen/econ.py`.
+* World development indicators (savings, investment, business registration, labour, education, migration, tourism and others): the [World Bank World Development Indicators](https://datacatalog.worldbank.org/search/dataset/0037712) (CC BY 4.0), as a snapshot taken by `tools/datagen/wdi.py`.
+* Crop and livestock production and food supply: [FAOSTAT](https://www.fao.org/faostat/), Food and Agriculture Organization of the United Nations (CC BY 4.0), as a snapshot taken by `tools/datagen/fao.py`.
 * Geomagnetic field: the International Geomagnetic Reference Field, 14th generation (IGRF-14, IAGA Working Group V-MOD), coefficients in `crates/engine/data/igrf14.txt`.
 * Chemical elements: the [`mendeleev`](https://github.com/lmmentel/mendeleev) package, MIT licensed; Shannon's effective ionic radii come from the same package, extracted by `tools/datagen/ionic_radii.py`.
 * Physical constants: CODATA 2018 recommended values.

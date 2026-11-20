@@ -2166,3 +2166,13 @@ fn world_development_indicators() {
     assert!(short("France pop 2000 - France pop 1980").contains("million people"));
     assert!(!noesis::query("employment in Texas").success);
 }
+
+#[test]
+fn faostat_agriculture() {
+    assert!(short("corn yield in China vs Russia").contains("metric tons per hectare"));
+    assert!(short("Germany cattle vs hogs").contains("pigs"));
+    assert!(short("US chickens + turkeys + ducks").contains("billion animals"));
+    assert!(short("Italy coffee consumption").contains("kg per person per year"));
+    assert!(short("wheat production").contains("metric tons per year"));
+    assert!(!noesis::query("cows").success || !short("cows").contains("animals"));
+}
