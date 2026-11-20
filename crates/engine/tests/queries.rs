@@ -2153,3 +2153,16 @@ fn us_economic_series() {
     assert!(short("USA national debt / USA GDP").contains('%'));
     assert!(noesis::query("treasury yield curve").success);
 }
+
+#[test]
+fn world_development_indicators() {
+    assert!(short("total Brazil savings as a percent of GNI").contains('%'));
+    assert!(short("how many people are self employed in mexico").contains("million people"));
+    assert!(short("senegal employment by sector").contains("agriculture"));
+    assert!(short("migrant population of usa vs migrant population of canada").contains("Canada"));
+    assert!(short("world capital investment / world population").contains("per person"));
+    assert!(short("countries with the largest child population").contains("India"));
+    assert!(short("Japan population 2000 vs 2020").contains("2020"));
+    assert!(short("France pop 2000 - France pop 1980").contains("million people"));
+    assert!(!noesis::query("employment in Texas").success);
+}
